@@ -6,7 +6,7 @@ import { Degree, Role, SessionType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { canWriteSecretaria, INTERSTICE_MONTHS } from "@/lib/permissions";
-import { uploadToLodgeDrive, isDriveConfigured } from "@/lib/google-drive";
+import { uploadToLodgeDrive, isDriveAvailable } from "@/lib/google-drive";
 import { sendLodgeEmail, GUARDA_SELOS_EMAIL } from "@/lib/gmail";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
@@ -352,10 +352,10 @@ export async function createPrancha(
   const file = formData.get("file") as File | null;
   const documentId = String(formData.get("documentId") ?? "");
   if (file && file.size > 0) {
-    if (!isDriveConfigured()) {
+    if (!(await isDriveAvailable(user.lodgeId))) {
       return {
         error:
-          "Google Drive não configurado — não é possível anexar arquivo (defina GOOGLE_SERVICE_ACCOUNT_EMAIL e GOOGLE_SERVICE_ACCOUNT_KEY no .env).",
+          "Google Drive não conectado — conecte a conta Google da Loja em Configurações da Loja.",
       };
     }
     try {
@@ -452,10 +452,10 @@ export async function uploadDocument(
   formData: FormData
 ): Promise<ActionResult> {
   const user = await requireSecretariaWriter();
-  if (!isDriveConfigured()) {
+  if (!(await isDriveAvailable(user.lodgeId))) {
     return {
       error:
-        "Google Drive não configurado (defina GOOGLE_SERVICE_ACCOUNT_EMAIL e GOOGLE_SERVICE_ACCOUNT_KEY no .env).",
+        "Google Drive não conectado — conecte a conta Google da Loja em Configurações da Loja.",
     };
   }
   const file = formData.get("file") as File | null;

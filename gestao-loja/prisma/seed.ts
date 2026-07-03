@@ -60,6 +60,28 @@ async function main() {
     });
   }
 
+  
+  // Admin master do SaaS (tenant "sistema")
+  const adminLodge = await prisma.lodge.upsert({
+    where: { number: "0000" },
+    update: {},
+    create: { name: "Administração do Sistema", number: "0000" },
+  });
+  await prisma.user.upsert({
+    where: { cim: "999999" },
+    update: { currentRole: "SUPER_ADMIN" },
+    create: {
+      lodgeId: adminLodge.id,
+      cim: "999999",
+      cpf: "99999999999",
+      name: "Admin Master",
+      email: "admin@sistema.local",
+      passwordHash,
+      degree: "MESTRE",
+      currentRole: "SUPER_ADMIN",
+    },
+  });
+
   console.log("Seed concluído. Senha de todos os usuários: senha123");
 }
 

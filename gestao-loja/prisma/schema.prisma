@@ -21,6 +21,9 @@ model Lodge {
   oriente       String? // cidade/UF
   driveFolderId String? // pasta raiz da Loja no Google Drive
   pixKey        String? // chave Pix da Loja (recebimento das capitações)
+  logoUrl       String? // logo da Loja (data URI ou URL)
+  googleRefreshToken String? // OAuth do Google da Loja (conexão ao Drive)
+  googleEmail        String? // conta Google conectada
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -55,6 +58,7 @@ enum Role {
   SECRETARIO
   TESOUREIRO
   CONSELHO_CONTAS // somente leitura em Secretaria/Tesouraria
+  SUPER_ADMIN // admin master do SaaS — cria e administra lojas (tenants)
 }
 
 enum MemberStatus {

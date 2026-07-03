@@ -1,25 +1,65 @@
 import { google } from "googleapis";
+import type { Lodge } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
-// Integração Google Drive via Service Account.
-// Variáveis: GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_SERVICE_ACCOUNT_KEY (chave
-// privada PEM, com \n escapados) e opcionalmente GOOGLE_DRIVE_ROOT_FOLDER_ID
-// (pasta compartilhada com a service account).
+// Integração Google Drive.
+// Preferência: conta Google conectada pela própria Loja via OAuth
+// (Configurações da Loja → "Conectar Google Drive"). Fallback: Service
+// Account global (GOOGLE_SERVICE_ACCOUNT_EMAIL / GOOGLE_SERVICE_ACCOUNT_KEY,
+// com GOOGLE_DRIVE_ROOT_FOLDER_ID opcional).
 
-export function isDriveConfigured() {
+export function isOAuthAppConfigured() {
+  return Boolean(
+    process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+  );
+}
+
+export function isServiceAccountConfigured() {
   return Boolean(
     process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL &&
       process.env.GOOGLE_SERVICE_ACCOUNT_KEY
   );
 }
 
-function driveClient() {
-  const auth = new google.auth.JWT({
-    email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    key: process.env.GOOGLE_SERVICE_ACCOUNT_KEY!.replace(/\\n/g, "\n"),
-    scopes: ["https://www.googleapis.com/auth/drive"],
+// O Drive está utilizável para esta loja?
+export async function isDriveAvailable(lodgeId: string) {
+  if (isServiceAccountConfigured()) return true;
+  if (!isOAuthAppConfigured()) return false;
+  const lodge = await prisma.lodge.findUnique({
+    where: { id: lodgeId },
+    select: { googleRefreshToken: true },
   });
-  return google.drive({ version: "v3", auth });
+  return Boolean(lodge?.googleRefreshToken);
+}
+
+export function oauthClient(redirectUri: string) {
+  return new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    redirectUri
+  );
+}
+
+function driveClientFor(lodge: Pick<Lodge, "googleRefreshToken">) {
+  if (lodge.googleRefreshToken && isOAuthAppConfigured()) {
+    const client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET
+    );
+    client.setCredentials({ refresh_token: lodge.googleRefreshToken });
+    return google.drive({ version: "v3", auth: client });
+  }
+  if (isServiceAccountConfigured()) {
+    const auth = new google.auth.JWT({
+      email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      key: process.env.GOOGLE_SERVICE_ACCOUNT_KEY!.replace(/\\n/g, "\n"),
+      scopes: ["https://www.googleapis.com/auth/drive"],
+    });
+    return google.drive({ version: "v3", auth });
+  }
+  throw new Error(
+    "Google Drive não conectado — conecte a conta Google da Loja em Configurações da Loja."
+  );
 }
 
 // Garante (e memoriza) a pasta da Loja no Drive.
@@ -29,14 +69,15 @@ export async function ensureLodgeFolder(lodgeId: string): Promise<string> {
   });
   if (lodge.driveFolderId) return lodge.driveFolderId;
 
-  const drive = driveClient();
+  const drive = driveClientFor(lodge);
   const res = await drive.files.create({
     requestBody: {
       name: `Loja ${lodge.number} - ${lodge.name}`,
       mimeType: "application/vnd.google-apps.folder",
-      parents: process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID
-        ? [process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID]
-        : undefined,
+      parents:
+        !lodge.googleRefreshToken && process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID
+          ? [process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID]
+          : undefined,
     },
     fields: "id",
   });
@@ -55,7 +96,10 @@ export async function uploadToLodgeDrive(
   data: Buffer
 ): Promise<string> {
   const folderId = await ensureLodgeFolder(lodgeId);
-  const drive = driveClient();
+  const lodge = await prisma.lodge.findUniqueOrThrow({
+    where: { id: lodgeId },
+  });
+  const drive = driveClientFor(lodge);
   const { Readable } = await import("stream");
   const res = await drive.files.create({
     requestBody: { name: fileName, parents: [folderId] },

@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
-import { isDriveConfigured } from "@/lib/google-drive";
+import { isDriveAvailable } from "@/lib/google-drive";
 import { uploadDocument } from "../actions";
 import { ActionForm } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ export default async function DocumentosPage() {
     "VENERAVEL_MESTRE",
     "CONSELHO_CONTAS"
   );
+  const driveOk = await isDriveAvailable(user.lodgeId);
   const docs = await prisma.document.findMany({
     where: { lodgeId: user.lodgeId },
     orderBy: { createdAt: "desc" },
@@ -43,9 +44,9 @@ export default async function DocumentosPage() {
           <CardHeader>
             <CardTitle>Upload para o Drive</CardTitle>
             <CardDescription>
-              {isDriveConfigured()
+              {driveOk
                 ? "O arquivo será salvo na pasta da Loja no Google Drive."
-                : "⚠️ Google Drive não configurado — defina GOOGLE_SERVICE_ACCOUNT_EMAIL e GOOGLE_SERVICE_ACCOUNT_KEY no .env."}
+                : "⚠️ Google Drive não conectado — conecte a conta Google da Loja em Configurações da Loja."}
             </CardDescription>
           </CardHeader>
           <CardContent>

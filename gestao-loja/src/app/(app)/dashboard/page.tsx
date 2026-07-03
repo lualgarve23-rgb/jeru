@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { INTERSTICE_MONTHS } from "@/lib/permissions";
@@ -649,6 +650,7 @@ async function ConselhoDashboard({ lodgeId }: { lodgeId: string }) {
 
 export default async function DashboardPage() {
   const user = await requireUser();
+  if (user.role === "SUPER_ADMIN") redirect("/admin");
 
   return (
     <div className="space-y-6">
