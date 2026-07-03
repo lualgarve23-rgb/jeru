@@ -1,0 +1,423 @@
+// Schema — SaaS Multi-tenant para Gestão de Lojas Maçônicas
+// Toda entidade de negócio carrega lodgeId (tenant) e todas as
+// queries da aplicação DEVEM filtrar por ele.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────── Tenant ───────────────────────────
+
+model Lodge {
+  id            String   @id @default(cuid())
+  name          String
+  number        String   @unique // nº da Loja na potência
+  potencia      String? // GOB, GLESP, COMAB etc.
+  oriente       String? // cidade/UF
+  driveFolderId String? // pasta raiz da Loja no Google Drive
+  pixKey        String? // chave Pix da Loja (recebimento das capitações)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  users         User[]
+  degreeHistory DegreeHistory[]
+  roleHistory   RoleHistory[]
+  sessions      LodgeSession[]
+  attendances   Attendance[]
+  atas          Ata[]
+  pranchas      Prancha[]
+  documents     Document[]
+  invoices      Invoice[]
+  expenses      Expense[]
+  transactions  Transaction[]
+  donations     Donation[]
+  events        CharityEvent[]
+
+  @@map("lodges")
+}
+
+// ─────────────────────────── Usuários ───────────────────────────
+
+enum Degree {
+  APRENDIZ
+  COMPANHEIRO
+  MESTRE
+}
+
+enum Role {
+  MEMBER // Obreiro comum
+  VENERAVEL_MESTRE
+  SECRETARIO
+  TESOUREIRO
+  CONSELHO_CONTAS // somente leitura em Secretaria/Tesouraria
+}
+
+enum MemberStatus {
+  ATIVO
+  IRREGULAR // inadimplente
+  LICENCIADO
+  EX_MEMBRO
+}
+
+model User {
+  id           String       @id @default(cuid())
+  lodgeId      String
+  cim          String       @unique // Cadastro de Identificação Maçônica
+  cpf          String       @unique
+  name         String
+  email        String       @unique
+  phone        String?
+  address      String?
+  birthDate    DateTime?
+  profession   String?
+  passwordHash String
+  degree       Degree       @default(APRENDIZ)
+  currentRole  Role         @default(MEMBER)
+  status       MemberStatus @default(ATIVO)
+  initiationDate DateTime? // data de iniciação (base do interstício)
+
+  // Painel de Privacidade (LGPD): visibilidade de contatos aos demais membros
+  isDataPublic   Boolean @default(false)
+  showEmail      Boolean @default(false)
+  showPhone      Boolean @default(false)
+  showAddress    Boolean @default(false)
+  showBirthDate  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lodge          Lodge           @relation(fields: [lodgeId], references: [id])
+  degreeHistory  DegreeHistory[]
+  roleHistory    RoleHistory[]
+  attendances    Attendance[]
+  invoices       Invoice[]
+  donations      Donation[]
+  atasAsMaster   Ata[]           @relation("AtaMaster")
+  atasAsSec      Ata[]           @relation("AtaSecretary")
+  expensesAsMaster    Expense[]  @relation("ExpenseMaster")
+  expensesAsTreasurer Expense[]  @relation("ExpenseTreasurer")
+  documentsUploaded   Document[]
+
+  @@index([lodgeId])
+  @@map("users")
+}
+
+// Evolução de graus com controle de interstício
+model DegreeHistory {
+  id         String   @id @default(cuid())
+  lodgeId    String
+  userId     String
+  degree     Degree
+  date       DateTime // data da elevação/exaltação/iniciação
+  ataId      String? // ata da sessão em que ocorreu
+  createdAt  DateTime @default(now())
+
+  lodge Lodge @relation(fields: [lodgeId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@index([lodgeId])
+  @@index([userId])
+  @@map("degree_history")
+}
+
+// Histórico cronológico de cargos
+model RoleHistory {
+  id        String    @id @default(cuid())
+  lodgeId   String
+  userId    String
+  role      Role
+  startDate DateTime
+  endDate   DateTime?
+  createdAt DateTime  @default(now())
+
+  lodge Lodge @relation(fields: [lodgeId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@index([lodgeId])
+  @@index([userId])
+  @@map("role_history")
+}
+
+// ─────────────── Sessões, Presenças e Atas ───────────────
+
+enum SessionType {
+  ORDINARIA
+  MAGNA
+  ECONOMICA
+  BRANCA
+}
+
+model LodgeSession {
+  id          String      @id @default(cuid())
+  lodgeId     String
+  date        DateTime
+  type        SessionType @default(ORDINARIA)
+  degree      Degree      @default(APRENDIZ) // grau em que a sessão foi aberta
+  qrToken     String      @unique @default(cuid()) // check-in via QR Code
+  createdAt   DateTime    @default(now())
+
+  lodge       Lodge        @relation(fields: [lodgeId], references: [id])
+  attendances Attendance[]
+  ata         Ata?
+
+  @@index([lodgeId])
+  @@map("lodge_sessions")
+}
+
+// Livro de Presenças (membros e visitantes)
+model Attendance {
+  id        String   @id @default(cuid())
+  lodgeId   String
+  sessionId String
+  userId    String? // null = visitante
+  // dados do visitante
+  visitorName     String?
+  visitorCim      String?
+  visitorLodge    String? // loja de origem
+  visitorPotencia String? // potência de origem
+  checkedInAt DateTime @default(now())
+  viaQrCode   Boolean  @default(false)
+
+  lodge   Lodge        @relation(fields: [lodgeId], references: [id])
+  session LodgeSession @relation(fields: [sessionId], references: [id])
+  user    User?        @relation(fields: [userId], references: [id])
+
+  @@unique([sessionId, userId])
+  @@index([lodgeId])
+  @@map("attendances")
+}
+
+enum AtaStatus {
+  RASCUNHO
+  AGUARDANDO_ASSINATURAS
+  ASSINADA // VM + Secretário assinaram — imutável
+}
+
+// Ata (Balaústre) — trava: exige assinatura conjunta de VM e Secretário
+model Ata {
+  id        String    @id @default(cuid())
+  lodgeId   String
+  sessionId String    @unique
+  number    Int // numeração sequencial por loja
+  content   String
+  status    AtaStatus @default(RASCUNHO)
+
+  signedByMasterId String?
+  signedByMasterAt DateTime?
+  signedBySecId    String?
+  signedBySecAt    DateTime?
+
+  driveFileId String? // PDF assinado no Google Drive
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lodge          Lodge        @relation(fields: [lodgeId], references: [id])
+  session        LodgeSession @relation(fields: [sessionId], references: [id])
+  signedByMaster User?        @relation("AtaMaster", fields: [signedByMasterId], references: [id])
+  signedBySec    User?        @relation("AtaSecretary", fields: [signedBySecId], references: [id])
+
+  @@unique([lodgeId, number])
+  @@map("atas")
+}
+
+// ─────────────── Documentos e Pranchas ───────────────
+
+// Correspondência expedida com numeração sequencial automática
+model Prancha {
+  id          String   @id @default(cuid())
+  lodgeId     String
+  number      Int // sequencial por loja/ano
+  year        Int
+  subject     String
+  recipient   String
+  content     String
+  driveFileId String?
+  createdAt   DateTime @default(now())
+
+  lodge Lodge @relation(fields: [lodgeId], references: [id])
+
+  @@unique([lodgeId, year, number])
+  @@map("pranchas")
+}
+
+enum DocumentType {
+  ATA_ESCANEADA
+  HISTORICO
+  REGULAMENTO
+  FINANCEIRO
+  OUTRO
+}
+
+model Document {
+  id           String       @id @default(cuid())
+  lodgeId      String
+  uploadedById String
+  title        String
+  type         DocumentType @default(OUTRO)
+  driveFileId  String // arquivo no Google Drive da Loja
+  mimeType     String?
+  sizeBytes    Int?
+  createdAt    DateTime     @default(now())
+
+  lodge      Lodge @relation(fields: [lodgeId], references: [id])
+  uploadedBy User  @relation(fields: [uploadedById], references: [id])
+
+  @@index([lodgeId])
+  @@map("documents")
+}
+
+// ─────────────── Tesouraria ───────────────
+
+enum InvoiceStatus {
+  PENDENTE
+  PAGA
+  VENCIDA
+  CANCELADA
+}
+
+enum PaymentMethod {
+  PIX
+  CARTAO
+  BOLETO
+  DINHEIRO
+  MANUAL
+}
+
+// Mensalidade (capitação) gerada automaticamente para membros ativos
+model Invoice {
+  id          String        @id @default(cuid())
+  lodgeId     String
+  userId      String
+  description String // ex.: "Capitação 07/2026"
+  referenceMonth Int
+  referenceYear  Int
+  amountCents Int
+  dueDate     DateTime
+  status      InvoiceStatus @default(PENDENTE)
+
+  // Pix dinâmico
+  pixTxid    String? @unique // id da cobrança no PSP (chave do webhook)
+  pixCopiaECola String?
+  paidAt     DateTime?
+  paidMethod PaymentMethod?
+  gatewayChargeId String? // cobrança recorrente cartão/boleto no gateway
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lodge       Lodge        @relation(fields: [lodgeId], references: [id])
+  user        User         @relation(fields: [userId], references: [id])
+  transaction Transaction?
+
+  @@unique([lodgeId, userId, referenceYear, referenceMonth])
+  @@index([lodgeId])
+  @@map("invoices")
+}
+
+enum ExpenseStatus {
+  PENDENTE_APROVACAO
+  APROVADA // VM + Tesoureiro aprovaram
+  PAGA
+  REJEITADA
+}
+
+// Despesa — trava: exige aprovação dupla de VM e Tesoureiro
+model Expense {
+  id          String        @id @default(cuid())
+  lodgeId     String
+  description String
+  supplier    String?
+  amountCents Int
+  dueDate     DateTime?
+  status      ExpenseStatus @default(PENDENTE_APROVACAO)
+
+  approvedByMasterId    String?
+  approvedByMasterAt    DateTime?
+  approvedByTreasurerId String?
+  approvedByTreasurerAt DateTime?
+  paidAt                DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lodge               Lodge @relation(fields: [lodgeId], references: [id])
+  approvedByMaster    User? @relation("ExpenseMaster", fields: [approvedByMasterId], references: [id])
+  approvedByTreasurer User? @relation("ExpenseTreasurer", fields: [approvedByTreasurerId], references: [id])
+  transaction         Transaction?
+
+  @@index([lodgeId])
+  @@map("expenses")
+}
+
+enum TransactionType {
+  RECEITA
+  DESPESA
+}
+
+// Livro-caixa consolidado — base dos balancetes mensais
+model Transaction {
+  id          String          @id @default(cuid())
+  lodgeId     String
+  type        TransactionType
+  description String
+  amountCents Int
+  date        DateTime
+  category    String? // capitação, tronco, evento, aluguel...
+  invoiceId   String?         @unique
+  expenseId   String?         @unique
+  donationId  String?         @unique
+  createdAt   DateTime        @default(now())
+
+  lodge    Lodge     @relation(fields: [lodgeId], references: [id])
+  invoice  Invoice?  @relation(fields: [invoiceId], references: [id])
+  expense  Expense?  @relation(fields: [expenseId], references: [id])
+  donation Donation? @relation(fields: [donationId], references: [id])
+
+  @@index([lodgeId, date])
+  @@map("transactions")
+}
+
+enum DonationType {
+  TRONCO_SOLIDARIEDADE
+  INGRESSO_EVENTO
+  DOACAO_AVULSA
+}
+
+// Arrecadações extras: tronco e eventos beneficentes
+model Donation {
+  id          String       @id @default(cuid())
+  lodgeId     String
+  userId      String? // anônimo se null
+  eventId     String?
+  type        DonationType
+  amountCents Int
+  date        DateTime     @default(now())
+
+  lodge       Lodge         @relation(fields: [lodgeId], references: [id])
+  user        User?         @relation(fields: [userId], references: [id])
+  event       CharityEvent? @relation(fields: [eventId], references: [id])
+  transaction Transaction?
+
+  @@index([lodgeId])
+  @@map("donations")
+}
+
+model CharityEvent {
+  id               String   @id @default(cuid())
+  lodgeId          String
+  name             String
+  date             DateTime
+  ticketPriceCents Int?
+  createdAt        DateTime @default(now())
+
+  lodge     Lodge      @relation(fields: [lodgeId], references: [id])
+  donations Donation[]
+
+  @@index([lodgeId])
+  @@map("charity_events")
+}
