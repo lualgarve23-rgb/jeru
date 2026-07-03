@@ -346,6 +346,38 @@ export async function createPrancha(
   formData: FormData
 ): Promise<ActionResult> {
   const user = await requireSecretariaWriter();
+
+  // Anexo: upload direto da pasta local OU documento já no Drive da Loja
+  let driveFileId: string | null = null;
+  const file = formData.get("file") as File | null;
+  const documentId = String(formData.get("documentId") ?? "");
+  if (file && file.size > 0) {
+    if (!isDriveConfigured()) {
+      return {
+        error:
+          "Google Drive não configurado — não é possível anexar arquivo (defina GOOGLE_SERVICE_ACCOUNT_EMAIL e GOOGLE_SERVICE_ACCOUNT_KEY no .env).",
+      };
+    }
+    try {
+      driveFileId = await uploadToLodgeDrive(
+        user.lodgeId,
+        file.name,
+        file.type || "application/octet-stream",
+        Buffer.from(await file.arrayBuffer())
+      );
+    } catch (e) {
+      return {
+        error: e instanceof Error ? e.message : "Falha no upload ao Drive.",
+      };
+    }
+  } else if (documentId) {
+    const doc = await prisma.document.findUnique({
+      where: { id: documentId, lodgeId: user.lodgeId },
+    });
+    if (!doc) return { error: "Documento do Drive não encontrado." };
+    driveFileId = doc.driveFileId;
+  }
+
   const year = new Date().getFullYear();
   // numeração sequencial automática por loja/ano
   const last = await prisma.prancha.findFirst({
@@ -360,10 +392,11 @@ export async function createPrancha(
       subject: String(formData.get("subject")),
       recipient: String(formData.get("recipient")),
       content: String(formData.get("content")),
+      driveFileId,
     },
   });
   revalidatePath("/secretaria/pranchas");
-  return { ok: "Prancha expedida." };
+  return { ok: driveFileId ? "Prancha expedida com anexo." : "Prancha expedida." };
 }
 
 // Envio à Guarda dos Selos pelo Gmail da Loja
@@ -379,7 +412,11 @@ export async function sendPranchaToGSelos(
     await sendLodgeEmail({
       to: GUARDA_SELOS_EMAIL,
       subject: `Prancha nº ${prancha.number}/${prancha.year} — ${prancha.lodge.name}`,
-      text: `Destinatário: ${prancha.recipient}\nAssunto: ${prancha.subject}\n\n${prancha.content}`,
+      text:
+        `Destinatário: ${prancha.recipient}\nAssunto: ${prancha.subject}\n\n${prancha.content}` +
+        (prancha.driveFileId
+          ? `\n\nAnexo (Google Drive): https://drive.google.com/file/d/${prancha.driveFileId}/view`
+          : ""),
     });
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Falha no envio." };

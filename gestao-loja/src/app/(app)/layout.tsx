@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 const nav = [
   { href: "/dashboard", label: "Dashboard", roles: null },
   { href: "/dashboard/privacidade", label: "Privacidade (LGPD)", roles: null },
+  { href: "/dashboard/senha", label: "Alterar senha", roles: null },
   { href: "/secretaria/membros", label: "Membros", roles: null },
   { href: "/secretaria/sessoes", label: "Sessões e Presenças", roles: null },
   { href: "/secretaria/atas", label: "Atas", roles: null },

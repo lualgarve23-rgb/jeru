@@ -28,10 +28,17 @@ export default async function PranchasPage() {
     "CONSELHO_CONTAS"
   );
   const isWriter = canWriteSecretaria(user.role);
-  const pranchas = await prisma.prancha.findMany({
-    where: { lodgeId: user.lodgeId },
-    orderBy: [{ year: "desc" }, { number: "desc" }],
-  });
+  const [pranchas, driveDocs] = await Promise.all([
+    prisma.prancha.findMany({
+      where: { lodgeId: user.lodgeId },
+      orderBy: [{ year: "desc" }, { number: "desc" }],
+    }),
+    prisma.document.findMany({
+      where: { lodgeId: user.lodgeId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, title: true },
+    }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -62,6 +69,32 @@ export default async function PranchasPage() {
                   required
                 />
               </div>
+              <div className="space-y-1">
+                <Label htmlFor="file">Anexo — enviar arquivo do computador</Label>
+                <Input id="file" name="file" type="file" />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="documentId">
+                  Ou anexar documento já no Drive da Loja
+                </Label>
+                <select
+                  id="documentId"
+                  name="documentId"
+                  defaultValue=""
+                  className="h-9 w-full rounded-md border bg-transparent px-2 text-sm"
+                >
+                  <option value="">— nenhum —</option>
+                  {driveDocs.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.title}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-neutral-500">
+                  Se enviar um arquivo, ele tem prioridade sobre a seleção do
+                  Drive.
+                </p>
+              </div>
             </ActionForm>
           </CardContent>
         </Card>
@@ -73,6 +106,7 @@ export default async function PranchasPage() {
             <TableHead>Nº</TableHead>
             <TableHead>Destinatário</TableHead>
             <TableHead>Assunto</TableHead>
+            <TableHead>Anexo</TableHead>
             <TableHead>Data</TableHead>
             <TableHead />
           </TableRow>
@@ -85,6 +119,20 @@ export default async function PranchasPage() {
               </TableCell>
               <TableCell>{p.recipient}</TableCell>
               <TableCell>{p.subject}</TableCell>
+              <TableCell>
+                {p.driveFileId ? (
+                  <a
+                    href={`https://drive.google.com/file/d/${p.driveFileId}/view`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm underline"
+                  >
+                    Abrir no Drive
+                  </a>
+                ) : (
+                  <span className="text-sm text-neutral-400">—</span>
+                )}
+              </TableCell>
               <TableCell>{p.createdAt.toLocaleDateString("pt-BR")}</TableCell>
               <TableCell>
                 {isWriter && (

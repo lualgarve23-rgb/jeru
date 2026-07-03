@@ -69,6 +69,34 @@ async function monthBalance(lodgeId: string) {
   return { receitas, despesas, saldo: receitas - despesas };
 }
 
+// Atalhos de gestão de membros (Secretário e Venerável Mestre)
+function MemberManagementCard() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Gestão de membros</CardTitle>
+        <CardDescription>
+          Cadastro, dados civis/maçônicos, graus (interstício) e cargos.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-wrap gap-4 text-sm">
+        <Link
+          href="/secretaria/membros"
+          className="font-medium underline underline-offset-4"
+        >
+          Ver e gerenciar membros →
+        </Link>
+        <Link
+          href="/secretaria/membros/novo"
+          className="font-medium underline underline-offset-4"
+        >
+          Cadastrar novo membro →
+        </Link>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ───────────── Obreiro ─────────────
 
 async function MemberDashboard({
@@ -252,6 +280,8 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
         <Stat label="Atas pendentes" value={String(pendingAtas.length)} />
         <Stat label="Pranchas no ano" value={String(pranchasYear)} />
       </div>
+
+      <MemberManagementCard />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -463,6 +493,8 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
           value={String(expensesToApprove.length)}
         />
       </div>
+
+      <MemberManagementCard />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
