@@ -93,6 +93,28 @@ export const statusAdmissaoOrder = [
   "INICIADO",
 ] as const;
 
+export const statusProgressaoLabels: Record<string, string> = {
+  CUMPRIMENTO_INTERSTICIO: "Interstício",
+  INSTRUCAO_E_FREQUENCIA: "Instrução e frequência",
+  EXAME_PROFICIENCIA: "Exame de proficiência",
+  ESCRUTINIO_PROGRESSAO: "Escrutínio",
+  AGUARDANDO_PLACET: "Aguardando Placet",
+  AGUARDANDO_CERIMONIA: "Aguardando cerimônia",
+  COMUNICACAO_POS_CERIMONIA: "Comunicação pós-cerimônia",
+  GRAU_CONCEDIDO: "Grau concedido",
+};
+
+export const statusProgressaoOrder = [
+  "CUMPRIMENTO_INTERSTICIO",
+  "INSTRUCAO_E_FREQUENCIA",
+  "EXAME_PROFICIENCIA",
+  "ESCRUTINIO_PROGRESSAO",
+  "AGUARDANDO_PLACET",
+  "AGUARDANDO_CERIMONIA",
+  "COMUNICACAO_POS_CERIMONIA",
+  "GRAU_CONCEDIDO",
+] as const;
+
 export const statusPlacetLabels: Record<string, string> = {
   PENDENTE: "Pendente",
   EM_ANALISE: "Em análise",

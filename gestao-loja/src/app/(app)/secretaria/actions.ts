@@ -2,7 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { Degree, Role, SessionType, StatusAdmissao } from "@prisma/client";
+import {
+  Degree,
+  Role,
+  SessionType,
+  StatusAdmissao,
+  StatusProgressao,
+} from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { canWriteSecretaria, INTERSTICE_MONTHS } from "@/lib/permissions";
@@ -683,4 +689,210 @@ export async function negarQuittePlacet(placetId: string): Promise<ActionResult>
   });
   revalidatePath("/secretaria/quitte-placets");
   return { ok: "Quitte Placet negado." };
+}
+
+// ───────────────────────── Progressão de Graus ─────────────────────────
+// Pipeline do loja.md §4.B — travas: interstício, frequência, Placet da
+// Guarda dos Selos e comunicação de 15 dias pós-cerimônia.
+
+function nextDegreeOf(degree: Degree): Degree | null {
+  if (degree === "APRENDIZ") return "COMPANHEIRO";
+  if (degree === "COMPANHEIRO") return "MESTRE";
+  return null;
+}
+
+// Data em que o obreiro cumpre o interstício para o grau alvo (null = sem base)
+async function intersticeEligibleDate(
+  lodgeId: string,
+  userId: string,
+  grauAlvo: Degree
+): Promise<Date | null> {
+  const [lastDegree, member] = await Promise.all([
+    prisma.degreeHistory.findFirst({
+      where: { lodgeId, userId },
+      orderBy: { date: "desc" },
+    }),
+    prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { initiationDate: true },
+    }),
+  ]);
+  const base = lastDegree?.date ?? member.initiationDate;
+  if (!base) return null;
+  const eligible = new Date(base);
+  eligible.setMonth(eligible.getMonth() + INTERSTICE_MONTHS[grauAlvo]);
+  return eligible;
+}
+
+export async function createProcessoProgressao(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const userId = String(formData.get("userId") ?? "");
+  const member = await prisma.user.findUnique({
+    where: { id: userId, lodgeId: user.lodgeId },
+    select: { degree: true, status: true, name: true },
+  });
+  if (!member) return { error: "Obreiro não encontrado." };
+  if (member.status !== "ATIVO") {
+    return { error: "Somente obreiros ativos podem progredir de grau." };
+  }
+  const grauAlvo = nextDegreeOf(member.degree);
+  if (!grauAlvo) return { error: "Mestre já está no grau máximo simbólico." };
+
+  const aberto = await prisma.processoProgressao.findFirst({
+    where: {
+      lodgeId: user.lodgeId,
+      userId,
+      status: { not: "GRAU_CONCEDIDO" },
+    },
+  });
+  if (aberto) return { error: "Já existe processo de progressão em andamento." };
+
+  await prisma.processoProgressao.create({
+    data: { lodgeId: user.lodgeId, userId, grauAlvo },
+  });
+  revalidatePath("/secretaria/progressoes");
+  return { ok: `Progressão de ${member.name} iniciada.` };
+}
+
+const ORDEM_PROGRESSAO: StatusProgressao[] = [
+  "CUMPRIMENTO_INTERSTICIO",
+  "INSTRUCAO_E_FREQUENCIA",
+  "EXAME_PROFICIENCIA",
+  "ESCRUTINIO_PROGRESSAO",
+  "AGUARDANDO_PLACET",
+  "AGUARDANDO_CERIMONIA",
+  "COMUNICACAO_POS_CERIMONIA",
+  "GRAU_CONCEDIDO",
+];
+
+export async function moveProcessoProgressao(
+  processoId: string,
+  toStatus: StatusProgressao
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const processo = await prisma.processoProgressao.findUniqueOrThrow({
+    where: { id: processoId, lodgeId: user.lodgeId },
+    include: { user: { select: { name: true, degree: true } } },
+  });
+  if (processo.status === "GRAU_CONCEDIDO") {
+    return { error: "Processo já encerrado — grau concedido." };
+  }
+  const fromIdx = ORDEM_PROGRESSAO.indexOf(processo.status);
+  const toIdx = ORDEM_PROGRESSAO.indexOf(toStatus);
+  if (toIdx === fromIdx) return undefined;
+
+  // Trava 1 — interstício: card só sai da 1ª coluna com o prazo legal cumprido
+  if (fromIdx === 0 && toIdx > 0) {
+    const eligible = await intersticeEligibleDate(
+      user.lodgeId,
+      processo.userId,
+      processo.grauAlvo
+    );
+    if (!eligible) {
+      return {
+        error:
+          "Sem data-base do grau atual (iniciação/última progressão) — complete o cadastro do obreiro.",
+      };
+    }
+    if (eligible > new Date()) {
+      return {
+        error: `Interstício não cumprido: apto a partir de ${eligible.toLocaleDateString("pt-BR")}.`,
+      };
+    }
+  }
+
+  // Trava 2 — Guarda dos Selos: cerimônia só com o Placet deferido
+  if (toIdx >= ORDEM_PROGRESSAO.indexOf("AGUARDANDO_CERIMONIA") && !processo.placetDeferido) {
+    return {
+      error:
+        "Aguarde o deferimento do Placet pela Guarda dos Selos antes de agendar a cerimônia.",
+    };
+  }
+
+  const data: Record<string, unknown> = { status: toStatus };
+
+  // Escrutínio aprovado → registra a data e expede a prancha do Placet
+  if (toStatus === "AGUARDANDO_PLACET") {
+    if (!processo.dataAprovacao) data.dataAprovacao = new Date();
+    const year = new Date().getFullYear();
+    const last = await prisma.prancha.findFirst({
+      where: { lodgeId: user.lodgeId, year },
+      orderBy: { number: "desc" },
+    });
+    const rito = processo.grauAlvo === "MESTRE" ? "Exaltação" : "Elevação";
+    await prisma.prancha.create({
+      data: {
+        lodgeId: user.lodgeId,
+        year,
+        number: (last?.number ?? 0) + 1,
+        subject: `Solicitação de Placet de ${rito} — ${processo.user.name}`,
+        recipient: "Secretaria Estadual da Guarda dos Selos",
+        content:
+          `Solicitamos o Placet de ${rito.toLowerCase()} do obreiro ${processo.user.name}, ` +
+          `aprovado em escrutínio de plenário em ${new Date().toLocaleDateString("pt-BR")}, ` +
+          `para o grau de ${processo.grauAlvo === "MESTRE" ? "Mestre" : "Companheiro"}.`,
+      },
+    });
+    revalidatePath("/secretaria/pranchas");
+  }
+
+  // Cerimônia realizada → inicia a contagem dos 15 dias de comunicação
+  if (toStatus === "COMUNICACAO_POS_CERIMONIA" && !processo.dataCerimonia) {
+    data.dataCerimonia = new Date();
+  }
+
+  await prisma.processoProgressao.update({
+    where: { id: processoId, lodgeId: user.lodgeId },
+    data,
+  });
+
+  // Conclusão: atualiza o grau definitivo e o histórico (base do próximo interstício)
+  if (toStatus === "GRAU_CONCEDIDO") {
+    const date = processo.dataCerimonia ?? new Date();
+    await prisma.user.update({
+      where: { id: processo.userId, lodgeId: user.lodgeId },
+      data: { degree: processo.grauAlvo },
+    });
+    await prisma.degreeHistory.create({
+      data: {
+        lodgeId: user.lodgeId,
+        userId: processo.userId,
+        degree: processo.grauAlvo,
+        date,
+      },
+    });
+    revalidatePath("/secretaria/membros");
+  }
+
+  revalidatePath("/secretaria/progressoes");
+  return { ok: "Processo atualizado." };
+}
+
+export async function setPlacetDeferido(
+  processoId: string,
+  value: boolean
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  await prisma.processoProgressao.update({
+    where: { id: processoId, lodgeId: user.lodgeId },
+    data: { placetDeferido: value },
+  });
+  revalidatePath("/secretaria/progressoes");
+  return { ok: "Placet atualizado." };
+}
+
+export async function setComunicadoEnviado(
+  processoId: string,
+  value: boolean
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  await prisma.processoProgressao.update({
+    where: { id: processoId, lodgeId: user.lodgeId },
+    data: { comunicadoEnviado: value },
+  });
+  revalidatePath("/secretaria/progressoes");
+  return { ok: "Comunicação atualizada." };
 }

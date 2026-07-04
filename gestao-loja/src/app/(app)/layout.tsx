@@ -27,6 +27,7 @@ function navFor(role: string, unread: number): NavItem[] {
     { href: "/secretaria/pranchas", label: "Pranchas", icon: "pranchas", section: "Secretaria", roles: fiscal },
     { href: "/secretaria/documentos", label: "Documentos (Drive)", icon: "documentos", section: "Secretaria", roles: fiscal },
     { href: "/secretaria/admissoes", label: "Admissões", icon: "admissoes", section: "Secretaria", roles: fiscal },
+    { href: "/secretaria/progressoes", label: "Progressões", icon: "progressoes", section: "Secretaria", roles: fiscal },
     { href: "/secretaria/quitte-placets", label: "Quitte Placets", icon: "quitteplacets", section: "Secretaria", roles: fiscal },
     { href: "/tesouraria/mensalidades", label: "Mensalidades", icon: "mensalidades", section: "Tesouraria", roles: tesouraria },
     { href: "/tesouraria/despesas", label: "Despesas", icon: "despesas", section: "Tesouraria", roles: tesouraria },

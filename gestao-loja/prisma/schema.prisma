@@ -40,9 +40,10 @@ model Lodge {
   transactions      Transaction[]
   donations         Donation[]
   events            CharityEvent[]
-  processosAdmissao ProcessoAdmissao[]
-  quittePlacets     QuittePlacet[]
-  notifications     Notification[]
+  processosAdmissao   ProcessoAdmissao[]
+  processosProgressao ProcessoProgressao[]
+  quittePlacets       QuittePlacet[]
+  notifications       Notification[]
 
   @@map("lodges")
 }
@@ -115,6 +116,7 @@ model User {
   quittePlacetsAsMaster QuittePlacet[]  @relation("QuittePlacetMaster")
   quittePlacetsAsSec    QuittePlacet[]  @relation("QuittePlacetSecretary")
   notifications         Notification[]
+  processosProgressao   ProcessoProgressao[]
 
   @@index([lodgeId])
   @@map("users")
@@ -503,6 +505,42 @@ model QuittePlacet {
 
   @@index([lodgeId])
   @@map("quitte_placets")
+}
+
+enum StatusProgressao {
+  CUMPRIMENTO_INTERSTICIO
+  INSTRUCAO_E_FREQUENCIA
+  EXAME_PROFICIENCIA
+  ESCRUTINIO_PROGRESSAO
+  AGUARDANDO_PLACET
+  AGUARDANDO_CERIMONIA
+  COMUNICACAO_POS_CERIMONIA
+  GRAU_CONCEDIDO
+}
+
+// Pipeline de Progressão de Graus (loja.md §4.B) — travas da Guarda dos
+// Selos (placetDeferido) e da comunicação de 15 dias (comunicadoEnviado)
+model ProcessoProgressao {
+  id                String           @id @default(cuid())
+  userId            String
+  lodgeId           String
+  grauAlvo          Degree // COMPANHEIRO ou MESTRE
+  status            StatusProgressao @default(CUMPRIMENTO_INTERSTICIO)
+
+  dataInicio        DateTime         @default(now())
+  dataAprovacao     DateTime? // data que passou no escrutínio
+  placetDeferido    Boolean          @default(false) // trava da Guarda dos Selos
+  dataCerimonia     DateTime? // data da Elevação ou Exaltação
+  comunicadoEnviado Boolean          @default(false) // trava dos 15 dias (Sua Sessão no GOB-SP)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id])
+  lodge Lodge @relation(fields: [lodgeId], references: [id])
+
+  @@index([lodgeId])
+  @@map("processos_progressao")
 }
 
 enum NotificationType {

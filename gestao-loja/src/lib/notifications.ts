@@ -31,7 +31,7 @@ function addMonths(d: Date, months: number) {
 // da central de notificações (uma entrada por sourceKey).
 async function collectPending(lodgeId: string): Promise<Pending[]> {
   const now = new Date();
-  const [atas, placets, members, magnas] = await Promise.all([
+  const [atas, placets, members, magnas, progressoes] = await Promise.all([
     prisma.ata.findMany({
       where: { lodgeId, status: "AGUARDANDO_ASSINATURAS" },
       include: { session: { select: { date: true } } },
@@ -58,6 +58,14 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
         type: "MAGNA",
         date: { gte: addDays(now, -COMMUNICATION_DEADLINE_DAYS), lte: now },
       },
+    }),
+    prisma.processoProgressao.findMany({
+      where: {
+        lodgeId,
+        status: "COMUNICACAO_POS_CERIMONIA",
+        comunicadoEnviado: false,
+      },
+      include: { user: { select: { name: true } } },
     }),
   ]);
 
@@ -153,6 +161,19 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
       title: "Prazo de 15 dias: comunicação da Sessão Magna",
       description: `Sessão Magna de ${s.date.toLocaleDateString("pt-BR")} — envie matéria e fotos (2 a 10) ao portal institucional até ${due.toLocaleDateString("pt-BR")}.`,
       link: "/secretaria/sessoes",
+      dueDate: due,
+    });
+  }
+
+  // Comunicação de 15 dias da cerimônia de progressão (Elevação/Exaltação)
+  for (const p of progressoes) {
+    const due = addDays(p.dataCerimonia ?? p.updatedAt, COMMUNICATION_DEADLINE_DAYS);
+    pending.push({
+      sourceKey: `prog-15d:${p.id}`,
+      type: "DEADLINE_WARNING",
+      title: `Prazo de 15 dias: comunicação da progressão de ${p.user.name}`,
+      description: `Envie matéria e fotos (2 a 10) ao portal "Sua Sessão no GOB-SP" até ${due.toLocaleDateString("pt-BR")} e marque a comunicação como enviada no Kanban.`,
+      link: "/secretaria/progressoes",
       dueDate: due,
     });
   }

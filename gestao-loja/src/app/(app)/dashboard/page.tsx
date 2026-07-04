@@ -580,6 +580,17 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
       }),
     ]);
 
+  // Prazo de 15 dias vencido (comunicação pós-cerimônia) — card vermelho
+  const comunicacoesVencidas = await prisma.processoProgressao.findMany({
+    where: {
+      lodgeId,
+      status: "COMUNICACAO_POS_CERIMONIA",
+      comunicadoEnviado: false,
+      dataCerimonia: { lt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000) },
+    },
+    include: { user: { select: { name: true } } },
+  });
+
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -600,6 +611,36 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
           tone={expensesToApprove.length > 0 ? "danger" : undefined}
         />
       </div>
+
+      {comunicacoesVencidas.length > 0 && (
+        <Card className="border-red-300 bg-red-50">
+          <CardHeader>
+            <CardTitle className="text-red-800">
+              Comunicações de cerimônia em atraso
+            </CardTitle>
+            <CardDescription className="text-red-700">
+              O prazo de 15 dias do portal &quot;Sua Sessão no GOB-SP&quot; foi
+              ultrapassado.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-1 text-sm text-red-800">
+              {comunicacoesVencidas.map((p) => (
+                <li key={p.id}>
+                  {p.user.name} — cerimônia em{" "}
+                  {p.dataCerimonia?.toLocaleDateString("pt-BR")}
+                </li>
+              ))}
+            </ul>
+            <Link
+              href="/secretaria/progressoes"
+              className="mt-3 block text-sm font-medium text-red-800 underline underline-offset-4"
+            >
+              Cobrar a Secretaria no Kanban de Progressões →
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       <MemberManagementCard />
 

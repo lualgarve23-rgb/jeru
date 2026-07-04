@@ -19,6 +19,7 @@ import {
   KanbanSquare,
   FileCheck2,
   Bell,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -40,6 +41,7 @@ const icons: Record<string, LucideIcon> = {
   admissoes: KanbanSquare,
   quitteplacets: FileCheck2,
   notificacoes: Bell,
+  progressoes: TrendingUp,
 };
 
 export type NavItem = {
