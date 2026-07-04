@@ -166,10 +166,11 @@ async function MemberDashboard({
     if (base) {
       const eligible = new Date(base);
       eligible.setMonth(eligible.getMonth() + INTERSTICE_MONTHS[nextDegree]);
+      const nextDegreeLabel = degreeLabels[nextDegree] ?? nextDegree;
       intersticeHint =
         eligible <= new Date()
-          ? `Interstício para ${nextDegree} cumprido`
-          : `Apto a ${nextDegree} a partir de ${eligible.toLocaleDateString("pt-BR")}`;
+          ? `Interstício para ${nextDegreeLabel} cumprido`
+          : `Apto a ${nextDegreeLabel} a partir de ${eligible.toLocaleDateString("pt-BR")}`;
     }
   }
 
@@ -223,17 +224,19 @@ async function MemberDashboard({
                 <li key={i.id}>
                   <Link
                     href={`/tesouraria/mensalidades/${i.id}`}
-                    className="flex items-center justify-between rounded-md border p-3 text-sm transition-colors hover:bg-muted/50"
+                    className="flex flex-col gap-1 rounded-md border p-3 text-sm transition-colors hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
                   >
-                    <span className="flex items-center gap-2">
-                      {i.description} — vence em{" "}
-                      {i.dueDate.toLocaleDateString("pt-BR")}
+                    <span className="flex min-w-0 flex-wrap items-center gap-2">
+                      <span>
+                        {i.description} — vence em{" "}
+                        {i.dueDate.toLocaleDateString("pt-BR")}
+                      </span>
                       <StatusBadge
                         status={invoiceStatusLabels[i.status] ?? i.status}
                         tone={invoiceStatusTone(i.status)}
                       />
                     </span>
-                    <span className="font-medium">{brl(i.amountCents)}</span>
+                    <span className="shrink-0 font-medium">{brl(i.amountCents)}</span>
                   </Link>
                 </li>
               ))}
@@ -348,9 +351,9 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
                   <li key={a.id}>
                     <Link
                       href={`/secretaria/atas/${a.id}`}
-                      className="flex items-center justify-between rounded-md border p-3 transition-colors hover:bg-muted/50"
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 transition-colors hover:bg-muted/50"
                     >
-                      <span>
+                      <span className="min-w-0">
                         Ata nº {a.number} —{" "}
                         {a.session.date.toLocaleDateString("pt-BR")}
                       </span>
@@ -391,9 +394,9 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
                 {nextSessions.map((s) => (
                   <li
                     key={s.id}
-                    className="flex items-center justify-between rounded-md border p-3"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3"
                   >
-                    <span>
+                    <span className="min-w-0">
                       {s.date.toLocaleDateString("pt-BR")} —{" "}
                       {sessionTypeLabels[s.type] ?? s.type}
                     </span>
@@ -472,16 +475,18 @@ async function TesoureiroDashboard({ lodgeId }: { lodgeId: string }) {
                   <li key={i.id}>
                     <Link
                       href={`/tesouraria/mensalidades/${i.id}`}
-                      className="flex items-center justify-between rounded-md border p-3 transition-colors hover:bg-muted/50"
+                      className="flex flex-col gap-1 rounded-md border p-3 transition-colors hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
                     >
-                      <span className="flex items-center gap-2">
-                        {i.user.name} (CIM {i.user.cim}) — {i.description}
+                      <span className="flex min-w-0 flex-wrap items-center gap-2">
+                        <span>
+                          {i.user.name} (CIM {i.user.cim}) — {i.description}
+                        </span>
                         <StatusBadge
                           status={invoiceStatusLabels[i.status] ?? i.status}
                           tone={invoiceStatusTone(i.status)}
                         />
                       </span>
-                      <span className="font-medium">{brl(i.amountCents)}</span>
+                      <span className="shrink-0 font-medium">{brl(i.amountCents)}</span>
                     </Link>
                   </li>
                 ))}
@@ -516,10 +521,10 @@ async function TesoureiroDashboard({ lodgeId }: { lodgeId: string }) {
                 {pendingExpenses.map((e) => (
                   <li
                     key={e.id}
-                    className="flex items-center justify-between rounded-md border p-3"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3"
                   >
-                    <span>{e.description}</span>
-                    <span className="font-medium">{brl(e.amountCents)}</span>
+                    <span className="min-w-0 break-words">{e.description}</span>
+                    <span className="shrink-0 font-medium">{brl(e.amountCents)}</span>
                   </li>
                 ))}
               </ul>
@@ -629,10 +634,10 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
                 {expensesToApprove.map((e) => (
                   <li
                     key={e.id}
-                    className="flex items-center justify-between rounded-md border p-3"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3"
                   >
-                    <span>{e.description}</span>
-                    <span className="font-medium">{brl(e.amountCents)}</span>
+                    <span className="min-w-0 break-words">{e.description}</span>
+                    <span className="shrink-0 font-medium">{brl(e.amountCents)}</span>
                   </li>
                 ))}
               </ul>
@@ -720,11 +725,11 @@ async function ConselhoDashboard({ lodgeId }: { lodgeId: string }) {
             <ul className="space-y-2 text-sm">
               {recentExpenses.map((e) => (
                 <li key={e.id} className="rounded-md border p-3">
-                  <div className="flex items-center justify-between">
-                    <span>{e.description}</span>
-                    <span className="font-medium">{brl(e.amountCents)}</span>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="min-w-0 break-words">{e.description}</span>
+                    <span className="shrink-0 font-medium">{brl(e.amountCents)}</span>
                   </div>
-                  <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                  <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     VM: {e.approvedByMaster?.name ?? "—"} · Tesoureiro:{" "}
                     {e.approvedByTreasurer?.name ?? "—"}
                     <StatusBadge

@@ -2,13 +2,14 @@
 
 import { useEffect } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function DashboardError({
   error,
-  reset,
+  unstable_retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  unstable_retry: () => void;
 }) {
   useEffect(() => {
     console.error(error);
@@ -23,14 +24,10 @@ export default function DashboardError({
           Ocorreu um erro inesperado. Tente novamente ou volte mais tarde.
         </p>
       </div>
-      <button
-        type="button"
-        onClick={reset}
-        className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-      >
-        <RefreshCw className="h-4 w-4" aria-hidden />
+      <Button type="button" onClick={() => unstable_retry()}>
+        <RefreshCw className="mr-2 h-4 w-4" aria-hidden />
         Tentar novamente
-      </button>
+      </Button>
     </div>
   );
 }
