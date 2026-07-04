@@ -144,6 +144,10 @@ export async function deleteLodge(
   // Sem onDelete: Cascade no schema, então removemos filhos antes dos pais
   const where = { lodgeId: id };
   await prisma.$transaction([
+    prisma.notification.deleteMany({ where }),
+    prisma.processoProgressao.deleteMany({ where }),
+    prisma.processoAdmissao.deleteMany({ where }),
+    prisma.quittePlacet.deleteMany({ where }),
     prisma.transaction.deleteMany({ where }),
     prisma.invoice.deleteMany({ where }),
     prisma.expense.deleteMany({ where }),
