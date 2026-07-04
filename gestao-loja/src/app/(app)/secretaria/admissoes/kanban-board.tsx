@@ -5,7 +5,8 @@ import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useDraggable,
   useDroppable,
   useSensor,
@@ -47,7 +48,7 @@ function Card({ processo }: { processo: Processo }) {
           : undefined,
         opacity: isDragging ? 0.4 : 1,
       }}
-      className="cursor-grab space-y-2 rounded-lg border bg-card p-3 text-sm shadow-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:cursor-grabbing"
+      className="cursor-grab select-none touch-manipulation space-y-2 rounded-lg border bg-card p-3 text-sm shadow-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:cursor-grabbing"
     >
       <p className="font-medium">{processo.nomeCandidato}</p>
       {processo.email && (
@@ -125,11 +126,16 @@ export function AdmissaoKanban({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Pointer com distância mínima (não sequestra o scroll/tap no touch);
-  // Keyboard torna o quadro operável sem mouse (WCAG 2.1.1): espaço pega
-  // o card, setas movem, espaço solta.
+  // Sensores separados por dispositivo: mouse arrasta de imediato; no
+  // touch o arrasto ativa por toque longo (250ms) — sem isso o navegador
+  // trata o gesto como scroll e cancela o drag no celular. Keyboard torna
+  // o quadro operável sem mouse (WCAG 2.1.1): espaço pega o card, setas
+  // movem, espaço solta.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 8 },
+    }),
     useSensor(KeyboardSensor)
   );
 
