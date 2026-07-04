@@ -25,6 +25,9 @@ model Lodge {
   // Frequência mínima (%) nas sessões durante o processo de progressão
   // (trava da coluna Instrução e Frequência — ajuste conforme o regulamento)
   minFreqProgressao  Int      @default(50)
+  // Gateway de pagamento Asaas (cobrança recorrente cartão/boleto)
+  asaasApiKey        String? // API key da conta Asaas da Loja
+  asaasWebhookToken  String? // token conferido no header asaas-access-token do webhook
   googleRefreshToken String? // OAuth do Google da Loja (conexão ao Drive)
   googleEmail        String? // conta Google conectada
   createdAt          DateTime @default(now())
@@ -89,6 +92,9 @@ model User {
   passwordHash   String
   // Força troca de senha no primeiro acesso (senha provisória = CPF)
   mustChangePassword Boolean  @default(false)
+  // Gateway Asaas: cliente e assinatura recorrente da capitação
+  asaasCustomerId     String?
+  asaasSubscriptionId String?
   degree         Degree       @default(APRENDIZ)
   currentRole    Role         @default(MEMBER)
   status         MemberStatus @default(ATIVO)
@@ -323,7 +329,8 @@ model Invoice {
   pixCopiaECola   String?
   paidAt          DateTime?
   paidMethod      PaymentMethod?
-  gatewayChargeId String? // cobrança recorrente cartão/boleto no gateway
+  gatewayChargeId   String? @unique // id do pagamento no gateway (chave do webhook Asaas)
+  gatewayInvoiceUrl String? // link de pagamento (boleto/cartão/Pix) no gateway
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -2,7 +2,15 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { canWriteTesouraria } from "@/lib/permissions";
-import { generateInvoices, updatePixKey, markInvoicePaid } from "../actions";
+import {
+  generateInvoices,
+  updatePixKey,
+  markInvoicePaid,
+  updateAsaasConfig,
+  createAsaasCharge,
+  enableAsaasSubscriptions,
+  cancelAsaasSubscription,
+} from "../actions";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,7 +45,7 @@ export default async function MensalidadesPage() {
     "CONSELHO_CONTAS"
   );
   const isWriter = canWriteTesouraria(user.role);
-  const [lodge, invoices] = await Promise.all([
+  const [lodge, invoices, subscribers] = await Promise.all([
     prisma.lodge.findUniqueOrThrow({ where: { id: user.lodgeId } }),
     prisma.invoice.findMany({
       where: { lodgeId: user.lodgeId },
@@ -45,7 +53,13 @@ export default async function MensalidadesPage() {
       include: { user: true },
       take: 200,
     }),
+    prisma.user.findMany({
+      where: { lodgeId: user.lodgeId, asaasSubscriptionId: { not: null } },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, asaasSubscriptionId: true },
+    }),
   ]);
+  const asaasReady = Boolean(lodge.asaasApiKey);
 
   const now = new Date();
 
@@ -115,6 +129,105 @@ export default async function MensalidadesPage() {
               </ActionForm>
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Gateway Asaas</CardTitle>
+              <CardDescription>
+                Cobrança por cartão e boleto (avulsa e recorrente). Configure o
+                webhook no Asaas para <code>/api/webhooks/asaas</code> com o
+                token abaixo.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ActionForm action={updateAsaasConfig} submitLabel="Salvar gateway">
+                <div className="space-y-1">
+                  <Label htmlFor="asaasApiKey">API key</Label>
+                  <Input
+                    id="asaasApiKey"
+                    name="asaasApiKey"
+                    type="password"
+                    defaultValue={lodge.asaasApiKey ?? ""}
+                    placeholder="$aact_..."
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="asaasWebhookToken">Token do webhook</Label>
+                  <Input
+                    id="asaasWebhookToken"
+                    name="asaasWebhookToken"
+                    defaultValue={lodge.asaasWebhookToken ?? ""}
+                    placeholder="token secreto conferido no webhook"
+                  />
+                </div>
+              </ActionForm>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Assinaturas recorrentes</CardTitle>
+              <CardDescription>
+                Ativa a cobrança mensal automática (cartão/boleto/Pix à escolha
+                do irmão) para os membros ativos sem assinatura.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {asaasReady ? (
+                <ActionForm
+                  action={enableAsaasSubscriptions}
+                  submitLabel="Ativar assinaturas"
+                >
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="subAmount">Valor mensal (R$)</Label>
+                      <Input
+                        id="subAmount"
+                        name="amount"
+                        type="number"
+                        step="0.01"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="nextDueDate">1º vencimento</Label>
+                      <Input
+                        id="nextDueDate"
+                        name="nextDueDate"
+                        type="date"
+                        required
+                      />
+                    </div>
+                  </div>
+                </ActionForm>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Salve a API key do Asaas para ativar assinaturas.
+                </p>
+              )}
+              {subscribers.length > 0 && (
+                <ul className="space-y-2 text-sm">
+                  {subscribers.map((s) => (
+                    <li
+                      key={s.id}
+                      className="flex flex-wrap items-center justify-between gap-2"
+                    >
+                      <span className="min-w-0">
+                        {s.name}{" "}
+                        <span className="text-muted-foreground">
+                          · {s.asaasSubscriptionId}
+                        </span>
+                      </span>
+                      <ActionButton
+                        action={cancelAsaasSubscription.bind(null, s.id)}
+                        variant="outline"
+                        label="Cancelar"
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -156,6 +269,26 @@ export default async function MensalidadesPage() {
                 >
                   Cobrança Pix
                 </Link>
+                {i.gatewayInvoiceUrl ? (
+                  <a
+                    className="text-sm underline"
+                    href={i.gatewayInvoiceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Cartão/Boleto
+                  </a>
+                ) : (
+                  isWriter &&
+                  asaasReady &&
+                  i.status !== "PAGA" && (
+                    <ActionButton
+                      action={createAsaasCharge.bind(null, i.id)}
+                      variant="secondary"
+                      label="Cobrar via Asaas"
+                    />
+                  )
+                )}
                 {isWriter && i.status !== "PAGA" && (
                   <ActionButton
                     action={markInvoicePaid.bind(null, i.id)}

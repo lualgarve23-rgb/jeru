@@ -6,6 +6,13 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { canWriteTesouraria } from "@/lib/permissions";
 import { buildPixPayload } from "@/lib/pix";
+import {
+  AsaasError,
+  ensureCustomer,
+  createPayment,
+  createSubscription,
+  cancelSubscription,
+} from "@/lib/asaas";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
@@ -140,6 +147,138 @@ export async function settleInvoice(
       },
     }),
   ]);
+}
+
+// ─────────────── Gateway Asaas (cartão/boleto recorrente) ───────────────
+
+export async function updateAsaasConfig(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireTesourariaWriter();
+  await prisma.lodge.update({
+    where: { id: user.lodgeId },
+    data: {
+      asaasApiKey: String(formData.get("asaasApiKey")).trim() || null,
+      asaasWebhookToken: String(formData.get("asaasWebhookToken")).trim() || null,
+    },
+  });
+  revalidatePath("/tesouraria/mensalidades");
+  return { ok: "Configuração do gateway Asaas atualizada." };
+}
+
+async function requireAsaasLodge(lodgeId: string) {
+  const lodge = await prisma.lodge.findUniqueOrThrow({ where: { id: lodgeId } });
+  if (!lodge.asaasApiKey) {
+    throw new AsaasError(
+      "Configure a API key do Asaas antes de usar o gateway."
+    );
+  }
+  return lodge as typeof lodge & { asaasApiKey: string };
+}
+
+// Gera o link de pagamento (boleto/cartão/Pix à escolha do pagador)
+// para uma capitação já existente.
+export async function createAsaasCharge(invoiceId: string): Promise<ActionResult> {
+  const user = await requireTesourariaWriter();
+  try {
+    const lodge = await requireAsaasLodge(user.lodgeId);
+    const invoice = await prisma.invoice.findUniqueOrThrow({
+      where: { id: invoiceId, lodgeId: user.lodgeId },
+      include: { user: true },
+    });
+    if (invoice.status === "PAGA") return { error: "Cobrança já está paga." };
+    if (invoice.gatewayChargeId) return { error: "Link já gerado para esta cobrança." };
+
+    const customerId = await ensureCustomer(lodge.asaasApiKey, invoice.user);
+    if (customerId !== invoice.user.asaasCustomerId) {
+      await prisma.user.update({
+        where: { id: invoice.userId },
+        data: { asaasCustomerId: customerId },
+      });
+    }
+    const payment = await createPayment(lodge.asaasApiKey, {
+      customerId,
+      amountCents: invoice.amountCents,
+      dueDate: invoice.dueDate < new Date() ? new Date() : invoice.dueDate,
+      description: invoice.description,
+      externalReference: invoice.id,
+    });
+    await prisma.invoice.update({
+      where: { id: invoice.id },
+      data: { gatewayChargeId: payment.id, gatewayInvoiceUrl: payment.invoiceUrl },
+    });
+    revalidatePath("/tesouraria/mensalidades");
+    return { ok: "Link de pagamento gerado." };
+  } catch (e) {
+    if (e instanceof AsaasError) return { error: e.message };
+    throw e;
+  }
+}
+
+// Ativa assinatura mensal recorrente (capitação) para todos os
+// membros ativos que ainda não têm assinatura.
+export async function enableAsaasSubscriptions(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireTesourariaWriter();
+  const amountCents = Math.round(Number(formData.get("amount")) * 100);
+  const nextDueDate = new Date(String(formData.get("nextDueDate")));
+  if (!amountCents || amountCents <= 0 || isNaN(nextDueDate.getTime())) {
+    return { error: "Informe o valor mensal e o primeiro vencimento." };
+  }
+  try {
+    const lodge = await requireAsaasLodge(user.lodgeId);
+    const members = await prisma.user.findMany({
+      where: { lodgeId: user.lodgeId, status: "ATIVO", asaasSubscriptionId: null },
+    });
+    if (members.length === 0) {
+      return { error: "Todos os membros ativos já têm assinatura." };
+    }
+    let created = 0;
+    for (const m of members) {
+      const customerId = await ensureCustomer(lodge.asaasApiKey, m);
+      const sub = await createSubscription(lodge.asaasApiKey, {
+        customerId,
+        amountCents,
+        nextDueDate,
+        description: `Capitação mensal — ${lodge.name}`,
+        externalReference: m.id,
+      });
+      await prisma.user.update({
+        where: { id: m.id },
+        data: { asaasCustomerId: customerId, asaasSubscriptionId: sub.id },
+      });
+      created++;
+    }
+    revalidatePath("/tesouraria/mensalidades");
+    return { ok: `${created} assinatura(s) recorrente(s) ativada(s).` };
+  } catch (e) {
+    if (e instanceof AsaasError) return { error: e.message };
+    throw e;
+  }
+}
+
+export async function cancelAsaasSubscription(userId: string): Promise<ActionResult> {
+  const user = await requireTesourariaWriter();
+  try {
+    const lodge = await requireAsaasLodge(user.lodgeId);
+    const member = await prisma.user.findUniqueOrThrow({
+      where: { id: userId, lodgeId: user.lodgeId },
+    });
+    if (!member.asaasSubscriptionId) return { error: "Membro sem assinatura ativa." };
+    await cancelSubscription(lodge.asaasApiKey, member.asaasSubscriptionId);
+    await prisma.user.update({
+      where: { id: member.id },
+      data: { asaasSubscriptionId: null },
+    });
+    revalidatePath("/tesouraria/mensalidades");
+    return { ok: "Assinatura cancelada." };
+  } catch (e) {
+    if (e instanceof AsaasError) return { error: e.message };
+    throw e;
+  }
 }
 
 // ─────────────── Despesas com dupla aprovação ───────────────
