@@ -42,11 +42,11 @@ export async function createMember(
     return { error: "Preencha CIM, CPF, nome e e-mail." };
   }
   const bcrypt = (await import("bcryptjs")).default;
-  // Senha inicial = CPF; o obreiro troca no primeiro acesso (etapa futura).
+  // Senha inicial = CPF; o sistema força a troca no primeiro acesso.
   const passwordHash = await bcrypt.hash(data.cpf, 10);
   try {
     const member = await prisma.user.create({
-      data: { ...data, lodgeId: user.lodgeId, passwordHash },
+      data: { ...data, lodgeId: user.lodgeId, passwordHash, mustChangePassword: true },
     });
     if (data.initiationDate) {
       await prisma.degreeHistory.create({

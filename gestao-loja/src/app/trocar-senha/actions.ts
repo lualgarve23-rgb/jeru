@@ -1,13 +1,16 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { passwordRuleError } from "@/lib/password";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
-export async function changePassword(
+// Troca obrigatória no primeiro acesso: valida a senha provisória e as regras
+// mínimas, limpa a trava mustChangePassword e libera o acesso ao painel.
+export async function forcePasswordChange(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
@@ -27,12 +30,16 @@ export async function changePassword(
     where: { id: user.id },
     select: { passwordHash: true, cpf: true },
   });
-  const valid = await bcrypt.compare(current, dbUser.passwordHash);
+  // aceita a provisória com ou sem máscara (senha inicial = CPF)
+  let valid = await bcrypt.compare(current.trim(), dbUser.passwordHash);
   if (!valid) {
-    return { error: "Senha atual incorreta." };
+    const digits = current.replace(/\D/g, "");
+    if (digits) valid = await bcrypt.compare(digits, dbUser.passwordHash);
   }
-  if (next === current || next.replace(/\D/g, "") === dbUser.cpf.replace(/\D/g, "")) {
-    return { error: "A nova senha não pode ser igual à atual nem ao seu CPF." };
+  if (!valid) return { error: "Senha provisória incorreta." };
+
+  if (next === current || next.replace(/\D/g, "") === dbUser.cpf) {
+    return { error: "A nova senha não pode ser igual à provisória nem ao seu CPF." };
   }
 
   await prisma.user.update({
@@ -40,5 +47,5 @@ export async function changePassword(
     data: { passwordHash: await bcrypt.hash(next, 10), mustChangePassword: false },
   });
 
-  return { ok: "Senha alterada com sucesso." };
+  redirect("/dashboard");
 }

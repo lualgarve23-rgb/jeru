@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { signOut } from "@/auth";
@@ -43,6 +44,14 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const user = await requireUser();
+
+  // Primeiro acesso: bloqueia todo o painel até trocar a senha provisória
+  const { mustChangePassword } = await prisma.user.findUniqueOrThrow({
+    where: { id: user.id },
+    select: { mustChangePassword: true },
+  });
+  if (mustChangePassword) redirect("/trocar-senha");
+
   const [lodge, unread] = await Promise.all([
     prisma.lodge.findUnique({
       where: { id: user.lodgeId },

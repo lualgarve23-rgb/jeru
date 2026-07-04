@@ -69,6 +69,7 @@ export async function createLodge(
           name: vmName,
           email: vmEmail,
           passwordHash: await bcrypt.hash(vmCpf, 10),
+          mustChangePassword: true,
           degree: "MESTRE",
           currentRole: "VENERAVEL_MESTRE",
         },
