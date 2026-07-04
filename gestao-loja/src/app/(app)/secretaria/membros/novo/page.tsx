@@ -10,7 +10,7 @@ export default async function NovoMembroPage() {
     <div className="max-w-lg space-y-4">
       <h1 className="text-2xl font-bold">Novo Membro</h1>
       <ActionForm action={createMember} submitLabel="Cadastrar">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1">
             <Label htmlFor="cim">CIM</Label>
             <Input id="cim" name="cim" required />
@@ -28,7 +28,7 @@ export default async function NovoMembroPage() {
           <Label htmlFor="email">E-mail</Label>
           <Input id="email" name="email" type="email" required />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1">
             <Label htmlFor="phone">Telefone</Label>
             <Input id="phone" name="phone" />
@@ -38,7 +38,7 @@ export default async function NovoMembroPage() {
             <Input id="profession" name="profession" />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1">
             <Label htmlFor="degree">Grau</Label>
             <select
@@ -57,7 +57,7 @@ export default async function NovoMembroPage() {
             <Input id="initiationDate" name="initiationDate" type="date" />
           </div>
         </div>
-        <p className="text-xs text-neutral-500">
+        <p className="text-xs text-muted-foreground">
           A senha inicial do membro é o próprio CPF (somente números).
         </p>
       </ActionForm>

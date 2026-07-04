@@ -6,6 +6,11 @@ import { updateAta, signAta, sendAtaToGSelos } from "../../actions";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Badge } from "@/components/ui/badge";
 import {
+  ataStatusLabels,
+  ataStatusTone,
+  sessionTypeLabels,
+} from "@/lib/labels";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -44,10 +49,12 @@ export default async function AtaPage({
     <div className="max-w-3xl space-y-6">
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-bold">Ata nº {ata.number}</h1>
-        <Badge>{ata.status}</Badge>
+        <Badge variant={ataStatusTone(ata.status)}>
+          {ataStatusLabels[ata.status] ?? ata.status}
+        </Badge>
       </div>
-      <p className="text-sm text-neutral-500">
-        Sessão {ata.session.type} de{" "}
+      <p className="text-sm text-muted-foreground">
+        Sessão {sessionTypeLabels[ata.session.type] ?? ata.session.type} de{" "}
         {ata.session.date.toLocaleDateString("pt-BR")}
       </p>
 

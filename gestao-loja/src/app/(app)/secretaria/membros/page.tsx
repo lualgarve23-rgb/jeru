@@ -5,6 +5,12 @@ import { canWriteSecretaria } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  degreeLabels,
+  roleLabels,
+  memberStatusLabels,
+  memberStatusTone,
+} from "@/lib/labels";
+import {
   Table,
   TableBody,
   TableCell,
@@ -53,16 +59,14 @@ export default async function MembrosPage() {
               <TableRow key={m.id}>
                 <TableCell className="font-medium">{m.name}</TableCell>
                 <TableCell>{m.cim}</TableCell>
-                <TableCell>{m.degree}</TableCell>
-                <TableCell>{m.currentRole}</TableCell>
+                <TableCell>{degreeLabels[m.degree] ?? m.degree}</TableCell>
+                <TableCell>{roleLabels[m.currentRole] ?? m.currentRole}</TableCell>
                 <TableCell>
-                  <Badge
-                    variant={m.status === "ATIVO" ? "default" : "destructive"}
-                  >
-                    {m.status}
+                  <Badge variant={memberStatusTone(m.status)}>
+                    {memberStatusLabels[m.status] ?? m.status}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-sm text-neutral-500">
+                <TableCell className="text-sm text-muted-foreground">
                   {canSeeContact ? (
                     <>
                       {(isSecretaria || m.id === user.id || m.showEmail) && m.email}

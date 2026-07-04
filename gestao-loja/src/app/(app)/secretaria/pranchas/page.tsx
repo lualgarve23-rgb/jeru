@@ -90,7 +90,7 @@ export default async function PranchasPage() {
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-neutral-500">
+                <p className="text-xs text-muted-foreground">
                   Se enviar um arquivo, ele tem prioridade sobre a seleção do
                   Drive.
                 </p>
@@ -130,7 +130,7 @@ export default async function PranchasPage() {
                     Abrir no Drive
                   </a>
                 ) : (
-                  <span className="text-sm text-neutral-400">—</span>
+                  <span className="text-sm text-muted-foreground">—</span>
                 )}
               </TableCell>
               <TableCell>{p.createdAt.toLocaleDateString("pt-BR")}</TableCell>
@@ -147,7 +147,7 @@ export default async function PranchasPage() {
           ))}
         </TableBody>
       </Table>
-      <p className="text-xs text-neutral-500">
+      <p className="text-xs text-muted-foreground">
         Envios são feitos pelo Gmail da Loja para {GUARDA_SELOS_EMAIL}.
       </p>
     </div>

@@ -5,6 +5,7 @@ import { updateMember, elevateDegree, assignRole } from "../../actions";
 import { ActionForm } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { degreeLabels, roleLabels } from "@/lib/labels";
 import {
   Card,
   CardContent,
@@ -43,8 +44,8 @@ export default async function MembroPage({
     <div className="max-w-3xl space-y-6">
       <h1 className="text-2xl font-bold">
         {member.name}{" "}
-        <span className="text-base font-normal text-neutral-500">
-          CIM {member.cim} · {member.degree}
+        <span className="text-base font-normal text-muted-foreground">
+          CIM {member.cim} · {degreeLabels[member.degree] ?? member.degree}
         </span>
       </h1>
 
@@ -54,7 +55,7 @@ export default async function MembroPage({
         </CardHeader>
         <CardContent>
           <ActionForm action={updateAction} submitLabel="Salvar">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label htmlFor="name">Nome</Label>
                 <Input id="name" name="name" defaultValue={member.name} />
@@ -99,7 +100,7 @@ export default async function MembroPage({
           <CardHeader>
             <CardTitle>
               {nextDegree === "COMPANHEIRO" ? "Elevação" : "Exaltação"} ao grau
-              de {nextDegree}
+              de {degreeLabels[nextDegree] ?? nextDegree}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -109,7 +110,7 @@ export default async function MembroPage({
                 <Label htmlFor="date">Data da cerimônia</Label>
                 <Input id="date" name="date" type="date" required />
               </div>
-              <p className="text-xs text-neutral-500">
+              <p className="text-xs text-muted-foreground">
                 O sistema valida o interstício mínimo automaticamente.
               </p>
             </ActionForm>
@@ -123,7 +124,7 @@ export default async function MembroPage({
         </CardHeader>
         <CardContent>
           <ActionForm action={roleAction} submitLabel="Registrar cargo">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label htmlFor="role">Cargo</Label>
                 <select
@@ -152,17 +153,18 @@ export default async function MembroPage({
         <CardHeader>
           <CardTitle>Histórico</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-6 text-sm">
+        <CardContent className="grid gap-6 text-sm sm:grid-cols-2">
           <div>
             <p className="mb-2 font-semibold">Graus</p>
             <ul className="space-y-1">
               {member.degreeHistory.map((d) => (
                 <li key={d.id}>
-                  {d.degree} — {d.date.toLocaleDateString("pt-BR")}
+                  {degreeLabels[d.degree] ?? d.degree} —{" "}
+                  {d.date.toLocaleDateString("pt-BR")}
                 </li>
               ))}
               {member.degreeHistory.length === 0 && (
-                <li className="text-neutral-500">Sem registros.</li>
+                <li className="text-muted-foreground">Sem registros.</li>
               )}
             </ul>
           </div>
@@ -171,14 +173,15 @@ export default async function MembroPage({
             <ul className="space-y-1">
               {member.roleHistory.map((r) => (
                 <li key={r.id}>
-                  {r.role} — {r.startDate.toLocaleDateString("pt-BR")}
+                  {roleLabels[r.role] ?? r.role} —{" "}
+                  {r.startDate.toLocaleDateString("pt-BR")}
                   {r.endDate
                     ? ` a ${r.endDate.toLocaleDateString("pt-BR")}`
                     : " (atual)"}
                 </li>
               ))}
               {member.roleHistory.length === 0 && (
-                <li className="text-neutral-500">Sem registros.</li>
+                <li className="text-muted-foreground">Sem registros.</li>
               )}
             </ul>
           </div>

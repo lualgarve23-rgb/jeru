@@ -4,6 +4,7 @@ import { canWriteSecretaria } from "@/lib/permissions";
 import { isDriveAvailable } from "@/lib/google-drive";
 import { uploadDocument } from "../actions";
 import { ActionForm } from "@/components/action-form";
+import { documentTypeLabels } from "@/lib/labels";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -55,7 +56,7 @@ export default async function DocumentosPage() {
                 <Label htmlFor="title">Título</Label>
                 <Input id="title" name="title" required />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
                   <Label htmlFor="type">Tipo</Label>
                   <select
@@ -63,11 +64,11 @@ export default async function DocumentosPage() {
                     name="type"
                     className="h-9 w-full rounded-md border bg-transparent px-2 text-sm"
                   >
-                    <option value="ATA_ESCANEADA">Ata escaneada</option>
-                    <option value="HISTORICO">Histórico</option>
-                    <option value="REGULAMENTO">Regulamento</option>
-                    <option value="FINANCEIRO">Financeiro</option>
-                    <option value="OUTRO">Outro</option>
+                    {Object.entries(documentTypeLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="space-y-1">
@@ -94,7 +95,7 @@ export default async function DocumentosPage() {
           {docs.map((d) => (
             <TableRow key={d.id}>
               <TableCell>{d.title}</TableCell>
-              <TableCell>{d.type}</TableCell>
+              <TableCell>{documentTypeLabels[d.type] ?? d.type}</TableCell>
               <TableCell>{d.uploadedBy.name}</TableCell>
               <TableCell>{d.createdAt.toLocaleDateString("pt-BR")}</TableCell>
               <TableCell>

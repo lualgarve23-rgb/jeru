@@ -6,6 +6,7 @@ import { canWriteSecretaria } from "@/lib/permissions";
 import { registerAttendance, createAta } from "../../actions";
 import { ActionForm } from "@/components/action-form";
 import { Label } from "@/components/ui/label";
+import { sessionTypeLabels, degreeLabels } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -54,13 +55,14 @@ export default async function SessaoPage({
   return (
     <div className="max-w-3xl space-y-6">
       <h1 className="text-2xl font-bold">
-        Sessão {session.type} — {session.date.toLocaleDateString("pt-BR")}{" "}
-        <span className="text-base font-normal text-neutral-500">
-          (grau {session.degree})
+        Sessão {sessionTypeLabels[session.type] ?? session.type} —{" "}
+        {session.date.toLocaleDateString("pt-BR")}{" "}
+        <span className="text-base font-normal text-muted-foreground">
+          (grau {degreeLabels[session.degree] ?? session.degree})
         </span>
       </h1>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Check-in via QR Code</CardTitle>
@@ -71,7 +73,7 @@ export default async function SessaoPage({
           <CardContent className="space-y-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={qrDataUrl} alt="QR Code de check-in" />
-            <p className="break-all text-xs text-neutral-500">{checkinUrl}</p>
+            <p className="break-all text-xs text-muted-foreground">{checkinUrl}</p>
           </CardContent>
         </Card>
 
@@ -129,14 +131,14 @@ export default async function SessaoPage({
                   ? `${a.user.name} (CIM ${a.user.cim})`
                   : `${a.visitorName} — visitante${a.visitorLodge ? ` · ${a.visitorLodge}` : ""}${a.visitorPotencia ? ` / ${a.visitorPotencia}` : ""}`}
                 {a.viaQrCode ? " · via QR" : ""}
-                <span className="text-neutral-400">
+                <span className="text-muted-foreground">
                   {" "}
                   às {a.checkedInAt.toLocaleTimeString("pt-BR")}
                 </span>
               </li>
             ))}
             {session.attendances.length === 0 && (
-              <li className="text-neutral-500">Nenhuma presença registrada.</li>
+              <li className="text-muted-foreground">Nenhuma presença registrada.</li>
             )}
           </ul>
         </CardContent>

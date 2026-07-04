@@ -4,6 +4,11 @@ import { requireUser } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
 import { createSession } from "../actions";
 import { ActionForm } from "@/components/action-form";
+import {
+  sessionTypeLabels,
+  degreeLabels,
+  ataStatusLabels,
+} from "@/lib/labels";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -40,7 +45,7 @@ export default async function SessoesPage() {
           </CardHeader>
           <CardContent>
             <ActionForm action={createSession} submitLabel="Criar sessão">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid gap-3 sm:grid-cols-3">
                 <div className="space-y-1">
                   <Label htmlFor="date">Data</Label>
                   <Input id="date" name="date" type="date" required />
@@ -52,10 +57,11 @@ export default async function SessoesPage() {
                     name="type"
                     className="h-9 w-full rounded-md border bg-transparent px-2 text-sm"
                   >
-                    <option value="ORDINARIA">Ordinária</option>
-                    <option value="MAGNA">Magna</option>
-                    <option value="ECONOMICA">Econômica</option>
-                    <option value="BRANCA">Branca</option>
+                    {Object.entries(sessionTypeLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="space-y-1">
@@ -65,9 +71,11 @@ export default async function SessoesPage() {
                     name="degree"
                     className="h-9 w-full rounded-md border bg-transparent px-2 text-sm"
                   >
-                    <option value="APRENDIZ">Aprendiz</option>
-                    <option value="COMPANHEIRO">Companheiro</option>
-                    <option value="MESTRE">Mestre</option>
+                    {Object.entries(degreeLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -91,10 +99,14 @@ export default async function SessoesPage() {
           {sessions.map((s) => (
             <TableRow key={s.id}>
               <TableCell>{s.date.toLocaleDateString("pt-BR")}</TableCell>
-              <TableCell>{s.type}</TableCell>
-              <TableCell>{s.degree}</TableCell>
+              <TableCell>{sessionTypeLabels[s.type] ?? s.type}</TableCell>
+              <TableCell>{degreeLabels[s.degree] ?? s.degree}</TableCell>
               <TableCell>{s._count.attendances}</TableCell>
-              <TableCell>{s.ata ? `nº ${s.ata.number} (${s.ata.status})` : "—"}</TableCell>
+              <TableCell>
+                {s.ata
+                  ? `nº ${s.ata.number} (${ataStatusLabels[s.ata.status] ?? s.ata.status})`
+                  : "—"}
+              </TableCell>
               <TableCell>
                 <Link className="text-sm underline" href={`/secretaria/sessoes/${s.id}`}>
                   Abrir

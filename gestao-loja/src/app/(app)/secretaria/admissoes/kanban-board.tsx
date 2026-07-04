@@ -4,8 +4,12 @@ import { useState, useTransition } from "react";
 import {
   DndContext,
   DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
   useDraggable,
   useDroppable,
+  useSensor,
+  useSensors,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
@@ -43,7 +47,7 @@ function Card({ processo }: { processo: Processo }) {
           : undefined,
         opacity: isDragging ? 0.4 : 1,
       }}
-      className="cursor-grab space-y-2 rounded-lg border bg-card p-3 text-sm shadow-sm active:cursor-grabbing"
+      className="cursor-grab space-y-2 rounded-lg border bg-card p-3 text-sm shadow-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:cursor-grabbing"
     >
       <p className="font-medium">{processo.nomeCandidato}</p>
       {processo.email && (
@@ -121,6 +125,14 @@ export function AdmissaoKanban({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Pointer com distância mínima (não sequestra o scroll/tap no touch);
+  // Keyboard torna o quadro operável sem mouse (WCAG 2.1.1): espaço pega
+  // o card, setas movem, espaço solta.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor)
+  );
+
   function handleDragStart(event: DragStartEvent) {
     setActiveId(String(event.active.id));
   }
@@ -155,7 +167,11 @@ export function AdmissaoKanban({
           {error}
         </p>
       )}
-      <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
         <div className="flex gap-3 overflow-x-auto pb-2">
           {statusAdmissaoOrder.map((status) => (
             <Column

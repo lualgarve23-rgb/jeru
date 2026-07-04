@@ -116,8 +116,15 @@ export default async function QuittePlacetsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-xs">
-                    VM {p.signedByMasterId ? "✓" : "—"} · Sec{" "}
-                    {p.signedBySecId ? "✓" : "—"}
+                    <span aria-hidden="true">
+                      VM {p.signedByMasterId ? "✓" : "—"} · Sec{" "}
+                      {p.signedBySecId ? "✓" : "—"}
+                    </span>
+                    <span className="sr-only">
+                      Venerável Mestre{" "}
+                      {p.signedByMasterId ? "assinou" : "não assinou"}; Secretário{" "}
+                      {p.signedBySecId ? "assinou" : "não assinou"}
+                    </span>
                   </TableCell>
                   <TableCell>
                     <Badge variant={statusPlacetTone(p.status)}>
@@ -125,7 +132,8 @@ export default async function QuittePlacetsPage() {
                     </Badge>
                   </TableCell>
                   {(isWriter || canSign) && (
-                    <TableCell className="space-x-2 whitespace-nowrap">
+                    <TableCell>
+                      <div className="flex flex-wrap gap-2">
                       {isWriter && !p.quitacaoFinanceira && (
                         <ActionButton
                           action={() => refreshQuitacaoFinanceira(p.id)}
@@ -150,6 +158,7 @@ export default async function QuittePlacetsPage() {
                             variant="destructive"
                           />
                         )}
+                      </div>
                     </TableCell>
                   )}
                 </TableRow>
