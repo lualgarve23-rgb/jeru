@@ -4,8 +4,9 @@ import { signOut } from "@/auth";
 import { AppShell } from "@/components/app-shell";
 import { type NavItem } from "@/components/sidebar-nav";
 import { roleLabels } from "@/lib/labels";
+import { unreadCount } from "@/lib/notifications";
 
-function navFor(role: string): NavItem[] {
+function navFor(role: string, unread: number): NavItem[] {
   if (role === "SUPER_ADMIN") {
     return [
       { href: "/admin", label: "Administração", icon: "admin" },
@@ -18,6 +19,7 @@ function navFor(role: string): NavItem[] {
 
   const items: (NavItem & { roles?: string[] })[] = [
     { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
+    { href: "/dashboard/notificacoes", label: "Notificações", icon: "notificacoes", badge: unread },
     { href: "/secretaria/membros", label: "Membros", icon: "membros", section: "Secretaria" },
     { href: "/secretaria/sessoes", label: "Sessões e Presenças", icon: "sessoes", section: "Secretaria" },
     { href: "/secretaria/atas", label: "Atas", icon: "atas", section: "Secretaria" },
@@ -41,10 +43,13 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const user = await requireUser();
-  const lodge = await prisma.lodge.findUnique({
-    where: { id: user.lodgeId },
-    select: { logoUrl: true, name: true, number: true, oriente: true },
-  });
+  const [lodge, unread] = await Promise.all([
+    prisma.lodge.findUnique({
+      where: { id: user.lodgeId },
+      select: { logoUrl: true, name: true, number: true, oriente: true },
+    }),
+    user.role === "SUPER_ADMIN" ? Promise.resolve(0) : unreadCount(user),
+  ]);
 
   async function handleSignOut() {
     "use server";
@@ -58,7 +63,8 @@ export default async function AppLayout({
       userName={user.name}
       roleLabel={roleLabels[user.role] ?? user.role}
       cim={user.cim}
-      navItems={navFor(user.role)}
+      navItems={navFor(user.role, unread)}
+      unreadNotifications={unread}
       signOutAction={handleSignOut}
     >
       {children}

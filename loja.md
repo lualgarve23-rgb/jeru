@@ -31,9 +31,27 @@ O fluxo do candidato (profano) segue etapas estritas [2]:
 4. **Escrutínio:** Registro da votação secreta em plenário.
 5. **Placet de Iniciação:** Envio do pedido de Placet às instâncias superiores.
 
-### B. Pipeline de Progressão (Elevação e Exaltação)
-- **Trava Sistêmica:** O botão de "Aprovar Progressão" deve ficar bloqueado até que o sistema valide o cumprimento do tempo de interstício e o quórum de frequência nas instruções [11].
-- Registro de aprovação no exame de proficiência.
+### B. Pipeline de Progressão de Graus (Elevação e Exaltação - Visão Kanban)
+O avanço na hierarquia maçônica (Aprendiz ➔ Companheiro ➔ Mestre) baseia-se no cumprimento de exigências rigorosas. Na interface do Secretário, o Kanban de Progressões será refletido com as travas oficiais da Secretaria de Guarda dos Selos e de Comunicação:
+
+1. **`CUMPRIMENTO_INTERSTICIO` (Interstício):**
+   - O sistema calcula automaticamente o tempo de permanência no grau. Card travado até o cumprimento do prazo legal.
+2. **`INSTRUCAO_E_FREQUENCIA`:**
+   - Validação automática no Livro de Presenças se o obreiro cumpriu a frequência e o período de instrução exigidos.
+3. **`EXAME_PROFICIENCIA`:**
+   - Aguardando agendamento ou aprovação na avaliação ritualística.
+4. **`ESCRUTINIO_PROGRESSAO` (Votação):**
+   - Votação em plenário para aprovar a mudança de grau.
+5. **`AGUARDANDO_PLACET` (Solicitação à Guarda dos Selos):**
+   - **Regra de Negócio:** Após a aprovação no escrutínio, o sistema gera automaticamente a prancha (ofício) solicitando o *Placet* de passagem/elevação à Secretaria Estadual da Guarda dos Selos. O botão de agendar a cerimônia fica bloqueado até o Secretário confirmar o recebimento desta autorização (`placetDeferido = true`).
+6. **`AGUARDANDO_CERIMONIA` (Agendamento):**
+   - Com o placet deferido, a Sessão Magna é agendada e o candidato aguarda a realização.
+7. **`COMUNICACAO_POS_CERIMONIA` (Relatórios e Patentes):**
+   - **Automações (Triggers):** Imediatamente após a realização da cerimônia, o card entra nesta coluna e engatilha duas ações:
+     a) O sistema gera um Alerta de Prazo com contagem regressiva de **15 dias** cobrando o Secretário para enviar a comunicação (matéria e de 2 a 10 fotos) ao portal "Sua Sessão no GOB-SP". Se passar de 15 dias sem o Secretário marcar `comunicadoEnviado = true`, o card fica vermelho no painel inicial do Venerável Mestre.
+     b) O sistema gera a solicitação oficial para a emissão dos diplomas e patentes do novo grau junto à Guarda dos Selos.
+8. **`GRAU_CONCEDIDO` (Conclusão):**
+   - Atualiza definitivamente o campo `Degree` no banco de dados e encerra o processo no Kanban.
 
 ### C. Pipeline de Movimentação (Quitte Placet e Filiação)
 - **Trava Financeira do Quitte Placet:** O Secretário só pode emitir o documento de desligamento se o sistema consultar a Tesouraria e retornar a variável `quitacaoFinanceira = true` (Nada Consta) [15, 16].
@@ -166,7 +184,64 @@ enum NotificationType {
 }
 ```
 
-## 7. Instruções Iniciais para a Inteligência Artificial
+### 6.1. Modelagem de Dados Adicional (Atualização de Progressão)
+Modelagem para incluir os booleanos de trava do Placet e da Comunicação:
+
+```prisma
+model ProcessoProgressao {
+  id                String           @id @default(cuid())
+  userId            String           // Relaciona com o Obreiro (User)
+  lodgeId           String
+  grauAlvo          Degree           // COMPANHEIRO ou MESTRE
+  status            StatusProgressao @default(CUMPRIMENTO_INTERSTICIO)
+
+  dataInicio        DateTime         @default(now())
+  dataAprovacao     DateTime?        // Data que passou no escrutínio
+  placetDeferido    Boolean          @default(false) // Trava da Guarda dos Selos
+  dataCerimonia     DateTime?        // Data da Elevação ou Exaltação
+  comunicadoEnviado Boolean          @default(false) // Trava dos 15 dias (Sua Sessão no GOB-SP)
+
+  user              User             @relation(fields: [userId], references: [id])
+  lodge             Lodge            @relation(fields: [lodgeId], references: [id])
+}
+
+enum StatusProgressao {
+  CUMPRIMENTO_INTERSTICIO
+  INSTRUCAO_E_FREQUENCIA
+  EXAME_PROFICIENCIA
+  ESCRUTINIO_PROGRESSAO
+  AGUARDANDO_PLACET
+  AGUARDANDO_CERIMONIA
+  COMUNICACAO_POS_CERIMONIA
+  GRAU_CONCEDIDO
+}
+```
+
+**Como essa atualização orienta a implementação:**
+- **Trava `placetDeferido`:** o Secretário não pode mover o card para "Cerimônia" antes de confirmar que a Guarda dos Selos liberou o processo.
+- **Trava `comunicadoEnviado`:** ao entrar em `COMUNICACAO_POS_CERIMONIA`, inicia-se a contagem de 15 dias; vencido o prazo sem envio da comunicação, o card fica vermelho no painel inicial do Venerável Mestre.
+
+## 7. Próximas Melhorias (Frentes Funcionais)
+
+### A. Central de Notificações
+O próximo passo natural — o model `Notification` já existe no banco.
+- **Sino no header:** Ícone de sino com badge contando notificações não lidas (`isRead = false`) do `lodge_id` do usuário logado.
+- **Painel dropdown/página `/dashboard/notificacoes`:** Lista das notificações ordenadas por `createdAt` desc, agrupadas por tipo (`PENDING_SIGNATURE`, `DEADLINE_WARNING`, `MISSING_DATA`, `FINANCIAL_APPROVAL`), com destaque visual para as que têm `dueDate` vencido ou próximo (≤ 3 dias).
+- **Ações:** Marcar como lida (individual e "marcar todas"), e link de cada notificação para o recurso correspondente (ata, processo, Quitte Placet).
+- **Geração automática:** Rotina (cron/route handler) que cria notificações para: interstícios atingidos, prazo de 15 dias pós-Sessão Magna, cadastros incompletos e documentos aguardando assinatura.
+
+### B. Troca de Senha Obrigatória no Primeiro Acesso
+- Adicionar campo `mustChangePassword Boolean @default(true)` no model `User`.
+- Quando o Secretário cadastra um obreiro, o sistema gera senha provisória; no primeiro login, o middleware redireciona para `/trocar-senha` e bloqueia o acesso a qualquer outra rota até a troca.
+- Regras de senha: mínimo 8 caracteres, ao menos 1 número e 1 letra; a nova senha não pode ser igual à provisória. Após a troca, `mustChangePassword = false`.
+
+### C. Assinatura Inline no Dashboard do Venerável Mestre
+Refinar o fluxo de dupla assinatura: o VM assina sem sair do dashboard.
+- Nos cards do To-Do de Assinaturas, botão **"Assinar agora"** abre um sheet/modal com a pré-visualização do documento (Ata, Quitte Placet ou Prancha).
+- Confirmação exige re-digitação da senha (ou PIN) do VM como ato formal de assinatura; registrar `signedByMaster = true` com timestamp e trilha de auditoria (quem, quando, IP).
+- Ao completar a segunda assinatura, o documento é trancado (imutável), a notificação `PENDING_SIGNATURE` correspondente é resolvida e, no caso de atas, dispara o upload para o Google Drive.
+
+## 8. Instruções Iniciais para a Inteligência Artificial
 Inicie o desenvolvimento configurando o banco de dados (PostgreSQL + Prisma) com o Schema acima. Em seguida, crie o layout base (Dashboard) utilizando Shadcn UI e implemente as interfaces de Kanban para os fluxos burocráticos e a central de alertas para os prazos de 15 dias e validação de e-mails. Pare e me peça para testar após configurar o banco e a primeira tela do Dashboard.
 
 ***

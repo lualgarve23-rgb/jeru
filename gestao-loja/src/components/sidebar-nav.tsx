@@ -18,6 +18,7 @@ import {
   Building2,
   KanbanSquare,
   FileCheck2,
+  Bell,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -38,6 +39,7 @@ const icons: Record<string, LucideIcon> = {
   admin: Building2,
   admissoes: KanbanSquare,
   quitteplacets: FileCheck2,
+  notificacoes: Bell,
 };
 
 export type NavItem = {
@@ -45,6 +47,7 @@ export type NavItem = {
   label: string;
   icon: keyof typeof icons;
   section?: string;
+  badge?: number;
 };
 
 export function SidebarNav({ items }: { items: NavItem[] }) {
@@ -79,7 +82,12 @@ export function SidebarNav({ items }: { items: NavItem[] }) {
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />
-              {item.label}
+              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              {item.badge != null && item.badge > 0 && (
+                <span className="ml-auto flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-amber-500 px-1.5 text-xs font-semibold text-slate-950">
+                  {item.badge > 99 ? "99+" : item.badge}
+                </span>
+              )}
             </Link>
           </div>
         );

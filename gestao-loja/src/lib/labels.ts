@@ -106,7 +106,21 @@ export function statusPlacetTone(status: string): BadgeTone {
   return "secondary";
 }
 
+export const notificationTypeLabels: Record<string, string> = {
+  PENDING_SIGNATURE: "Assinatura pendente",
+  DEADLINE_WARNING: "Prazo",
+  MISSING_DATA: "Cadastro incompleto",
+  FINANCIAL_APPROVAL: "Trava financeira",
+};
+
 export type BadgeTone = "default" | "secondary" | "outline" | "success" | "warning";
+
+export function notificationTypeTone(type: string): BadgeTone {
+  if (type === "PENDING_SIGNATURE") return "warning";
+  if (type === "DEADLINE_WARNING") return "default";
+  if (type === "FINANCIAL_APPROVAL") return "outline";
+  return "secondary";
+}
 
 export function ataStatusTone(status: string): BadgeTone {
   if (status === "ASSINADA") return "success";

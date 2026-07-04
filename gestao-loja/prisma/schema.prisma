@@ -521,10 +521,15 @@ model Notification {
   isRead      Boolean          @default(false)
   dueDate     DateTime?
   createdAt   DateTime         @default(now())
+  // Chave determinística da origem (ex.: "ata:<id>") — garante geração idempotente
+  sourceKey   String?
+  // Rota interna do recurso relacionado (ex.: "/secretaria/atas/<id>")
+  link        String?
 
   lodge Lodge @relation(fields: [lodgeId], references: [id])
   user  User? @relation(fields: [userId], references: [id])
 
+  @@unique([lodgeId, sourceKey])
   @@index([lodgeId])
   @@map("notifications")
 }

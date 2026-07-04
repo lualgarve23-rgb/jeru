@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { Menu, X, LogOut, Landmark } from "lucide-react";
+import Link from "next/link";
+import { Menu, X, LogOut, Landmark, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarNav, type NavItem } from "@/components/sidebar-nav";
 
@@ -20,6 +21,7 @@ export function AppShell({
   roleLabel,
   cim,
   navItems,
+  unreadNotifications = 0,
   signOutAction,
   children,
 }: {
@@ -29,6 +31,7 @@ export function AppShell({
   roleLabel: string;
   cim: string;
   navItems: NavItem[];
+  unreadNotifications?: number;
   signOutAction: () => Promise<void>;
   children: React.ReactNode;
 }) {
@@ -54,6 +57,23 @@ export function AppShell({
           <LodgeMark lodge={lodge} size="sm" />
           <p className="truncate text-sm font-semibold">{lodgeName}</p>
         </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <Link
+            href="/dashboard/notificacoes"
+            aria-label={
+              unreadNotifications > 0
+                ? `Notificações: ${unreadNotifications} não lida(s)`
+                : "Notificações"
+            }
+            className="relative flex h-9 w-9 items-center justify-center rounded-md text-slate-200 hover:bg-white/10 hover:text-white"
+          >
+            <Bell className="h-5 w-5" />
+            {unreadNotifications > 0 && (
+              <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-semibold text-slate-950">
+                {unreadNotifications > 99 ? "99+" : unreadNotifications}
+              </span>
+            )}
+          </Link>
         <button
           type="button"
           aria-label={open ? "Fechar menu" : "Abrir menu"}
@@ -63,6 +83,7 @@ export function AppShell({
         >
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
+        </div>
       </header>
 
       {open && (
