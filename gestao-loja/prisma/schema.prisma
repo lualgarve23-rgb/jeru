@@ -92,6 +92,10 @@ model User {
   passwordHash   String
   // Força troca de senha no primeiro acesso (senha provisória = CPF)
   mustChangePassword Boolean  @default(false)
+  // Recuperação de senha: código 2FA enviado por e-mail (hash bcrypt)
+  resetCodeHash      String?
+  resetCodeExpiresAt DateTime?
+  resetCodeAttempts  Int       @default(0)
   // Gateway Asaas: cliente e assinatura recorrente da capitação
   asaasCustomerId     String?
   asaasSubscriptionId String?

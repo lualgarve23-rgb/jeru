@@ -13,6 +13,7 @@ export const authConfig = {
       const { pathname } = request.nextUrl;
       const isPublic =
         pathname === "/login" ||
+        pathname === "/esqueci-senha" || // recuperação de senha (2FA por e-mail)
         pathname.startsWith("/api/auth") ||
         pathname.startsWith("/checkin/") || // check-in de visitantes via QR
         pathname.startsWith("/api/webhooks/"); // PSP autentica por segredo próprio
