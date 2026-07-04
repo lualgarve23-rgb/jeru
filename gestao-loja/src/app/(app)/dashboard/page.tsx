@@ -24,6 +24,8 @@ import {
   expenseStatusTone,
   type BadgeTone,
 } from "@/lib/labels";
+import { InlineSignDialog } from "@/components/inline-sign-dialog";
+import { signAtaInline, signQuittePlacetInline } from "./sign-actions";
 
 function brl(cents: number) {
   return (cents / 100).toLocaleString("pt-BR", {
@@ -545,27 +547,38 @@ async function TesoureiroDashboard({ lodgeId }: { lodgeId: string }) {
 // ───────────── Venerável Mestre ─────────────
 
 async function VmDashboard({ lodgeId }: { lodgeId: string }) {
-  const [{ saldo }, ativos, atasToSign, expensesToApprove] = await Promise.all([
-    monthBalance(lodgeId),
-    prisma.user.count({ where: { lodgeId, status: "ATIVO" } }),
-    prisma.ata.findMany({
-      where: {
-        lodgeId,
-        status: "AGUARDANDO_ASSINATURAS",
-        signedByMasterId: null,
-      },
-      include: { session: true },
-      orderBy: { number: "asc" },
-    }),
-    prisma.expense.findMany({
-      where: {
-        lodgeId,
-        status: "PENDENTE_APROVACAO",
-        approvedByMasterId: null,
-      },
-      orderBy: { createdAt: "asc" },
-    }),
-  ]);
+  const [{ saldo }, ativos, atasToSign, expensesToApprove, placetsToSign] =
+    await Promise.all([
+      monthBalance(lodgeId),
+      prisma.user.count({ where: { lodgeId, status: "ATIVO" } }),
+      prisma.ata.findMany({
+        where: {
+          lodgeId,
+          status: "AGUARDANDO_ASSINATURAS",
+          signedByMasterId: null,
+        },
+        include: { session: true },
+        orderBy: { number: "asc" },
+      }),
+      prisma.expense.findMany({
+        where: {
+          lodgeId,
+          status: "PENDENTE_APROVACAO",
+          approvedByMasterId: null,
+        },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.quittePlacet.findMany({
+        where: {
+          lodgeId,
+          quitacaoFinanceira: true, // trava financeira já liberada
+          signedByMasterId: null,
+          status: { in: ["PENDENTE", "EM_ANALISE"] },
+        },
+        include: { user: { select: { name: true, cim: true } } },
+        orderBy: { dataSolicitacao: "asc" },
+      }),
+    ]);
 
   return (
     <>
@@ -594,6 +607,9 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
         <Card>
           <CardHeader>
             <CardTitle>Atas aguardando minha assinatura</CardTitle>
+            <CardDescription>
+              Assine sem sair do dashboard — a senha confirma o ato.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {atasToSign.length === 0 ? (
@@ -601,14 +617,23 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
             ) : (
               <ul className="space-y-2 text-sm">
                 {atasToSign.map((a) => (
-                  <li key={a.id}>
+                  <li
+                    key={a.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3"
+                  >
                     <Link
                       href={`/secretaria/atas/${a.id}`}
-                      className="block rounded-md border p-3 transition-colors hover:bg-muted/50"
+                      className="min-w-0 underline-offset-4 hover:underline"
                     >
                       Ata nº {a.number} —{" "}
                       {a.session.date.toLocaleDateString("pt-BR")}
                     </Link>
+                    <InlineSignDialog
+                      title={`Assinar Ata nº ${a.number}`}
+                      description={`Balaústre da sessão de ${a.session.date.toLocaleDateString("pt-BR")}. Ao completar a dupla assinatura o documento é selado.`}
+                      preview={a.content || "(sem conteúdo)"}
+                      action={signAtaInline.bind(null, a.id)}
+                    />
                   </li>
                 ))}
               </ul>
@@ -618,6 +643,46 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
               className="mt-3 block text-sm underline underline-offset-4"
             >
               Ir para as atas →
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Quitte Placets aguardando minha assinatura</CardTitle>
+            <CardDescription>
+              Quitação financeira já confirmada pela Tesouraria.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {placetsToSign.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma pendência.</p>
+            ) : (
+              <ul className="space-y-2 text-sm">
+                {placetsToSign.map((p) => (
+                  <li
+                    key={p.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3"
+                  >
+                    <span className="min-w-0">
+                      {p.user.name} (CIM {p.user.cim}) — solicitado em{" "}
+                      {p.dataSolicitacao.toLocaleDateString("pt-BR")}
+                    </span>
+                    <InlineSignDialog
+                      title={`Assinar Quitte Placet de ${p.user.name}`}
+                      description="Documento de desligamento com Nada Consta da Tesouraria. Ao completar a dupla assinatura o documento é emitido."
+                      preview={`Obreiro: ${p.user.name} (CIM ${p.user.cim})\nSolicitado em: ${p.dataSolicitacao.toLocaleDateString("pt-BR")}\nMotivo: ${p.motivo || "não informado"}\nQuitação financeira: confirmada (Nada Consta)`}
+                      action={signQuittePlacetInline.bind(null, p.id)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Link
+              href="/secretaria/quitte-placets"
+              className="mt-3 block text-sm underline underline-offset-4"
+            >
+              Ir para os Quitte Placets →
             </Link>
           </CardContent>
         </Card>
