@@ -82,6 +82,87 @@ export async function createLodge(
   };
 }
 
+// Atualiza dados cadastrais de uma loja (SUPER_ADMIN)
+export async function updateLodge(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  await requireRole("SUPER_ADMIN");
+
+  const id = String(formData.get("lodgeId") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const number = String(formData.get("number") ?? "").trim();
+  const potencia = String(formData.get("potencia") ?? "").trim() || null;
+  const oriente = String(formData.get("oriente") ?? "").trim() || null;
+
+  if (!id || !name || !number) {
+    return { error: "Nome e número são obrigatórios." };
+  }
+
+  const lodge = await prisma.lodge.findUnique({ where: { id } });
+  if (!lodge || lodge.number === "0000") {
+    return { error: "Loja não encontrada." };
+  }
+
+  const conflict = await prisma.lodge.findFirst({
+    where: { number, id: { not: id } },
+  });
+  if (conflict) return { error: `Já existe loja com o número ${number}.` };
+
+  const logo = await readLogo(formData);
+  if (logo && typeof logo === "object") return logo;
+
+  await prisma.lodge.update({
+    where: { id },
+    data: { name, number, potencia, oriente, ...(logo ? { logoUrl: logo } : {}) },
+  });
+
+  revalidatePath("/admin");
+  return { ok: `Loja "${name}" atualizada.` };
+}
+
+// Exclui uma loja e TODOS os seus dados (SUPER_ADMIN).
+// Exige digitar o número da loja como confirmação.
+export async function deleteLodge(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  await requireRole("SUPER_ADMIN");
+
+  const id = String(formData.get("lodgeId") ?? "");
+  const confirmNumber = String(formData.get("confirmNumber") ?? "").trim();
+
+  const lodge = await prisma.lodge.findUnique({ where: { id } });
+  if (!lodge || lodge.number === "0000") {
+    return { error: "Loja não encontrada." };
+  }
+  if (confirmNumber !== lodge.number) {
+    return { error: "Confirmação incorreta — digite o número da loja." };
+  }
+
+  // Sem onDelete: Cascade no schema, então removemos filhos antes dos pais
+  const where = { lodgeId: id };
+  await prisma.$transaction([
+    prisma.transaction.deleteMany({ where }),
+    prisma.invoice.deleteMany({ where }),
+    prisma.expense.deleteMany({ where }),
+    prisma.donation.deleteMany({ where }),
+    prisma.charityEvent.deleteMany({ where }),
+    prisma.attendance.deleteMany({ where }),
+    prisma.ata.deleteMany({ where }),
+    prisma.lodgeSession.deleteMany({ where }),
+    prisma.prancha.deleteMany({ where }),
+    prisma.document.deleteMany({ where }),
+    prisma.degreeHistory.deleteMany({ where }),
+    prisma.roleHistory.deleteMany({ where }),
+    prisma.user.deleteMany({ where }),
+    prisma.lodge.delete({ where: { id } }),
+  ]);
+
+  revalidatePath("/admin");
+  return { ok: `Loja "${lodge.name}" nº ${lodge.number} excluída com todos os dados.` };
+}
+
 // Logo da própria loja — VM ou Secretário
 export async function updateLodgeLogo(
   _prev: ActionResult,
