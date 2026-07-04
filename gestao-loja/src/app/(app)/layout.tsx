@@ -1,18 +1,9 @@
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { signOut } from "@/auth";
-import { Button } from "@/components/ui/button";
-import { SidebarNav, type NavItem } from "@/components/sidebar-nav";
-import { LogOut, Landmark } from "lucide-react";
-
-const roleLabels: Record<string, string> = {
-  MEMBER: "Obreiro",
-  VENERAVEL_MESTRE: "Venerável Mestre",
-  SECRETARIO: "Secretário",
-  TESOUREIRO: "Tesoureiro",
-  CONSELHO_CONTAS: "Conselho de Contas",
-  SUPER_ADMIN: "Admin Master",
-};
+import { AppShell } from "@/components/app-shell";
+import { type NavItem } from "@/components/sidebar-nav";
+import { roleLabels } from "@/lib/labels";
 
 function navFor(role: string): NavItem[] {
   if (role === "SUPER_ADMIN") {
@@ -32,6 +23,8 @@ function navFor(role: string): NavItem[] {
     { href: "/secretaria/atas", label: "Atas", icon: "atas", section: "Secretaria" },
     { href: "/secretaria/pranchas", label: "Pranchas", icon: "pranchas", section: "Secretaria", roles: fiscal },
     { href: "/secretaria/documentos", label: "Documentos (Drive)", icon: "documentos", section: "Secretaria", roles: fiscal },
+    { href: "/secretaria/admissoes", label: "Admissões", icon: "admissoes", section: "Secretaria", roles: fiscal },
+    { href: "/secretaria/quitte-placets", label: "Quitte Placets", icon: "quitteplacets", section: "Secretaria", roles: fiscal },
     { href: "/tesouraria/mensalidades", label: "Mensalidades", icon: "mensalidades", section: "Tesouraria", roles: tesouraria },
     { href: "/tesouraria/despesas", label: "Despesas", icon: "despesas", section: "Tesouraria", roles: tesouraria },
     { href: "/tesouraria/balancete", label: "Balancete", icon: "balancete", section: "Tesouraria", roles: tesouraria },
@@ -53,63 +46,22 @@ export default async function AppLayout({
     select: { logoUrl: true, name: true, number: true, oriente: true },
   });
 
+  async function handleSignOut() {
+    "use server";
+    await signOut({ redirectTo: "/login" });
+  }
+
   return (
-    <div className="flex min-h-screen bg-slate-100 dark:bg-slate-950">
-      <aside className="fixed inset-y-0 flex w-64 flex-col bg-slate-900 text-slate-100">
-        <div className="flex items-center gap-3 border-b border-white/10 px-4 py-5">
-          {lodge?.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={lodge.logoUrl}
-              alt=""
-              className="h-11 w-11 shrink-0 rounded-full border border-amber-400/40 bg-white object-cover"
-            />
-          ) : (
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-amber-400/40 bg-gradient-to-br from-amber-400/20 to-amber-600/10">
-              <Landmark className="h-5 w-5 text-amber-400" />
-            </span>
-          )}
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold leading-tight">
-              {lodge?.name ?? user.lodgeName}
-            </p>
-            <p className="truncate text-xs text-slate-400">
-              {lodge?.number && lodge.number !== "0000"
-                ? `Loja nº ${lodge.number}`
-                : "Painel do sistema"}
-              {lodge?.oriente ? ` · Or∴ ${lodge.oriente}` : ""}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-3 py-4">
-          <SidebarNav items={navFor(user.role)} />
-        </div>
-
-        <div className="border-t border-white/10 p-4">
-          <p className="truncate text-sm font-medium">{user.name}</p>
-          <p className="mb-3 text-xs text-amber-400/90">
-            {roleLabels[user.role] ?? user.role} · CIM {user.cim}
-          </p>
-          <form
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/login" });
-            }}
-          >
-            <Button
-              variant="outline"
-              size="sm"
-              type="submit"
-              className="w-full border-white/20 bg-transparent text-slate-200 hover:bg-white/10 hover:text-white"
-            >
-              <LogOut className="mr-2 h-4 w-4" /> Sair
-            </Button>
-          </form>
-        </div>
-      </aside>
-
-      <main className="ml-64 flex-1 p-8">{children}</main>
-    </div>
+    <AppShell
+      lodge={lodge}
+      lodgeNameFallback={user.lodgeName}
+      userName={user.name}
+      roleLabel={roleLabels[user.role] ?? user.role}
+      cim={user.cim}
+      navItems={navFor(user.role)}
+      signOutAction={handleSignOut}
+    >
+      {children}
+    </AppShell>
   );
 }

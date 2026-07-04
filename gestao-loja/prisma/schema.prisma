@@ -14,32 +14,35 @@ datasource db {
 // ─────────────────────────── Tenant ───────────────────────────
 
 model Lodge {
-  id            String   @id @default(cuid())
-  name          String
-  number        String   @unique // nº da Loja na potência
-  potencia      String? // GOB, GLESP, COMAB etc.
-  oriente       String? // cidade/UF
-  driveFolderId String? // pasta raiz da Loja no Google Drive
-  pixKey        String? // chave Pix da Loja (recebimento das capitações)
-  logoUrl       String? // logo da Loja (data URI ou URL)
+  id                 String   @id @default(cuid())
+  name               String
+  number             String   @unique // nº da Loja na potência
+  potencia           String? // GOB, GLESP, COMAB etc.
+  oriente            String? // cidade/UF
+  driveFolderId      String? // pasta raiz da Loja no Google Drive
+  pixKey             String? // chave Pix da Loja (recebimento das capitações)
+  logoUrl            String? // logo da Loja (data URI ou URL)
   googleRefreshToken String? // OAuth do Google da Loja (conexão ao Drive)
   googleEmail        String? // conta Google conectada
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  users         User[]
-  degreeHistory DegreeHistory[]
-  roleHistory   RoleHistory[]
-  sessions      LodgeSession[]
-  attendances   Attendance[]
-  atas          Ata[]
-  pranchas      Prancha[]
-  documents     Document[]
-  invoices      Invoice[]
-  expenses      Expense[]
-  transactions  Transaction[]
-  donations     Donation[]
-  events        CharityEvent[]
+  users             User[]
+  degreeHistory     DegreeHistory[]
+  roleHistory       RoleHistory[]
+  sessions          LodgeSession[]
+  attendances       Attendance[]
+  atas              Ata[]
+  pranchas          Prancha[]
+  documents         Document[]
+  invoices          Invoice[]
+  expenses          Expense[]
+  transactions      Transaction[]
+  donations         Donation[]
+  events            CharityEvent[]
+  processosAdmissao ProcessoAdmissao[]
+  quittePlacets     QuittePlacet[]
+  notifications     Notification[]
 
   @@map("lodges")
 }
@@ -69,43 +72,47 @@ enum MemberStatus {
 }
 
 model User {
-  id           String       @id @default(cuid())
-  lodgeId      String
-  cim          String       @unique // Cadastro de Identificação Maçônica
-  cpf          String       @unique
-  name         String
-  email        String       @unique
-  phone        String?
-  address      String?
-  birthDate    DateTime?
-  profession   String?
-  passwordHash String
-  degree       Degree       @default(APRENDIZ)
-  currentRole  Role         @default(MEMBER)
-  status       MemberStatus @default(ATIVO)
+  id             String       @id @default(cuid())
+  lodgeId        String
+  cim            String       @unique // Cadastro de Identificação Maçônica
+  cpf            String       @unique
+  name           String
+  email          String       @unique
+  phone          String?
+  address        String?
+  birthDate      DateTime?
+  profession     String?
+  passwordHash   String
+  degree         Degree       @default(APRENDIZ)
+  currentRole    Role         @default(MEMBER)
+  status         MemberStatus @default(ATIVO)
   initiationDate DateTime? // data de iniciação (base do interstício)
 
   // Painel de Privacidade (LGPD): visibilidade de contatos aos demais membros
-  isDataPublic   Boolean @default(false)
-  showEmail      Boolean @default(false)
-  showPhone      Boolean @default(false)
-  showAddress    Boolean @default(false)
-  showBirthDate  Boolean @default(false)
+  isDataPublic  Boolean @default(false)
+  showEmail     Boolean @default(false)
+  showPhone     Boolean @default(false)
+  showAddress   Boolean @default(false)
+  showBirthDate Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  lodge          Lodge           @relation(fields: [lodgeId], references: [id])
-  degreeHistory  DegreeHistory[]
-  roleHistory    RoleHistory[]
-  attendances    Attendance[]
-  invoices       Invoice[]
-  donations      Donation[]
-  atasAsMaster   Ata[]           @relation("AtaMaster")
-  atasAsSec      Ata[]           @relation("AtaSecretary")
-  expensesAsMaster    Expense[]  @relation("ExpenseMaster")
-  expensesAsTreasurer Expense[]  @relation("ExpenseTreasurer")
-  documentsUploaded   Document[]
+  lodge                 Lodge           @relation(fields: [lodgeId], references: [id])
+  degreeHistory         DegreeHistory[]
+  roleHistory           RoleHistory[]
+  attendances           Attendance[]
+  invoices              Invoice[]
+  donations             Donation[]
+  atasAsMaster          Ata[]           @relation("AtaMaster")
+  atasAsSec             Ata[]           @relation("AtaSecretary")
+  expensesAsMaster      Expense[]       @relation("ExpenseMaster")
+  expensesAsTreasurer   Expense[]       @relation("ExpenseTreasurer")
+  documentsUploaded     Document[]
+  quittePlacets         QuittePlacet[]
+  quittePlacetsAsMaster QuittePlacet[]  @relation("QuittePlacetMaster")
+  quittePlacetsAsSec    QuittePlacet[]  @relation("QuittePlacetSecretary")
+  notifications         Notification[]
 
   @@index([lodgeId])
   @@map("users")
@@ -113,13 +120,13 @@ model User {
 
 // Evolução de graus com controle de interstício
 model DegreeHistory {
-  id         String   @id @default(cuid())
-  lodgeId    String
-  userId     String
-  degree     Degree
-  date       DateTime // data da elevação/exaltação/iniciação
-  ataId      String? // ata da sessão em que ocorreu
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  lodgeId   String
+  userId    String
+  degree    Degree
+  date      DateTime // data da elevação/exaltação/iniciação
+  ataId     String? // ata da sessão em que ocorreu
+  createdAt DateTime @default(now())
 
   lodge Lodge @relation(fields: [lodgeId], references: [id])
   user  User  @relation(fields: [userId], references: [id])
@@ -157,13 +164,13 @@ enum SessionType {
 }
 
 model LodgeSession {
-  id          String      @id @default(cuid())
-  lodgeId     String
-  date        DateTime
-  type        SessionType @default(ORDINARIA)
-  degree      Degree      @default(APRENDIZ) // grau em que a sessão foi aberta
-  qrToken     String      @unique @default(cuid()) // check-in via QR Code
-  createdAt   DateTime    @default(now())
+  id        String      @id @default(cuid())
+  lodgeId   String
+  date      DateTime
+  type      SessionType @default(ORDINARIA)
+  degree    Degree      @default(APRENDIZ) // grau em que a sessão foi aberta
+  qrToken   String      @unique @default(cuid()) // check-in via QR Code
+  createdAt DateTime    @default(now())
 
   lodge       Lodge        @relation(fields: [lodgeId], references: [id])
   attendances Attendance[]
@@ -175,17 +182,17 @@ model LodgeSession {
 
 // Livro de Presenças (membros e visitantes)
 model Attendance {
-  id        String   @id @default(cuid())
-  lodgeId   String
-  sessionId String
-  userId    String? // null = visitante
+  id              String   @id @default(cuid())
+  lodgeId         String
+  sessionId       String
+  userId          String? // null = visitante
   // dados do visitante
   visitorName     String?
   visitorCim      String?
   visitorLodge    String? // loja de origem
   visitorPotencia String? // potência de origem
-  checkedInAt DateTime @default(now())
-  viaQrCode   Boolean  @default(false)
+  checkedInAt     DateTime @default(now())
+  viaQrCode       Boolean  @default(false)
 
   lodge   Lodge        @relation(fields: [lodgeId], references: [id])
   session LodgeSession @relation(fields: [sessionId], references: [id])
@@ -294,21 +301,21 @@ enum PaymentMethod {
 
 // Mensalidade (capitação) gerada automaticamente para membros ativos
 model Invoice {
-  id          String        @id @default(cuid())
-  lodgeId     String
-  userId      String
-  description String // ex.: "Capitação 07/2026"
+  id             String        @id @default(cuid())
+  lodgeId        String
+  userId         String
+  description    String // ex.: "Capitação 07/2026"
   referenceMonth Int
   referenceYear  Int
-  amountCents Int
-  dueDate     DateTime
-  status      InvoiceStatus @default(PENDENTE)
+  amountCents    Int
+  dueDate        DateTime
+  status         InvoiceStatus @default(PENDENTE)
 
   // Pix dinâmico
-  pixTxid    String? @unique // id da cobrança no PSP (chave do webhook)
-  pixCopiaECola String?
-  paidAt     DateTime?
-  paidMethod PaymentMethod?
+  pixTxid         String?        @unique // id da cobrança no PSP (chave do webhook)
+  pixCopiaECola   String?
+  paidAt          DateTime?
+  paidMethod      PaymentMethod?
   gatewayChargeId String? // cobrança recorrente cartão/boleto no gateway
 
   createdAt DateTime @default(now())
@@ -349,9 +356,9 @@ model Expense {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  lodge               Lodge @relation(fields: [lodgeId], references: [id])
-  approvedByMaster    User? @relation("ExpenseMaster", fields: [approvedByMasterId], references: [id])
-  approvedByTreasurer User? @relation("ExpenseTreasurer", fields: [approvedByTreasurerId], references: [id])
+  lodge               Lodge        @relation(fields: [lodgeId], references: [id])
+  approvedByMaster    User?        @relation("ExpenseMaster", fields: [approvedByMasterId], references: [id])
+  approvedByTreasurer User?        @relation("ExpenseTreasurer", fields: [approvedByTreasurerId], references: [id])
   transaction         Transaction?
 
   @@index([lodgeId])
@@ -424,4 +431,100 @@ model CharityEvent {
 
   @@index([lodgeId])
   @@map("charity_events")
+}
+
+// ─────────────── Módulo Secretaria: Kanban (loja.md §4) ───────────────
+
+enum StatusAdmissao {
+  DOCUMENTACAO
+  EDITAL_PUBLICADO
+  SINDICANCIA
+  ESCRUTINIO
+  AGUARDANDO_PLACET
+  INICIADO
+  REPROVADO
+}
+
+// Pipeline de Admissão (Iniciação) — candidato profano até virar obreiro
+model ProcessoAdmissao {
+  id               String         @id @default(cuid())
+  lodgeId          String
+  nomeCandidato    String
+  cpf              String?
+  email            String?
+  phone            String?
+  status           StatusAdmissao @default(DOCUMENTACAO)
+  certidoesValidas Boolean        @default(false)
+  dataEscrutinio   DateTime?
+  aprovado         Boolean?
+  observacoes      String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  lodge Lodge @relation(fields: [lodgeId], references: [id])
+
+  @@index([lodgeId])
+  @@map("processos_admissao")
+}
+
+enum StatusPlacet {
+  PENDENTE
+  EM_ANALISE
+  APROVADO
+  NEGADO
+}
+
+// Quitte Placet (desligamento/filiação) — trava: exige Nada Consta da Tesouraria
+// e dupla assinatura (VM + Secretário) para emissão final
+model QuittePlacet {
+  id                 String       @id @default(cuid())
+  userId             String
+  lodgeId            String
+  motivo             String?
+  dataSolicitacao    DateTime     @default(now())
+  quitacaoFinanceira Boolean      @default(false)
+  status             StatusPlacet @default(PENDENTE)
+
+  signedByMasterId String?
+  signedByMasterAt DateTime?
+  signedBySecId    String?
+  signedBySecAt    DateTime?
+
+  driveFileId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user           User  @relation(fields: [userId], references: [id])
+  lodge          Lodge @relation(fields: [lodgeId], references: [id])
+  signedByMaster User? @relation("QuittePlacetMaster", fields: [signedByMasterId], references: [id])
+  signedBySec    User? @relation("QuittePlacetSecretary", fields: [signedBySecId], references: [id])
+
+  @@index([lodgeId])
+  @@map("quitte_placets")
+}
+
+enum NotificationType {
+  PENDING_SIGNATURE
+  DEADLINE_WARNING
+  MISSING_DATA
+  FINANCIAL_APPROVAL
+}
+
+// Central de alertas (to-do de assinaturas, prazos de 15 dias, cadastro incompleto)
+model Notification {
+  id          String           @id @default(cuid())
+  lodgeId     String
+  userId      String?
+  title       String
+  description String
+  type        NotificationType
+  isRead      Boolean          @default(false)
+  dueDate     DateTime?
+  createdAt   DateTime         @default(now())
+
+  lodge Lodge @relation(fields: [lodgeId], references: [id])
+  user  User? @relation(fields: [userId], references: [id])
+
+  @@index([lodgeId])
+  @@map("notifications")
 }

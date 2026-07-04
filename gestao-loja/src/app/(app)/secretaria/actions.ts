@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { Degree, Role, SessionType } from "@prisma/client";
+import { Degree, Role, SessionType, StatusAdmissao } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { canWriteSecretaria, INTERSTICE_MONTHS } from "@/lib/permissions";
@@ -489,4 +489,198 @@ export async function uploadDocument(
   }
   revalidatePath("/secretaria/documentos");
   return { ok: "Documento enviado ao Google Drive da Loja." };
+}
+
+// ───────────────────── Pipeline de Admissão (Kanban) ─────────────────────
+
+export async function createProcessoAdmissao(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const nomeCandidato = String(formData.get("nomeCandidato")).trim();
+  if (!nomeCandidato) return { error: "Informe o nome do candidato." };
+  await prisma.processoAdmissao.create({
+    data: {
+      lodgeId: user.lodgeId,
+      nomeCandidato,
+      cpf: (formData.get("cpf") as string)?.replace(/\D/g, "") || null,
+      email: (formData.get("email") as string)?.trim().toLowerCase() || null,
+      phone: (formData.get("phone") as string) || null,
+    },
+  });
+  revalidatePath("/secretaria/admissoes");
+  return { ok: "Candidato incluído no pipeline de admissão." };
+}
+
+// Move o card no Kanban — só avança/retrocede uma etapa por vez, e a
+// entrada em ESCRUTINIO exige que as certidões já tenham sido validadas.
+export async function moveProcessoAdmissao(
+  processoId: string,
+  toStatus: StatusAdmissao
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const processo = await prisma.processoAdmissao.findUniqueOrThrow({
+    where: { id: processoId, lodgeId: user.lodgeId },
+  });
+  if (processo.status === "INICIADO" || processo.status === "REPROVADO") {
+    return { error: "Processo já encerrado." };
+  }
+  if (toStatus === "ESCRUTINIO" && !processo.certidoesValidas) {
+    return {
+      error: "Marque as certidões como válidas antes do Escrutínio.",
+    };
+  }
+  const data: Record<string, unknown> = { status: toStatus };
+  if (toStatus === "ESCRUTINIO" && !processo.dataEscrutinio) {
+    data.dataEscrutinio = new Date();
+  }
+  await prisma.processoAdmissao.update({
+    where: { id: processoId, lodgeId: user.lodgeId },
+    data,
+  });
+  revalidatePath("/secretaria/admissoes");
+  return { ok: "Processo atualizado." };
+}
+
+export async function setCertidoesValidas(
+  processoId: string,
+  value: boolean
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  await prisma.processoAdmissao.update({
+    where: { id: processoId, lodgeId: user.lodgeId },
+    data: { certidoesValidas: value },
+  });
+  revalidatePath("/secretaria/admissoes");
+  return { ok: "Certidões atualizadas." };
+}
+
+export async function reprovarProcessoAdmissao(
+  processoId: string
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  await prisma.processoAdmissao.update({
+    where: { id: processoId, lodgeId: user.lodgeId },
+    data: { status: "REPROVADO", aprovado: false },
+  });
+  revalidatePath("/secretaria/admissoes");
+  return { ok: "Processo reprovado." };
+}
+
+// ───────────────────── Quitte Placet ─────────────────────
+
+export async function requestQuittePlacet(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const userId = String(formData.get("userId"));
+  const motivo = (formData.get("motivo") as string) || null;
+  if (!userId) return { error: "Selecione o obreiro." };
+
+  // Trava financeira: consulta a Tesouraria por pendências (Nada Consta).
+  const pendencias = await prisma.invoice.count({
+    where: {
+      lodgeId: user.lodgeId,
+      userId,
+      status: { in: ["PENDENTE", "VENCIDA"] },
+    },
+  });
+
+  await prisma.quittePlacet.create({
+    data: {
+      lodgeId: user.lodgeId,
+      userId,
+      motivo,
+      quitacaoFinanceira: pendencias === 0,
+    },
+  });
+  revalidatePath("/secretaria/quitte-placets");
+  return { ok: "Solicitação de Quitte Placet registrada." };
+}
+
+// Reconsulta a Tesouraria e atualiza a variável quitacaoFinanceira (Nada Consta)
+export async function refreshQuitacaoFinanceira(
+  placetId: string
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const placet = await prisma.quittePlacet.findUniqueOrThrow({
+    where: { id: placetId, lodgeId: user.lodgeId },
+  });
+  const pendencias = await prisma.invoice.count({
+    where: {
+      lodgeId: user.lodgeId,
+      userId: placet.userId,
+      status: { in: ["PENDENTE", "VENCIDA"] },
+    },
+  });
+  await prisma.quittePlacet.update({
+    where: { id: placetId, lodgeId: user.lodgeId },
+    data: { quitacaoFinanceira: pendencias === 0 },
+  });
+  revalidatePath("/secretaria/quitte-placets");
+  return {
+    ok:
+      pendencias === 0
+        ? "Nada Consta confirmado pela Tesouraria."
+        : `Ainda há ${pendencias} mensalidade(s) pendente(s).`,
+  };
+}
+
+// Dupla assinatura (VM + Secretário) — só emite com quitacaoFinanceira = true
+export async function signQuittePlacet(placetId: string): Promise<ActionResult> {
+  const user = await requireUser();
+  const placet = await prisma.quittePlacet.findUniqueOrThrow({
+    where: { id: placetId, lodgeId: user.lodgeId },
+  });
+  if (!placet.quitacaoFinanceira) {
+    return {
+      error:
+        "Trava financeira: a Tesouraria ainda não confirmou o Nada Consta.",
+    };
+  }
+  if (placet.status === "APROVADO" || placet.status === "NEGADO") {
+    return { error: "Quitte Placet já encerrado." };
+  }
+
+  const data: Record<string, unknown> = {};
+  if (user.role === "VENERAVEL_MESTRE" && !placet.signedByMasterId) {
+    data.signedByMasterId = user.id;
+    data.signedByMasterAt = new Date();
+  } else if (user.role === "SECRETARIO" && !placet.signedBySecId) {
+    data.signedBySecId = user.id;
+    data.signedBySecAt = new Date();
+  } else {
+    return {
+      error:
+        "Apenas o Venerável Mestre e o Secretário assinam o Quitte Placet (uma vez cada).",
+    };
+  }
+
+  const willBeMaster = data.signedByMasterId ?? placet.signedByMasterId;
+  const willBeSec = data.signedBySecId ?? placet.signedBySecId;
+  data.status = willBeMaster && willBeSec ? "APROVADO" : "EM_ANALISE";
+
+  await prisma.quittePlacet.update({
+    where: { id: placetId, lodgeId: user.lodgeId },
+    data,
+  });
+  revalidatePath("/secretaria/quitte-placets");
+  return {
+    ok:
+      data.status === "APROVADO"
+        ? "Quitte Placet assinado por ambos — documento emitido."
+        : "Assinatura registrada. Aguardando a segunda assinatura.",
+  };
+}
+
+export async function negarQuittePlacet(placetId: string): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  await prisma.quittePlacet.update({
+    where: { id: placetId, lodgeId: user.lodgeId },
+    data: { status: "NEGADO" },
+  });
+  revalidatePath("/secretaria/quitte-placets");
+  return { ok: "Quitte Placet negado." };
 }
