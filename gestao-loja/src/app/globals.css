@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* O design system é claro-somente ("Livro de Atas"); as classes dark: dos
+   componentes shadcn só se aplicam sob uma classe .dark, que nunca é usada —
+   sem isto, o Tailwind 4 as ativa via prefers-color-scheme e o fundo fica
+   preto com texto escuro em dispositivos em modo escuro. */
+@custom-variant dark (&:is(.dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -45,6 +51,10 @@
   --color-ring: var(--ring);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+:root {
+  color-scheme: light;
 }
 
 body {
