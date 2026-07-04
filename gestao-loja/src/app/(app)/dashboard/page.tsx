@@ -11,14 +11,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-const roleLabels: Record<string, string> = {
-  MEMBER: "Obreiro",
-  VENERAVEL_MESTRE: "Venerável Mestre",
-  SECRETARIO: "Secretário",
-  TESOUREIRO: "Tesoureiro",
-  CONSELHO_CONTAS: "Conselho de Contas",
-};
+import {
+  roleLabels,
+  degreeLabels,
+  memberStatusLabels,
+  sessionTypeLabels,
+  ataStatusLabels,
+  invoiceStatusLabels,
+  expenseStatusLabels,
+  ataStatusTone,
+  invoiceStatusTone,
+  expenseStatusTone,
+  type BadgeTone,
+} from "@/lib/labels";
 
 function brl(cents: number) {
   return (cents / 100).toLocaleString("pt-BR", {
@@ -27,28 +32,41 @@ function brl(cents: number) {
   });
 }
 
+const statValueTone: Record<"danger" | "success", string> = {
+  danger: "text-red-700",
+  success: "text-green-700",
+};
+
 function Stat({
   label,
   value,
   hint,
+  tone,
 }: {
   label: string;
   value: string;
   hint?: string;
+  tone?: "danger" | "success";
 }) {
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardDescription>{label}</CardDescription>
-        <CardTitle className="text-2xl">{value}</CardTitle>
+        <CardTitle className={`text-2xl ${tone ? statValueTone[tone] : ""}`}>
+          {value}
+        </CardTitle>
       </CardHeader>
       {hint && (
-        <CardContent className="pt-0 text-sm text-neutral-500">
+        <CardContent className="pt-0 text-sm text-muted-foreground">
           {hint}
         </CardContent>
       )}
     </Card>
   );
+}
+
+function StatusBadge({ status, tone }: { status: string; tone: BadgeTone }) {
+  return <Badge variant={tone}>{status}</Badge>;
 }
 
 function monthRange(d = new Date()) {
@@ -163,8 +181,16 @@ async function MemberDashboard({
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Grau" value={me.degree} hint={intersticeHint} />
-        <Stat label="Situação" value={me.status} />
+        <Stat
+          label="Grau"
+          value={degreeLabels[me.degree] ?? me.degree}
+          hint={intersticeHint}
+        />
+        <Stat
+          label="Situação"
+          value={memberStatusLabels[me.status] ?? me.status}
+          tone={me.status === "IRREGULAR" ? "danger" : undefined}
+        />
         <Stat
           label="Frequência no ano"
           value={freq}
@@ -178,6 +204,7 @@ async function MemberDashboard({
               ? `${vencidas} vencida(s)`
               : `${openInvoices.length} pendente(s)`
           }
+          tone={vencidas > 0 ? "danger" : undefined}
         />
       </div>
 
@@ -187,21 +214,27 @@ async function MemberDashboard({
         </CardHeader>
         <CardContent>
           {openInvoices.length === 0 ? (
-            <p className="text-sm text-neutral-500">
+            <p className="text-sm text-green-700">
               Nenhuma pendência. Tudo em dia!
             </p>
           ) : (
             <ul className="space-y-2">
               {openInvoices.map((i) => (
-                <li
-                  key={i.id}
-                  className="flex items-center justify-between rounded-md border p-3 text-sm"
-                >
-                  <span>
-                    {i.description} — vence em{" "}
-                    {i.dueDate.toLocaleDateString("pt-BR")}
-                  </span>
-                  <span className="font-medium">{brl(i.amountCents)}</span>
+                <li key={i.id}>
+                  <Link
+                    href={`/tesouraria/mensalidades/${i.id}`}
+                    className="flex items-center justify-between rounded-md border p-3 text-sm transition-colors hover:bg-muted/50"
+                  >
+                    <span className="flex items-center gap-2">
+                      {i.description} — vence em{" "}
+                      {i.dueDate.toLocaleDateString("pt-BR")}
+                      <StatusBadge
+                        status={invoiceStatusLabels[i.status] ?? i.status}
+                        tone={invoiceStatusTone(i.status)}
+                      />
+                    </span>
+                    <span className="font-medium">{brl(i.amountCents)}</span>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -232,42 +265,55 @@ async function MemberDashboard({
 // ───────────── Secretário ─────────────
 
 async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
-  const [byStatus, byDegree, pendingAtas, nextSessions, pranchasYear] =
-    await Promise.all([
-      prisma.user.groupBy({
-        by: ["status"],
-        where: { lodgeId },
-        _count: true,
-      }),
-      prisma.user.groupBy({
-        by: ["degree"],
-        where: { lodgeId, status: "ATIVO" },
-        _count: true,
-      }),
-      prisma.ata.findMany({
-        where: {
-          lodgeId,
-          status: { in: ["RASCUNHO", "AGUARDANDO_ASSINATURAS"] },
-        },
-        include: { session: true },
-        orderBy: { number: "desc" },
-        take: 5,
-      }),
-      prisma.lodgeSession.findMany({
-        where: { lodgeId, date: { gte: new Date() } },
-        orderBy: { date: "asc" },
-        take: 5,
-      }),
-      prisma.prancha.count({
-        where: { lodgeId, year: new Date().getFullYear() },
-      }),
-    ]);
+  const [
+    byStatus,
+    byDegree,
+    pendingAtas,
+    pendingAtasCount,
+    nextSessions,
+    pranchasYear,
+  ] = await Promise.all([
+    prisma.user.groupBy({
+      by: ["status"],
+      where: { lodgeId },
+      _count: true,
+    }),
+    prisma.user.groupBy({
+      by: ["degree"],
+      where: { lodgeId, status: "ATIVO" },
+      _count: true,
+    }),
+    prisma.ata.findMany({
+      where: {
+        lodgeId,
+        status: { in: ["RASCUNHO", "AGUARDANDO_ASSINATURAS"] },
+      },
+      include: { session: true },
+      orderBy: { number: "desc" },
+      take: 5,
+    }),
+    prisma.ata.count({
+      where: {
+        lodgeId,
+        status: { in: ["RASCUNHO", "AGUARDANDO_ASSINATURAS"] },
+      },
+    }),
+    prisma.lodgeSession.findMany({
+      where: { lodgeId, date: { gte: new Date() } },
+      orderBy: { date: "asc" },
+      take: 5,
+    }),
+    prisma.prancha.count({
+      where: { lodgeId, year: new Date().getFullYear() },
+    }),
+  ]);
 
   const count = (s: string) =>
     byStatus.find((r) => r.status === s)?._count ?? 0;
   const degreeSummary = byDegree
-    .map((d) => `${d._count} ${d.degree.toLowerCase()}`)
+    .map((d) => `${d._count} ${(degreeLabels[d.degree] ?? d.degree).toLowerCase()}`)
     .join(" · ");
+  const irregulares = count("IRREGULAR");
 
   return (
     <>
@@ -277,8 +323,12 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
           value={String(count("ATIVO"))}
           hint={degreeSummary || undefined}
         />
-        <Stat label="Irregulares" value={String(count("IRREGULAR"))} />
-        <Stat label="Atas pendentes" value={String(pendingAtas.length)} />
+        <Stat
+          label="Irregulares"
+          value={String(irregulares)}
+          tone={irregulares > 0 ? "danger" : undefined}
+        />
+        <Stat label="Atas pendentes" value={String(pendingAtasCount)} />
         <Stat label="Pranchas no ano" value={String(pranchasYear)} />
       </div>
 
@@ -291,22 +341,32 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
           </CardHeader>
           <CardContent>
             {pendingAtas.length === 0 ? (
-              <p className="text-sm text-neutral-500">Nenhuma pendência.</p>
+              <p className="text-sm text-muted-foreground">Nenhuma pendência.</p>
             ) : (
               <ul className="space-y-2 text-sm">
                 {pendingAtas.map((a) => (
-                  <li
-                    key={a.id}
-                    className="flex items-center justify-between rounded-md border p-3"
-                  >
-                    <span>
-                      Ata nº {a.number} —{" "}
-                      {a.session.date.toLocaleDateString("pt-BR")}
-                    </span>
-                    <Badge variant="secondary">{a.status}</Badge>
+                  <li key={a.id}>
+                    <Link
+                      href={`/secretaria/atas/${a.id}`}
+                      className="flex items-center justify-between rounded-md border p-3 transition-colors hover:bg-muted/50"
+                    >
+                      <span>
+                        Ata nº {a.number} —{" "}
+                        {a.session.date.toLocaleDateString("pt-BR")}
+                      </span>
+                      <StatusBadge
+                        status={ataStatusLabels[a.status] ?? a.status}
+                        tone={ataStatusTone(a.status)}
+                      />
+                    </Link>
                   </li>
                 ))}
               </ul>
+            )}
+            {pendingAtasCount > pendingAtas.length && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                +{pendingAtasCount - pendingAtas.length} outra(s) não exibida(s)
+              </p>
             )}
             <Link
               href="/secretaria/atas"
@@ -323,7 +383,7 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
           </CardHeader>
           <CardContent>
             {nextSessions.length === 0 ? (
-              <p className="text-sm text-neutral-500">
+              <p className="text-sm text-muted-foreground">
                 Nenhuma sessão agendada.
               </p>
             ) : (
@@ -334,9 +394,12 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
                     className="flex items-center justify-between rounded-md border p-3"
                   >
                     <span>
-                      {s.date.toLocaleDateString("pt-BR")} — {s.type}
+                      {s.date.toLocaleDateString("pt-BR")} —{" "}
+                      {sessionTypeLabels[s.type] ?? s.type}
                     </span>
-                    <Badge variant="outline">{s.degree}</Badge>
+                    <Badge variant="outline">
+                      {degreeLabels[s.degree] ?? s.degree}
+                    </Badge>
                   </li>
                 ))}
               </ul>
@@ -382,11 +445,16 @@ async function TesoureiroDashboard({ lodgeId }: { lodgeId: string }) {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Receitas do mês" value={brl(receitas)} />
         <Stat label="Despesas do mês" value={brl(despesas)} />
-        <Stat label="Saldo do mês" value={brl(saldo)} />
+        <Stat
+          label="Saldo do mês"
+          value={brl(saldo)}
+          tone={saldo < 0 ? "danger" : undefined}
+        />
         <Stat
           label="Inadimplência"
           value={brl(inadimplencia)}
           hint={`${overdue.length} mensalidade(s) vencida(s)`}
+          tone={inadimplencia > 0 ? "danger" : undefined}
         />
       </div>
 
@@ -397,21 +465,32 @@ async function TesoureiroDashboard({ lodgeId }: { lodgeId: string }) {
           </CardHeader>
           <CardContent>
             {overdue.length === 0 ? (
-              <p className="text-sm text-neutral-500">Nenhuma inadimplência.</p>
+              <p className="text-sm text-muted-foreground">Nenhuma inadimplência.</p>
             ) : (
               <ul className="space-y-2 text-sm">
                 {overdue.slice(0, 8).map((i) => (
-                  <li
-                    key={i.id}
-                    className="flex items-center justify-between rounded-md border p-3"
-                  >
-                    <span>
-                      {i.user.name} (CIM {i.user.cim}) — {i.description}
-                    </span>
-                    <span className="font-medium">{brl(i.amountCents)}</span>
+                  <li key={i.id}>
+                    <Link
+                      href={`/tesouraria/mensalidades/${i.id}`}
+                      className="flex items-center justify-between rounded-md border p-3 transition-colors hover:bg-muted/50"
+                    >
+                      <span className="flex items-center gap-2">
+                        {i.user.name} (CIM {i.user.cim}) — {i.description}
+                        <StatusBadge
+                          status={invoiceStatusLabels[i.status] ?? i.status}
+                          tone={invoiceStatusTone(i.status)}
+                        />
+                      </span>
+                      <span className="font-medium">{brl(i.amountCents)}</span>
+                    </Link>
                   </li>
                 ))}
               </ul>
+            )}
+            {overdue.length > 8 && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                +{overdue.length - 8} outra(s) não exibida(s)
+              </p>
             )}
             <Link
               href="/tesouraria/mensalidades"
@@ -431,7 +510,7 @@ async function TesoureiroDashboard({ lodgeId }: { lodgeId: string }) {
           </CardHeader>
           <CardContent>
             {pendingExpenses.length === 0 ? (
-              <p className="text-sm text-neutral-500">Nenhuma pendência.</p>
+              <p className="text-sm text-muted-foreground">Nenhuma pendência.</p>
             ) : (
               <ul className="space-y-2 text-sm">
                 {pendingExpenses.map((e) => (
@@ -487,11 +566,20 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
     <>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Membros ativos" value={String(ativos)} />
-        <Stat label="Saldo do mês" value={brl(saldo)} />
-        <Stat label="Atas p/ assinar" value={String(atasToSign.length)} />
+        <Stat
+          label="Saldo do mês"
+          value={brl(saldo)}
+          tone={saldo < 0 ? "danger" : undefined}
+        />
+        <Stat
+          label="Atas p/ assinar"
+          value={String(atasToSign.length)}
+          tone={atasToSign.length > 0 ? "danger" : undefined}
+        />
         <Stat
           label="Despesas p/ aprovar"
           value={String(expensesToApprove.length)}
+          tone={expensesToApprove.length > 0 ? "danger" : undefined}
         />
       </div>
 
@@ -504,13 +592,18 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
           </CardHeader>
           <CardContent>
             {atasToSign.length === 0 ? (
-              <p className="text-sm text-neutral-500">Nenhuma pendência.</p>
+              <p className="text-sm text-muted-foreground">Nenhuma pendência.</p>
             ) : (
               <ul className="space-y-2 text-sm">
                 {atasToSign.map((a) => (
-                  <li key={a.id} className="rounded-md border p-3">
-                    Ata nº {a.number} —{" "}
-                    {a.session.date.toLocaleDateString("pt-BR")}
+                  <li key={a.id}>
+                    <Link
+                      href={`/secretaria/atas/${a.id}`}
+                      className="block rounded-md border p-3 transition-colors hover:bg-muted/50"
+                    >
+                      Ata nº {a.number} —{" "}
+                      {a.session.date.toLocaleDateString("pt-BR")}
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -530,7 +623,7 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
           </CardHeader>
           <CardContent>
             {expensesToApprove.length === 0 ? (
-              <p className="text-sm text-neutral-500">Nenhuma pendência.</p>
+              <p className="text-sm text-muted-foreground">Nenhuma pendência.</p>
             ) : (
               <ul className="space-y-2 text-sm">
                 {expensesToApprove.map((e) => (
@@ -592,7 +685,7 @@ async function ConselhoDashboard({ lodgeId }: { lodgeId: string }) {
 
   return (
     <>
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-muted-foreground">
         Acesso de fiscalização — somente leitura em Secretaria e Tesouraria.
       </p>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -602,8 +695,13 @@ async function ConselhoDashboard({ lodgeId }: { lodgeId: string }) {
           label="Saldo do mês"
           value={brl(saldo)}
           hint={`Acumulado no ano: ${brl(recYtd - despYtd)}`}
+          tone={saldo < 0 ? "danger" : undefined}
         />
-        <Stat label="Mensalidades vencidas" value={String(overdueCount)} />
+        <Stat
+          label="Mensalidades vencidas"
+          value={String(overdueCount)}
+          tone={overdueCount > 0 ? "danger" : undefined}
+        />
       </div>
 
       <Card>
@@ -615,7 +713,7 @@ async function ConselhoDashboard({ lodgeId }: { lodgeId: string }) {
         </CardHeader>
         <CardContent>
           {recentExpenses.length === 0 ? (
-            <p className="text-sm text-neutral-500">
+            <p className="text-sm text-muted-foreground">
               Nenhuma despesa aprovada.
             </p>
           ) : (
@@ -626,9 +724,13 @@ async function ConselhoDashboard({ lodgeId }: { lodgeId: string }) {
                     <span>{e.description}</span>
                     <span className="font-medium">{brl(e.amountCents)}</span>
                   </div>
-                  <p className="mt-1 text-xs text-neutral-500">
+                  <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                     VM: {e.approvedByMaster?.name ?? "—"} · Tesoureiro:{" "}
-                    {e.approvedByTreasurer?.name ?? "—"} · {e.status}
+                    {e.approvedByTreasurer?.name ?? "—"}
+                    <StatusBadge
+                      status={expenseStatusLabels[e.status] ?? e.status}
+                      tone={expenseStatusTone(e.status)}
+                    />
                   </p>
                 </li>
               ))}

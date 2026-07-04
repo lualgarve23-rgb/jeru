@@ -6,7 +6,10 @@ import { prisma } from "@/lib/prisma";
 import { authConfig } from "@/auth.config";
 
 const credentialsSchema = z.object({
-  cim: z.string().min(1),
+  cim: z
+    .string()
+    .transform((v) => v.trim())
+    .pipe(z.string().min(1)),
   cpf: z
     .string()
     .min(1)
@@ -37,7 +40,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!user || user.status === "EX_MEMBRO") return null;
         if (user.cpf.replace(/\D/g, "") !== cpf) return null;
 
-        const valid = await bcrypt.compare(password, user.passwordHash);
+        // Aceita a senha como digitada e, como fallback, só os dígitos —
+        // a senha inicial é o CPF, que muitos digitam com máscara (000.000.000-00)
+        let valid = await bcrypt.compare(password.trim(), user.passwordHash);
+        if (!valid) {
+          const digits = password.replace(/\D/g, "");
+          if (digits) valid = await bcrypt.compare(digits, user.passwordHash);
+        }
         if (!valid) return null;
 
         return {
