@@ -40,6 +40,7 @@ type Processo = {
   comunicadoEnviado: boolean;
   dataCerimonia: string | null; // ISO
   aptoEm: string | null; // ISO — data em que cumpre o interstício
+  freqPct: number | null; // % de presença desde o início do processo
 };
 
 // Prazo de comunicação (15 dias pós-cerimônia): dias restantes (negativo = vencido)
@@ -51,7 +52,15 @@ function diasRestantes(p: Processo): number | null {
   return Math.ceil((due - Date.now()) / DAY_MS);
 }
 
-function Card({ processo, readOnly }: { processo: Processo; readOnly: boolean }) {
+function Card({
+  processo,
+  readOnly,
+  minFreq,
+}: {
+  processo: Processo;
+  readOnly: boolean;
+  minFreq: number;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: processo.id, disabled: readOnly });
   const [pending, startTransition] = useTransition();
@@ -86,6 +95,19 @@ function Card({ processo, readOnly }: { processo: Processo; readOnly: boolean })
       {intersticePendente && aptoEm && (
         <p className="text-xs text-amber-700">
           🔒 Apto em {aptoEm.toLocaleDateString("pt-BR")}
+        </p>
+      )}
+      {processo.status === "INSTRUCAO_E_FREQUENCIA" && (
+        <p
+          className={`text-xs ${
+            processo.freqPct !== null && processo.freqPct < minFreq
+              ? "font-medium text-amber-700"
+              : "text-muted-foreground"
+          }`}
+        >
+          {processo.freqPct === null
+            ? "Sem sessões no período do processo"
+            : `Frequência: ${processo.freqPct}% (mínimo ${minFreq}%)`}
         </p>
       )}
       {restantes !== null && (
@@ -146,10 +168,12 @@ function Column({
   status,
   processos,
   readOnly,
+  minFreq,
 }: {
   status: StatusProgressao;
   processos: Processo[];
   readOnly: boolean;
+  minFreq: number;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   return (
@@ -166,7 +190,7 @@ function Column({
         <Badge variant="outline">{processos.length}</Badge>
       </div>
       {processos.map((p) => (
-        <Card key={p.id} processo={p} readOnly={readOnly} />
+        <Card key={p.id} processo={p} readOnly={readOnly} minFreq={minFreq} />
       ))}
     </div>
   );
@@ -175,9 +199,11 @@ function Column({
 export function ProgressaoKanban({
   processos: initial,
   readOnly,
+  minFreq,
 }: {
   processos: Processo[];
   readOnly: boolean;
+  minFreq: number;
 }) {
   const [processos, setProcessos] = useState(initial);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -239,6 +265,7 @@ export function ProgressaoKanban({
               status={status}
               processos={processos.filter((p) => p.status === status)}
               readOnly={readOnly}
+              minFreq={minFreq}
             />
           ))}
         </div>

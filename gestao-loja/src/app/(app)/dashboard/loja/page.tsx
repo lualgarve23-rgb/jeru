@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { updateLodgeLogo } from "../../admin/actions";
-import { disconnectGoogle } from "./actions";
+import { disconnectGoogle, updateMinFreqProgressao } from "./actions";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -78,6 +78,38 @@ export default async function LojaConfigPage({
             <div className="space-y-1">
               <Label htmlFor="logo">Nova imagem</Label>
               <Input id="logo" name="logo" type="file" accept="image/*" required />
+            </div>
+          </ActionForm>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Progressão de Graus</CardTitle>
+          <CardDescription>
+            Frequência mínima nas sessões, medida desde o início do processo,
+            para o obreiro sair da coluna &quot;Instrução e Frequência&quot; do
+            Kanban. Ajuste conforme o regulamento da sua potência.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ActionForm
+            action={updateMinFreqProgressao}
+            submitLabel="Salvar frequência mínima"
+          >
+            <div className="space-y-1">
+              <Label htmlFor="minFreq">Frequência mínima (%)</Label>
+              <Input
+                id="minFreq"
+                name="minFreq"
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                defaultValue={lodge.minFreqProgressao}
+                required
+                className="max-w-32"
+              />
             </div>
           </ActionForm>
         </CardContent>

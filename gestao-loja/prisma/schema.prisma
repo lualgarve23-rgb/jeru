@@ -22,6 +22,9 @@ model Lodge {
   driveFolderId      String? // pasta raiz da Loja no Google Drive
   pixKey             String? // chave Pix da Loja (recebimento das capitações)
   logoUrl            String? // logo da Loja (data URI ou URL)
+  // Frequência mínima (%) nas sessões durante o processo de progressão
+  // (trava da coluna Instrução e Frequência — ajuste conforme o regulamento)
+  minFreqProgressao  Int      @default(50)
   googleRefreshToken String? // OAuth do Google da Loja (conexão ao Drive)
   googleEmail        String? // conta Google conectada
   createdAt          DateTime @default(now())

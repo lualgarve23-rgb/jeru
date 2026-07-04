@@ -804,7 +804,42 @@ export async function moveProcessoProgressao(
     }
   }
 
-  // Trava 2 — Guarda dos Selos: cerimônia só com o Placet deferido
+  // Trava 2 — frequência: valida o Livro de Presenças durante o processo
+  // antes de sair de Instrução e Frequência (mínimo configurável por loja)
+  if (
+    fromIdx <= ORDEM_PROGRESSAO.indexOf("INSTRUCAO_E_FREQUENCIA") &&
+    toIdx > ORDEM_PROGRESSAO.indexOf("INSTRUCAO_E_FREQUENCIA")
+  ) {
+    const [lodge, sessoes, presencas] = await Promise.all([
+      prisma.lodge.findUniqueOrThrow({
+        where: { id: user.lodgeId },
+        select: { minFreqProgressao: true },
+      }),
+      prisma.lodgeSession.count({
+        where: {
+          lodgeId: user.lodgeId,
+          date: { gte: processo.dataInicio, lte: new Date() },
+        },
+      }),
+      prisma.attendance.count({
+        where: {
+          lodgeId: user.lodgeId,
+          userId: processo.userId,
+          session: { date: { gte: processo.dataInicio, lte: new Date() } },
+        },
+      }),
+    ]);
+    if (sessoes > 0) {
+      const pct = Math.round((presencas / sessoes) * 100);
+      if (pct < lodge.minFreqProgressao) {
+        return {
+          error: `Frequência insuficiente: ${pct}% (${presencas} presença(s) em ${sessoes} sessão(ões) desde o início do processo). Mínimo da loja: ${lodge.minFreqProgressao}%.`,
+        };
+      }
+    }
+  }
+
+  // Trava 3 — Guarda dos Selos: cerimônia só com o Placet deferido
   if (toIdx >= ORDEM_PROGRESSAO.indexOf("AGUARDANDO_CERIMONIA") && !processo.placetDeferido) {
     return {
       error:

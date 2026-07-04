@@ -46,6 +46,37 @@ export default async function ProgressoesPage() {
     }),
   ]);
 
+  const lodge = await prisma.lodge.findUniqueOrThrow({
+    where: { id: user.lodgeId },
+    select: { minFreqProgressao: true },
+  });
+
+  // Frequência de cada obreiro desde o início do processo (Livro de Presenças)
+  const freqByProcesso = new Map<string, number | null>();
+  await Promise.all(
+    processos.map(async (p) => {
+      const [sessoes, presencas] = await Promise.all([
+        prisma.lodgeSession.count({
+          where: {
+            lodgeId: user.lodgeId,
+            date: { gte: p.dataInicio, lte: new Date() },
+          },
+        }),
+        prisma.attendance.count({
+          where: {
+            lodgeId: user.lodgeId,
+            userId: p.userId,
+            session: { date: { gte: p.dataInicio, lte: new Date() } },
+          },
+        }),
+      ]);
+      freqByProcesso.set(
+        p.id,
+        sessoes > 0 ? Math.round((presencas / sessoes) * 100) : null
+      );
+    })
+  );
+
   const cards = processos.map((p) => {
     // data em que o interstício é cumprido, para exibir a trava no card
     const base = p.user.degreeHistory[0]?.date ?? p.user.initiationDate;
@@ -65,6 +96,7 @@ export default async function ProgressoesPage() {
       comunicadoEnviado: p.comunicadoEnviado,
       dataCerimonia: p.dataCerimonia?.toISOString() ?? null,
       aptoEm,
+      freqPct: freqByProcesso.get(p.id) ?? null,
     };
   });
 
@@ -116,7 +148,11 @@ export default async function ProgressoesPage() {
         </Card>
       )}
 
-      <ProgressaoKanban processos={cards} readOnly={!isWriter} />
+      <ProgressaoKanban
+        processos={cards}
+        readOnly={!isWriter}
+        minFreq={lodge.minFreqProgressao}
+      />
     </div>
   );
 }
