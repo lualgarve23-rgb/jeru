@@ -10,7 +10,7 @@ Membros de Lojas Maçônicas no Brasil, em três perfis principais: oficiais adm
 
 ## Product Purpose
 
-SaaS multi-tenant que automatiza a Secretaria e a Tesouraria de Lojas Maçônicas: cadastro e evolução de obreiros (graus, interstícios, cargos), atas com assinatura digital conjunta, presenças via QR Code, expedição de pranchas, integração com Google Drive, mensalidades recorrentes, Pix com baixa automática e balancetes — tudo com isolamento total de dados por loja (tenant), travas de governança (dupla assinatura) e compliance LGPD. Sucesso é a loja abandonar planilhas e papel com confiança de que as regras do direito maçônico são cumpridas pelo sistema.
+SaaS multi-tenant que automatiza a Secretaria e a Tesouraria de Lojas Maçônicas: cadastro e evolução de obreiros (graus, interstícios, cargos de Loja completos), atas pré-preenchidas a partir do modelo institucional com assinatura digital conjunta, presenças via QR Code, expedição de pranchas com o catálogo de formulários oficiais do GOB-SP, integração com Google Drive e Gmail, mensalidades recorrentes (Pix e gateway Asaas com baixa automática), inadimplência automática, relatórios CSV e balancetes — tudo com isolamento total de dados por loja (tenant), travas de governança (dupla assinatura) e compliance LGPD. Sucesso é a loja abandonar planilhas e papel com confiança de que as regras do direito maçônico são cumpridas pelo sistema.
 
 ## Brand Personality
 

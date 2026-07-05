@@ -247,3 +247,16 @@ Inicie o desenvolvimento configurando o banco de dados (PostgreSQL + Prisma) com
 ***
 
 Com esse documento, a IA (como o Claude Code) terá não apenas a arquitetura técnica, mas todo o entendimento das regras de conformidade institucionais (trava financeira, dupla assinatura, prazos de relatórios) garantindo que o software reflita exatamente a realidade operacional exigida pelas Lojas e obediências [6, 9, 11, 17].
+
+## 9. Estado da Implementação (atualizado em 05/07/2026)
+
+Tudo do §1–§7 está implementado, testado e em produção (https://jeru.olgado.org). Além do spec original:
+
+- **Tesouraria — gateway Asaas:** cobrança recorrente por cartão/boleto (assinaturas mensais), link de cobrança avulso por capitação e webhook com baixa automática (`/api/webhooks/asaas`, token por loja). Config por loja no card "Gateway Asaas". Aprovado em sandbox.
+- **Inadimplência automática:** `Lodge.limiteInadimplencia` (default 3) — capitações vencidas mudam o membro para IRREGULAR e o quite reverte para ATIVO (`src/lib/inadimplencia.ts`).
+- **Relatórios CSV:** balancete mensal, situação de mensalidades (inadimplência) e frequência anual por membro (`src/lib/csv.ts`, separador `;` e BOM para Excel BR).
+- **Recuperação de senha com 2FA por e-mail:** `/esqueci-senha` (CIM+CPF → código de 6 dígitos por e-mail → nova senha), códigos bcrypt com 15 min e 5 tentativas.
+- **Ata pré-preenchida:** ao lavrar a ata, o rascunho é gerado do modelo institucional (`src/lib/ata-template.ts`): data/hora por extenso, grau/tipo da sessão, cargos identificados entre os presentes, visitantes e contagem de obreiros; lacunas ficam como `_____`. Novo campo `Lodge.address` (endereço da sede citado na ata), editável no /admin.
+- **Cargos de Loja completos:** enum `Role` inclui 1º/2º Vigilante, 1º/2º Diácono, Orador, Guarda Interno, Guarda Externo e Diretor de Cerimônias — todos com nível de acesso de Obreiro (as permissões de escrita seguem restritas a Secretário/Tesoureiro/VM; Conselho de Contas somente leitura). A ata preenche automaticamente todos os cargos citados no modelo.
+- **Formulários oficiais do GOB-SP:** catálogo com 31 formulários (Form. 009 a 129 + atestado, obtidos no Conecta GOB-SP) em `src/lib/formularios-gob.ts` e `public/formularios-gob/`, exibidos por categoria (Admissão, Filiação e Regularização, Vida do Obreiro, Mútua, Administração da Loja) na página de Pranchas, com download atrás do login. Fluxo: baixar → preencher → anexar à prancha → expedir à Guarda dos Selos.
+- **Gmail da loja ativo** para envio de pranchas/atas à Guarda dos Selos (gselos@gobsp.org.br) e códigos 2FA.
