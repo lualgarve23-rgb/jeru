@@ -35,3 +35,22 @@ export async function updateMinFreqProgressao(
   revalidatePath("/secretaria/progressoes");
   return { ok: `Frequência mínima definida em ${value}%.` };
 }
+
+// Nº de capitações vencidas que torna o membro IRREGULAR automaticamente
+export async function updateLimiteInadimplencia(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireRole("VENERAVEL_MESTRE", "SECRETARIO", "TESOUREIRO");
+  const value = Number(formData.get("limite"));
+  if (!Number.isInteger(value) || value < 1 || value > 24) {
+    return { error: "Informe um número inteiro entre 1 e 24." };
+  }
+  await prisma.lodge.update({
+    where: { id: user.lodgeId },
+    data: { limiteInadimplencia: value },
+  });
+  revalidatePath("/dashboard/loja");
+  revalidatePath("/tesouraria/mensalidades");
+  return { ok: `Membros ficam irregulares com ${value} capitação(ões) vencida(s).` };
+}

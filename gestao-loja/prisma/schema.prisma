@@ -25,6 +25,8 @@ model Lodge {
   // Frequência mínima (%) nas sessões durante o processo de progressão
   // (trava da coluna Instrução e Frequência — ajuste conforme o regulamento)
   minFreqProgressao  Int      @default(50)
+  // Nº de capitações vencidas para o membro ficar IRREGULAR (inadimplência)
+  limiteInadimplencia Int     @default(3)
   // Gateway de pagamento Asaas (cobrança recorrente cartão/boleto)
   asaasApiKey        String? // API key da conta Asaas da Loja
   asaasWebhookToken  String? // token conferido no header asaas-access-token do webhook

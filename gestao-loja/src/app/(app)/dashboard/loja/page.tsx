@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { updateLodgeLogo } from "../../admin/actions";
-import { disconnectGoogle, updateMinFreqProgressao } from "./actions";
+import {
+  disconnectGoogle,
+  updateMinFreqProgressao,
+  updateLimiteInadimplencia,
+} from "./actions";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -107,6 +111,37 @@ export default async function LojaConfigPage({
                 max={100}
                 step={1}
                 defaultValue={lodge.minFreqProgressao}
+                required
+                className="max-w-32"
+              />
+            </div>
+          </ActionForm>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Inadimplência</CardTitle>
+          <CardDescription>
+            Número de capitações vencidas a partir do qual o membro passa
+            automaticamente a IRREGULAR. Ao quitar, ele volta a ATIVO sozinho.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ActionForm
+            action={updateLimiteInadimplencia}
+            submitLabel="Salvar limite"
+          >
+            <div className="space-y-1">
+              <Label htmlFor="limite">Capitações vencidas</Label>
+              <Input
+                id="limite"
+                name="limite"
+                type="number"
+                min={1}
+                max={24}
+                step={1}
+                defaultValue={lodge.limiteInadimplencia}
                 required
                 className="max-w-32"
               />

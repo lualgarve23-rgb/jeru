@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { canWriteTesouraria } from "@/lib/permissions";
 import { buildPixPayload } from "@/lib/pix";
+import { syncInadimplencia } from "@/lib/inadimplencia";
 import {
   AsaasError,
   ensureCustomer,
@@ -147,6 +148,8 @@ export async function settleInvoice(
       },
     }),
   ]);
+  // pagamento pode regularizar o membro (inadimplência automática)
+  await syncInadimplencia(invoice.lodgeId);
 }
 
 // ─────────────── Gateway Asaas (cartão/boleto recorrente) ───────────────

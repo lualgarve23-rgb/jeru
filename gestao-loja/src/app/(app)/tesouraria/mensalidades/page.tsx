@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { canWriteTesouraria } from "@/lib/permissions";
+import { syncInadimplencia } from "@/lib/inadimplencia";
 import {
   generateInvoices,
   updatePixKey,
@@ -45,6 +46,8 @@ export default async function MensalidadesPage() {
     "CONSELHO_CONTAS"
   );
   const isWriter = canWriteTesouraria(user.role);
+  // Inadimplência automática: vence capitações e ajusta ATIVO↔IRREGULAR
+  await syncInadimplencia(user.lodgeId);
   const [lodge, invoices, subscribers] = await Promise.all([
     prisma.lodge.findUniqueOrThrow({ where: { id: user.lodgeId } }),
     prisma.invoice.findMany({
@@ -65,7 +68,16 @@ export default async function MensalidadesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Mensalidades (Capitações)</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">Mensalidades (Capitações)</h1>
+        <a
+          className="flex h-9 items-center rounded-md border px-3 text-sm underline-offset-2 hover:underline"
+          href="/tesouraria/mensalidades/export"
+          download
+        >
+          Exportar CSV (inadimplência)
+        </a>
+      </div>
 
       {isWriter && (
         <div className="grid max-w-4xl grid-cols-2 gap-6">

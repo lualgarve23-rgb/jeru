@@ -83,6 +83,13 @@ export default async function BalancetePage({
         <button className="h-9 rounded-md border px-3 text-sm" type="submit">
           Consultar
         </button>
+        <a
+          className="flex h-9 items-center rounded-md border px-3 text-sm underline-offset-2 hover:underline"
+          href={`/tesouraria/balancete/export?mes=${month}&ano=${year}`}
+          download
+        >
+          Exportar CSV
+        </a>
       </form>
 
       <div className="grid max-w-2xl grid-cols-3 gap-4">

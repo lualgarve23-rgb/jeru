@@ -36,7 +36,16 @@ export default async function SessoesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Sessões e Livro de Presenças</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">Sessões e Livro de Presenças</h1>
+        <a
+          className="flex h-9 items-center rounded-md border px-3 text-sm underline-offset-2 hover:underline"
+          href={`/secretaria/sessoes/export?ano=${new Date().getFullYear()}`}
+          download
+        >
+          Exportar frequência (CSV)
+        </a>
+      </div>
 
       {canWriteSecretaria(user.role) && (
         <Card className="max-w-lg">
