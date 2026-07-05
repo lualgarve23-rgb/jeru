@@ -5,6 +5,8 @@ import {
   disconnectGoogle,
   updateMinFreqProgressao,
   updateLimiteInadimplencia,
+  updateCertTemplate,
+  removeCertTemplate,
 } from "./actions";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
@@ -82,6 +84,54 @@ export default async function LojaConfigPage({
             <div className="space-y-1">
               <Label htmlFor="logo">Nova imagem</Label>
               <Input id="logo" name="logo" type="file" accept="image/*" required />
+            </div>
+          </ActionForm>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Certificado de Visita</CardTitle>
+          <CardDescription>
+            Template PPTX usado no certificado enviado aos visitantes. Os
+            marcadores <code>&lt;&lt;NOME DO IRMÃO&gt;&gt;</code> e{" "}
+            <code>&lt;&lt;SESSAO&gt;&gt;</code> são obrigatórios;{" "}
+            <code>&lt;&lt;EMAIL&gt;&gt;</code> e{" "}
+            <code>&lt;&lt;VENERAVEL&gt;&gt;</code> são opcionais.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <Badge variant={lodge.certFundoPdf ? "default" : "secondary"}>
+              {lodge.certFundoPdf ? "Template personalizado" : "Template padrão"}
+            </Badge>
+            <Button asChild variant="outline" size="sm">
+              <a
+                href="/dashboard/loja/certificado-preview"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Ver preview (PDF)
+              </a>
+            </Button>
+            {lodge.certFundoPdf && (
+              <ActionButton
+                action={removeCertTemplate}
+                label="Voltar ao padrão"
+                variant="outline"
+              />
+            )}
+          </div>
+          <ActionForm action={updateCertTemplate} submitLabel="Enviar template">
+            <div className="space-y-1">
+              <Label htmlFor="template">Novo template (.pptx)</Label>
+              <Input
+                id="template"
+                name="template"
+                type="file"
+                accept=".pptx"
+                required
+              />
             </div>
           </ActionForm>
         </CardContent>

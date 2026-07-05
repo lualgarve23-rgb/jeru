@@ -28,6 +28,10 @@ model Lodge {
   minFreqProgressao  Int      @default(50)
   // Nº de capitações vencidas para o membro ficar IRREGULAR (inadimplência)
   limiteInadimplencia Int     @default(3)
+  // Certificado de Visita personalizado (upload de PPTX na config da loja):
+  // fundo renderizado em PDF + posições dos placeholders; null = template padrão
+  certFundoPdf       Bytes?
+  certLayout         Json?
   // Gateway de pagamento Asaas (cobrança recorrente cartão/boleto)
   asaasApiKey        String? // API key da conta Asaas da Loja
   asaasWebhookToken  String? // token conferido no header asaas-access-token do webhook
