@@ -20,6 +20,7 @@ import {
   FileCheck2,
   Bell,
   TrendingUp,
+  GraduationCap,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,7 @@ const icons: Record<string, LucideIcon> = {
   quitteplacets: FileCheck2,
   notificacoes: Bell,
   progressoes: TrendingUp,
+  instrucoes: GraduationCap,
 };
 
 export type NavItem = {

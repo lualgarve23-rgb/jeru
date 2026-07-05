@@ -148,6 +148,7 @@ export async function deleteLodge(
   const where = { lodgeId: id };
   await prisma.$transaction([
     prisma.notification.deleteMany({ where }),
+    prisma.instrucao.deleteMany({ where }),
     prisma.processoProgressao.deleteMany({ where }),
     prisma.processoAdmissao.deleteMany({ where }),
     prisma.quittePlacet.deleteMany({ where }),

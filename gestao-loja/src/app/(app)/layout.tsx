@@ -17,6 +17,12 @@ function navFor(role: string, unread: number): NavItem[] {
   const fiscal = ["SECRETARIO", "VENERAVEL_MESTRE", "CONSELHO_CONTAS"];
   const tesouraria = ["TESOUREIRO", "VENERAVEL_MESTRE", "CONSELHO_CONTAS"];
   const gestaoLoja = ["VENERAVEL_MESTRE", "SECRETARIO"];
+  const instrutores = [
+    "PRIMEIRO_VIGILANTE",
+    "SEGUNDO_VIGILANTE",
+    "VENERAVEL_MESTRE",
+    "SECRETARIO",
+  ];
 
   const items: (NavItem & { roles?: string[] })[] = [
     { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
@@ -28,6 +34,7 @@ function navFor(role: string, unread: number): NavItem[] {
     { href: "/secretaria/documentos", label: "Documentos (Drive)", icon: "documentos", section: "Secretaria", roles: fiscal },
     { href: "/secretaria/admissoes", label: "Admissões", icon: "admissoes", section: "Secretaria", roles: fiscal },
     { href: "/secretaria/progressoes", label: "Progressões", icon: "progressoes", section: "Secretaria", roles: fiscal },
+    { href: "/dashboard/instrucoes", label: "Instruções", icon: "instrucoes", section: "Secretaria", roles: instrutores },
     { href: "/secretaria/quitte-placets", label: "Quitte Placets", icon: "quitteplacets", section: "Secretaria", roles: fiscal },
     { href: "/tesouraria/mensalidades", label: "Mensalidades", icon: "mensalidades", section: "Tesouraria", roles: tesouraria },
     { href: "/tesouraria/despesas", label: "Despesas", icon: "despesas", section: "Tesouraria", roles: tesouraria },

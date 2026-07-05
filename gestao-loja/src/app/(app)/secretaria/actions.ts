@@ -1082,6 +1082,34 @@ export async function moveProcessoProgressao(
     }
   }
 
+  // Trava 2b — instruções: exige o nº de instruções do grau atual definido
+  // pela loja antes de sair de Instrução e Frequência
+  if (
+    fromIdx <= ORDEM_PROGRESSAO.indexOf("INSTRUCAO_E_FREQUENCIA") &&
+    toIdx > ORDEM_PROGRESSAO.indexOf("INSTRUCAO_E_FREQUENCIA")
+  ) {
+    const grauAtual =
+      processo.grauAlvo === "COMPANHEIRO" ? Degree.APRENDIZ : Degree.COMPANHEIRO;
+    const lodgeInstr = await prisma.lodge.findUniqueOrThrow({
+      where: { id: user.lodgeId },
+      select: { instrucoesAprendiz: true, instrucoesCompanheiro: true },
+    });
+    const necessarias =
+      grauAtual === "APRENDIZ"
+        ? lodgeInstr.instrucoesAprendiz
+        : lodgeInstr.instrucoesCompanheiro;
+    if (necessarias > 0) {
+      const feitas = await prisma.instrucao.count({
+        where: { lodgeId: user.lodgeId, userId: processo.userId, degree: grauAtual },
+      });
+      if (feitas < necessarias) {
+        return {
+          error: `Instruções insuficientes: ${feitas} de ${necessarias} exigidas pela loja (registradas pelos Vigilantes em Instruções).`,
+        };
+      }
+    }
+  }
+
   // Trava 3 — Guarda dos Selos: cerimônia só com o Placet deferido
   if (toIdx >= ORDEM_PROGRESSAO.indexOf("AGUARDANDO_CERIMONIA") && !processo.placetDeferido) {
     return {

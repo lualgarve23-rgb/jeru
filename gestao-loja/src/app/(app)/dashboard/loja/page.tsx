@@ -7,6 +7,7 @@ import {
   updateLimiteInadimplencia,
   updateCertTemplate,
   removeCertTemplate,
+  updateInstrucoesNecessarias,
 } from "./actions";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
@@ -84,6 +85,52 @@ export default async function LojaConfigPage({
             <div className="space-y-1">
               <Label htmlFor="logo">Nova imagem</Label>
               <Input id="logo" name="logo" type="file" accept="image/*" required />
+            </div>
+          </ActionForm>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Instruções de Grau</CardTitle>
+          <CardDescription>
+            Nº de instruções que Aprendizes (com o 2º Vigilante) e Companheiros
+            (com o 1º Vigilante) precisam receber antes da progressão de grau.
+            Use 0 para não exigir.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ActionForm
+            action={updateInstrucoesNecessarias}
+            submitLabel="Salvar exigências"
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="instrucoesAprendiz">
+                  Instruções de Aprendiz
+                </Label>
+                <Input
+                  id="instrucoesAprendiz"
+                  name="instrucoesAprendiz"
+                  type="number"
+                  min={0}
+                  max={99}
+                  defaultValue={lodge.instrucoesAprendiz}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="instrucoesCompanheiro">
+                  Instruções de Companheiro
+                </Label>
+                <Input
+                  id="instrucoesCompanheiro"
+                  name="instrucoesCompanheiro"
+                  type="number"
+                  min={0}
+                  max={99}
+                  defaultValue={lodge.instrucoesCompanheiro}
+                />
+              </div>
             </div>
           </ActionForm>
         </CardContent>

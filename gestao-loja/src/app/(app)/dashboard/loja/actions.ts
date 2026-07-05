@@ -37,6 +37,31 @@ export async function updateMinFreqProgressao(
   return { ok: `Frequência mínima definida em ${value}%.` };
 }
 
+// Nº de instruções exigidas para a progressão de cada grau (0 = sem exigência)
+export async function updateInstrucoesNecessarias(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireRole("VENERAVEL_MESTRE", "SECRETARIO");
+  const aprendiz = Number(formData.get("instrucoesAprendiz"));
+  const companheiro = Number(formData.get("instrucoesCompanheiro"));
+  for (const v of [aprendiz, companheiro]) {
+    if (!Number.isInteger(v) || v < 0 || v > 99) {
+      return { error: "Informe números inteiros entre 0 e 99." };
+    }
+  }
+  await prisma.lodge.update({
+    where: { id: user.lodgeId },
+    data: {
+      instrucoesAprendiz: aprendiz,
+      instrucoesCompanheiro: companheiro,
+    },
+  });
+  revalidatePath("/dashboard/loja");
+  revalidatePath("/dashboard/instrucoes");
+  return { ok: "Instruções exigidas atualizadas." };
+}
+
 // Template personalizado do Certificado de Visita (PPTX com os marcadores
 // <<NOME DO IRMÃO>>, <<SESSAO>> e opcionalmente <<EMAIL>> e <<VENERAVEL>>).
 // O upload extrai as posições e renderiza o fundo em PDF via LibreOffice.
