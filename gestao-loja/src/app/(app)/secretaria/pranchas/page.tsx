@@ -66,10 +66,10 @@ export default async function PranchasPage() {
               <ul className="space-y-1">
                 {FORMULARIOS_GOB.filter((f) => f.categoria === cat).map((f) => {
                   const disponivel = existsSync(
-                    join(process.cwd(), "public", "formularios-gob", `${f.slug}.pdf`)
+                    join(process.cwd(), "public", "formularios-gob", f.arquivo)
                   );
                   return (
-                    <li key={f.slug} className="flex items-start gap-2 text-sm">
+                    <li key={f.arquivo} className="flex items-start gap-2 text-sm">
                       {disponivel ? (
                         <Download className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                       ) : (
@@ -78,8 +78,8 @@ export default async function PranchasPage() {
                       <span>
                         {disponivel ? (
                           <a
-                            href={`/formularios-gob/${f.slug}.pdf`}
-                            target="_blank"
+                            href={`/formularios-gob/${f.arquivo}`}
+                            download
                             className="font-medium underline underline-offset-2"
                           >
                             {f.titulo}
@@ -88,7 +88,8 @@ export default async function PranchasPage() {
                           <span className="font-medium">{f.titulo}</span>
                         )}{" "}
                         <span className="text-muted-foreground">
-                          — {disponivel ? f.descricao : "aguardando o PDF oficial (Conecta GOB-SP)"}
+                          — {f.descricao}
+                          {!disponivel && " (arquivo indisponível)"}
                         </span>
                       </span>
                     </li>
@@ -98,9 +99,8 @@ export default async function PranchasPage() {
             </div>
           ))}
           <p className="text-xs text-muted-foreground">
-            Os formulários marcados em amarelo ainda não estão disponíveis:
-            obtenha os PDFs oficiais na área restrita do Conecta GOB-SP e
-            solicite a inclusão no sistema.
+            Formulários oficiais obtidos no Conecta GOB-SP. Os arquivos Word
+            (.doc/.docx) podem ser preenchidos no computador antes de anexar.
           </p>
         </CardContent>
       </Card>
