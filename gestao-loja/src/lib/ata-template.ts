@@ -69,6 +69,8 @@ export type AtaTemplateData = {
   masterName: string | null;
   secretaryName: string | null;
   treasurerName: string | null;
+  primeiroVigilanteName: string | null;
+  segundoVigilanteName: string | null;
   dirCerimoniasName: string | null;
   guardaInternoName: string | null;
   presentes: Presenca[]; // membros presentes (exceto os cargos nomeados acima)
@@ -91,6 +93,8 @@ export function gerarTextoAta(d: AtaTemplateData): string {
   const vm = d.masterName ?? PLACEHOLDER;
   const secr = d.secretaryName ?? PLACEHOLDER;
   const tes = d.treasurerName ?? PLACEHOLDER;
+  const vig1 = d.primeiroVigilanteName ?? PLACEHOLDER;
+  const vig2 = d.segundoVigilanteName ?? PLACEHOLDER;
   const dirCer = d.dirCerimoniasName ?? PLACEHOLDER;
   const gi = d.guardaInternoName ?? PLACEHOLDER;
   const demais = d.presentes.length
@@ -110,7 +114,7 @@ export function gerarTextoAta(d: AtaTemplateData): string {
 
 ATA DA SESSÃO ${tipo.toUpperCase()} DO GRAU DE ${grau}, REALIZADA EM ${String(dia).padStart(2, "0")} DE ${mes.toUpperCase()} DE ${ano}
 
-Ao ${DIAS_EXTENSO[dia]} dia do mês de ${mes} do ano de ${anoExtenso(ano)}, às ${horaExtenso(d.date)}, reuniu-se em número legal, ${local}, os Irs∴ do quadro que assinaram o Livro de Presença, sendo os Trabalhos abertos pelo Mestre da Loja Venerável Ir∴ ${vm}, informando aos presentes que a carta patente da Loja ${d.lodgeName} estava presente em seu devido lugar, apresentando-a e deixando-a à disposição, sendo os cargos preenchidos conforme segue: 1º Vig∴ Ir∴ ${PLACEHOLDER}, 2º Vig∴ Ir∴ ${PLACEHOLDER}, Secr∴ Ir∴ ${secr}, Dir∴ de Cerimônias Ir∴ ${dirCer}, G∴ I∴ Ir∴ ${gi}, Tesoureiro Ir∴ ${tes} e demais cargos preenchidos pelos Irs∴ do quadro, a pedido do Dir∴ de Cer∴.
+Ao ${DIAS_EXTENSO[dia]} dia do mês de ${mes} do ano de ${anoExtenso(ano)}, às ${horaExtenso(d.date)}, reuniu-se em número legal, ${local}, os Irs∴ do quadro que assinaram o Livro de Presença, sendo os Trabalhos abertos pelo Mestre da Loja Venerável Ir∴ ${vm}, informando aos presentes que a carta patente da Loja ${d.lodgeName} estava presente em seu devido lugar, apresentando-a e deixando-a à disposição, sendo os cargos preenchidos conforme segue: 1º Vig∴ Ir∴ ${vig1}, 2º Vig∴ Ir∴ ${vig2}, Secr∴ Ir∴ ${secr}, Dir∴ de Cerimônias Ir∴ ${dirCer}, G∴ I∴ Ir∴ ${gi}, Tesoureiro Ir∴ ${tes} e demais cargos preenchidos pelos Irs∴ do quadro, a pedido do Dir∴ de Cer∴.
 
 Demais irmãos do quadro presentes: ${demais}.
 

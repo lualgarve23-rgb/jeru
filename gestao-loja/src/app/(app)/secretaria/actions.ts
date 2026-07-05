@@ -285,12 +285,22 @@ export async function createAta(sessionId: string): Promise<void> {
     masterName: byRole("VENERAVEL_MESTRE"),
     secretaryName: byRole("SECRETARIO"),
     treasurerName: byRole("TESOUREIRO"),
+    primeiroVigilanteName: byRole("PRIMEIRO_VIGILANTE"),
+    segundoVigilanteName: byRole("SEGUNDO_VIGILANTE"),
     dirCerimoniasName: byRole("DIRETOR_CERIMONIAS"),
     guardaInternoName: byRole("GUARDA_INTERNO"),
     presentes: membros
       .filter(
         (a) =>
-          !["VENERAVEL_MESTRE", "SECRETARIO", "TESOUREIRO", "DIRETOR_CERIMONIAS", "GUARDA_INTERNO"].includes(
+          ![
+            "VENERAVEL_MESTRE",
+            "SECRETARIO",
+            "TESOUREIRO",
+            "PRIMEIRO_VIGILANTE",
+            "SEGUNDO_VIGILANTE",
+            "DIRETOR_CERIMONIAS",
+            "GUARDA_INTERNO",
+          ].includes(
             a.user!.currentRole
           )
       )

@@ -72,6 +72,8 @@ enum Role {
   TESOUREIRO
   CONSELHO_CONTAS // somente leitura em Secretaria/Tesouraria
   // Cargos de Loja sem permissão especial no sistema (equivalem a MEMBER)
+  PRIMEIRO_VIGILANTE
+  SEGUNDO_VIGILANTE
   PRIMEIRO_DIACONO
   SEGUNDO_DIACONO
   ORADOR
