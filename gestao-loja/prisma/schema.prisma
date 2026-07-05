@@ -71,6 +71,13 @@ enum Role {
   SECRETARIO
   TESOUREIRO
   CONSELHO_CONTAS // somente leitura em Secretaria/Tesouraria
+  // Cargos de Loja sem permissão especial no sistema (equivalem a MEMBER)
+  PRIMEIRO_DIACONO
+  SEGUNDO_DIACONO
+  ORADOR
+  GUARDA_INTERNO
+  GUARDA_EXTERNO
+  DIRETOR_CERIMONIAS
   SUPER_ADMIN // admin master do SaaS — cria e administra lojas (tenants)
 }
 

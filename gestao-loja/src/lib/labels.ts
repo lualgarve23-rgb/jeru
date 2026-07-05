@@ -4,6 +4,12 @@ export const roleLabels: Record<string, string> = {
   SECRETARIO: "Secretário",
   TESOUREIRO: "Tesoureiro",
   CONSELHO_CONTAS: "Conselho de Contas",
+  PRIMEIRO_DIACONO: "1º Diácono",
+  SEGUNDO_DIACONO: "2º Diácono",
+  ORADOR: "Orador",
+  GUARDA_INTERNO: "Guarda Interno",
+  GUARDA_EXTERNO: "Guarda Externo",
+  DIRETOR_CERIMONIAS: "Diretor de Cerimônias",
   SUPER_ADMIN: "Admin Master",
 };
 

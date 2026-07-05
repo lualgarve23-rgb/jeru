@@ -884,7 +884,8 @@ export default async function DashboardPage() {
       {user.role === "CONSELHO_CONTAS" && (
         <ConselhoDashboard lodgeId={user.lodgeId} />
       )}
-      {user.role === "MEMBER" && (
+      {/* Cargos sem função administrativa (Diáconos, Orador, Guardas, Dir. de Cerimônias...) veem o dashboard de Obreiro */}
+      {!["SECRETARIO", "TESOUREIRO", "VENERAVEL_MESTRE", "CONSELHO_CONTAS"].includes(user.role) && (
         <MemberDashboard userId={user.id} lodgeId={user.lodgeId} />
       )}
     </div>

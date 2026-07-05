@@ -285,8 +285,15 @@ export async function createAta(sessionId: string): Promise<void> {
     masterName: byRole("VENERAVEL_MESTRE"),
     secretaryName: byRole("SECRETARIO"),
     treasurerName: byRole("TESOUREIRO"),
+    dirCerimoniasName: byRole("DIRETOR_CERIMONIAS"),
+    guardaInternoName: byRole("GUARDA_INTERNO"),
     presentes: membros
-      .filter((a) => !["VENERAVEL_MESTRE", "SECRETARIO", "TESOUREIRO"].includes(a.user!.currentRole))
+      .filter(
+        (a) =>
+          !["VENERAVEL_MESTRE", "SECRETARIO", "TESOUREIRO", "DIRETOR_CERIMONIAS", "GUARDA_INTERNO"].includes(
+            a.user!.currentRole
+          )
+      )
       .map((a) => ({ name: a.user!.name })),
     visitantes: session.attendances
       .filter((a) => !a.user && a.visitorName)

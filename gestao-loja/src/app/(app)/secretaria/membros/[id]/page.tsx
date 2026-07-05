@@ -138,7 +138,17 @@ export default async function MembroPage({
                   <option value="SECRETARIO">Secretário</option>
                   <option value="TESOUREIRO">Tesoureiro</option>
                   <option value="CONSELHO_CONTAS">Conselho de Contas</option>
+                  <option value="PRIMEIRO_DIACONO">1º Diácono</option>
+                  <option value="SEGUNDO_DIACONO">2º Diácono</option>
+                  <option value="ORADOR">Orador</option>
+                  <option value="GUARDA_INTERNO">Guarda Interno</option>
+                  <option value="GUARDA_EXTERNO">Guarda Externo</option>
+                  <option value="DIRETOR_CERIMONIAS">Diretor de Cerimônias</option>
                 </select>
+                <p className="text-xs text-muted-foreground">
+                  Diáconos, Orador, Guardas e Dir. de Cerimônias têm o mesmo
+                  nível de acesso de um Obreiro.
+                </p>
               </div>
               <div className="space-y-1">
                 <Label htmlFor="startDate">Início</Label>
