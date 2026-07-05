@@ -113,6 +113,8 @@ model User {
   asaasSubscriptionId String?
   degree         Degree       @default(APRENDIZ)
   currentRole    Role         @default(MEMBER)
+  // Imagem da assinatura (data URI) — VM, Secretário e Orador, para assinar atas e documentos
+  signatureUrl   String?
   status         MemberStatus @default(ATIVO)
   initiationDate DateTime? // data de iniciação (base do interstício)
 
@@ -234,6 +236,7 @@ model Attendance {
 
 enum AtaStatus {
   RASCUNHO
+  EM_VALIDACAO // enviada aos irmãos para validação antes das assinaturas
   AGUARDANDO_ASSINATURAS
   ASSINADA // VM + Secretário assinaram — imutável
 }
@@ -252,7 +255,10 @@ model Ata {
   signedBySecId    String?
   signedBySecAt    DateTime?
 
-  driveFileId String? // PDF assinado no Google Drive
+  driveFileId      String?   // PDF assinado no Google Drive
+  ajustes          String?   // ajustes solicitados pelos irmãos na validação
+  sentForReviewAt  DateTime? // envio aos irmãos para validação (antes das assinaturas)
+  sentToMembersAt  DateTime? // envio da versão final assinada aos irmãos
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

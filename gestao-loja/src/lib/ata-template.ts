@@ -76,7 +76,20 @@ export type AtaTemplateData = {
   presentes: Presenca[]; // membros presentes (exceto os cargos nomeados acima)
   visitantes: Visitante[];
   totalMembros: number; // membros da Loja presentes
+  // Campos livres preenchidos pelo Secretário antes de gerar o rascunho
+  // (vazios viram _____ para completar depois)
+  ausenciasJustificadas?: string;
+  pautaDoDia?: string;
+  primeiroLevantamento?: string;
+  segundoLevantamento?: string;
+  terceiroLevantamento?: string;
+  horaEncerramento?: string;
 };
+
+function livre(v: string | undefined): string {
+  const t = v?.trim();
+  return t ? t : PLACEHOLDER;
+}
 
 const PLACEHOLDER = "_____";
 
@@ -118,20 +131,20 @@ Ao ${DIAS_EXTENSO[dia]} dia do mês de ${mes} do ano de ${anoExtenso(ano)}, às 
 
 Demais irmãos do quadro presentes: ${demais}.
 
-Os seguintes irmãos justificaram ausência: ${PLACEHOLDER}.
+Os seguintes irmãos justificaram ausência: ${livre(d.ausenciasJustificadas)}.
 
 Os trabalhos foram abertos conforme o Ritual, no Grau de ${degreeLabels[d.degree] ?? d.degree} Maçom, sendo lida pelo Secretário a pauta do dia:
-${PLACEHOLDER}
+${livre(d.pautaDoDia)}
 
-No primeiro levantamento, o Secr∴ ${PLACEHOLDER}.
+No primeiro levantamento, o Secr∴ ${livre(d.primeiroLevantamento)}.
 
-No segundo levantamento, o Secr∴ ${PLACEHOLDER}.
+No segundo levantamento, o Secr∴ ${livre(d.segundoLevantamento)}.
 
 No terceiro levantamento, que trata a respeito de questões voltadas à nossa Loja, alguns irmãos se manifestaram conforme descrito abaixo:
 
-${PLACEHOLDER}
+${livre(d.terceiroLevantamento)}
 
 A sessão foi preenchida por ${total} obreiros, sendo ${d.totalMembros} da Loja e ${d.visitantes.length} ${d.visitantes.length === 1 ? "irmão visitante" : "irmãos visitantes"}${visitantes ? `: ${visitantes}` : ""}.
 
-Nada mais havendo a tratar e, estando justa e perfeita a Sessão, o M∴ da Loja encerrou os TTrab∴ às ${PLACEHOLDER}, guardando a carta patente e agradecendo aos presentes, sendo esta Ata lavrada por mim, Secr∴, sendo que após apreciada e aprovada, deverá ser assinada e armazenada em local próprio, determinado pelos quais de direito.`;
+Nada mais havendo a tratar e, estando justa e perfeita a Sessão, o M∴ da Loja encerrou os TTrab∴ às ${livre(d.horaEncerramento)}, guardando a carta patente e agradecendo aos presentes, sendo esta Ata lavrada por mim, Secr∴, sendo que após apreciada e aprovada, deverá ser assinada e armazenada em local próprio, determinado pelos quais de direito.`;
 }

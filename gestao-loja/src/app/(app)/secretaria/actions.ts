@@ -78,6 +78,21 @@ export async function updateMember(
   formData: FormData
 ): Promise<ActionResult> {
   const user = await requireSecretariaWriter();
+
+  // Imagem de assinatura (VM, Secretário e Orador) — data URI, até 500 KB
+  let signatureUrl: string | undefined;
+  const sig = formData.get("signature") as File | null;
+  if (sig && sig.size > 0) {
+    if (!sig.type.startsWith("image/")) {
+      return { error: "A assinatura deve ser uma imagem (PNG, JPG...)." };
+    }
+    if (sig.size > 500_000) {
+      return { error: "Assinatura muito grande — use uma imagem de até 500 KB." };
+    }
+    const buf = Buffer.from(await sig.arrayBuffer());
+    signatureUrl = `data:${sig.type};base64,${buf.toString("base64")}`;
+  }
+
   await prisma.user.update({
     // filtro composto garante o isolamento por tenant
     where: { id: memberId, lodgeId: user.lodgeId },
@@ -87,6 +102,7 @@ export async function updateMember(
       phone: (formData.get("phone") as string) || null,
       profession: (formData.get("profession") as string) || null,
       status: formData.get("status") as never,
+      ...(signatureUrl ? { signatureUrl } : {}),
     },
   });
   revalidatePath(`/secretaria/membros/${memberId}`);
@@ -258,7 +274,14 @@ export async function qrCheckinVisitor(
 
 // ───────────────────────── Atas ─────────────────────────
 
-export async function createAta(sessionId: string): Promise<void> {
+export async function createAta(
+  sessionId: string,
+  formData: FormData
+): Promise<void> {
+  const campo = (name: string) => {
+    const v = formData.get(name);
+    return typeof v === "string" ? v.trim() : "";
+  };
   const user = await requireSecretariaWriter();
   const session = await prisma.lodgeSession.findUniqueOrThrow({
     where: { id: sessionId, lodgeId: user.lodgeId },
@@ -313,6 +336,12 @@ export async function createAta(sessionId: string): Promise<void> {
         potencia: a.visitorPotencia,
       })),
     totalMembros: membros.length,
+    ausenciasJustificadas: campo("ausenciasJustificadas"),
+    pautaDoDia: campo("pautaDoDia"),
+    primeiroLevantamento: campo("primeiroLevantamento"),
+    segundoLevantamento: campo("segundoLevantamento"),
+    terceiroLevantamento: campo("terceiroLevantamento"),
+    horaEncerramento: campo("horaEncerramento"),
   });
 
   const ata = await prisma.ata.create({
@@ -339,15 +368,67 @@ export async function updateAta(
   if (ata.signedByMasterId || ata.signedBySecId) {
     return { error: "Ata já assinada — o texto não pode ser alterado." };
   }
+  const liberar = formData.get("submit") === "final";
+  // Trava de processo: só libera para assinaturas após a validação dos irmãos
+  if (liberar && !ata.sentForReviewAt) {
+    return {
+      error:
+        "Envie a ata aos irmãos para validação antes de liberá-la para assinaturas.",
+    };
+  }
   await prisma.ata.update({
     where: { id: ataId, lodgeId: user.lodgeId },
     data: {
       content: String(formData.get("content")),
-      status: formData.get("submit") === "final" ? "AGUARDANDO_ASSINATURAS" : "RASCUNHO",
+      ajustes: String(formData.get("ajustes") ?? "").trim() || null,
+      status: liberar ? "AGUARDANDO_ASSINATURAS" : ata.status === "EM_VALIDACAO" ? "EM_VALIDACAO" : "RASCUNHO",
     },
   });
   revalidatePath(`/secretaria/atas/${ataId}`);
-  return { ok: "Ata salva." };
+  return { ok: liberar ? "Ata liberada para assinaturas." : "Ata salva." };
+}
+
+// Envio da ata aos irmãos para validação, antes das assinaturas
+export async function sendAtaForReview(ataId: string): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const ata = await prisma.ata.findUniqueOrThrow({
+    where: { id: ataId, lodgeId: user.lodgeId },
+    include: { lodge: true, session: true },
+  });
+  if (ata.signedByMasterId || ata.signedBySecId || ata.status === "ASSINADA") {
+    return { error: "Ata já em assinatura — a validação ocorre antes." };
+  }
+  const membros = await prisma.user.findMany({
+    where: {
+      lodgeId: user.lodgeId,
+      status: "ATIVO",
+      currentRole: { not: "SUPER_ADMIN" },
+    },
+    select: { email: true },
+  });
+  const emails = membros.map((m) => m.email).filter((e) => e.includes("@"));
+  if (!emails.length) {
+    return { error: "Nenhum irmão ativo com e-mail cadastrado." };
+  }
+  try {
+    await sendLodgeEmail({
+      to: process.env.GMAIL_USER!,
+      bcc: emails,
+      subject: `[Para validação] Ata nº ${ata.number} — ${ata.lodge.name}`,
+      text:
+        `Ir∴, segue para validação a minuta da Ata nº ${ata.number}, da sessão de ${ata.session.date.toLocaleDateString("pt-BR")}.\n` +
+        `Pedidos de ajuste devem ser apresentados na próxima reunião, no momento da validação.\n\n` +
+        ata.content,
+    });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Falha no envio." };
+  }
+  await prisma.ata.update({
+    where: { id: ataId, lodgeId: user.lodgeId },
+    data: { status: "EM_VALIDACAO", sentForReviewAt: new Date() },
+  });
+  revalidatePath(`/secretaria/atas/${ataId}`);
+  return { ok: `Minuta enviada para validação a ${emails.length} irmão(s).` };
 }
 
 // Trava de Governança: assinatura conjunta VM + Secretário
@@ -356,8 +437,11 @@ export async function signAta(ataId: string): Promise<ActionResult> {
   const ata = await prisma.ata.findUniqueOrThrow({
     where: { id: ataId, lodgeId: user.lodgeId },
   });
-  if (ata.status === "RASCUNHO") {
-    return { error: "Finalize o rascunho antes de assinar." };
+  if (ata.status === "RASCUNHO" || ata.status === "EM_VALIDACAO") {
+    return {
+      error:
+        "A ata precisa ser validada pelos irmãos e liberada para assinaturas antes de ser assinada.",
+    };
   }
   if (ata.status === "ASSINADA") {
     return { error: "Ata já está totalmente assinada." };
@@ -368,6 +452,13 @@ export async function signAta(ataId: string): Promise<ActionResult> {
     data.signedByMasterId = user.id;
     data.signedByMasterAt = new Date();
   } else if (user.role === "SECRETARIO" && !ata.signedBySecId) {
+    // Ordem de governança: o Venerável Mestre assina primeiro
+    if (!ata.signedByMasterId) {
+      return {
+        error:
+          "Aguarde a assinatura do Venerável Mestre — ele assina primeiro.",
+      };
+    }
     data.signedBySecId = user.id;
     data.signedBySecAt = new Date();
   } else {
@@ -479,25 +570,48 @@ export async function sendPranchaToGSelos(
   return { ok: `Enviada para ${GUARDA_SELOS_EMAIL}.` };
 }
 
-export async function sendAtaToGSelos(ataId: string): Promise<ActionResult> {
+// Após as duas assinaturas, a ata é enviada por e-mail a todos os irmãos do quadro
+export async function sendAtaToMembers(ataId: string): Promise<ActionResult> {
   const user = await requireSecretariaWriter();
   const ata = await prisma.ata.findUniqueOrThrow({
     where: { id: ataId, lodgeId: user.lodgeId },
     include: { lodge: true, session: true },
   });
   if (ata.status !== "ASSINADA") {
-    return { error: "Somente atas com as duas assinaturas podem ser expedidas." };
+    return {
+      error: "Somente atas com as duas assinaturas podem ser enviadas aos irmãos.",
+    };
+  }
+  const membros = await prisma.user.findMany({
+    where: {
+      lodgeId: user.lodgeId,
+      status: "ATIVO",
+      currentRole: { not: "SUPER_ADMIN" },
+    },
+    select: { email: true },
+  });
+  const emails = membros.map((m) => m.email).filter((e) => e.includes("@"));
+  if (!emails.length) {
+    return { error: "Nenhum irmão ativo com e-mail cadastrado." };
   }
   try {
     await sendLodgeEmail({
-      to: GUARDA_SELOS_EMAIL,
+      to: process.env.GMAIL_USER!,
+      bcc: emails,
       subject: `Ata nº ${ata.number} — ${ata.lodge.name}`,
-      text: `Sessão de ${ata.session.date.toLocaleDateString("pt-BR")}\n\n${ata.content}`,
+      text:
+        `Ir∴, segue a Ata nº ${ata.number}, da sessão de ${ata.session.date.toLocaleDateString("pt-BR")}, assinada pelo Venerável Mestre e pelo Secretário.\n\n` +
+        ata.content,
     });
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Falha no envio." };
   }
-  return { ok: `Enviada para ${GUARDA_SELOS_EMAIL}.` };
+  await prisma.ata.update({
+    where: { id: ataId, lodgeId: user.lodgeId },
+    data: { sentToMembersAt: new Date() },
+  });
+  revalidatePath(`/secretaria/atas/${ataId}`);
+  return { ok: `Ata enviada a ${emails.length} irmão(s) do quadro.` };
 }
 
 // ───────────────────────── Documentos (Drive) ─────────────────────────

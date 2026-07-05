@@ -12,6 +12,7 @@ export function isGmailConfigured() {
 
 export async function sendLodgeEmail(opts: {
   to: string;
+  bcc?: string[];
   subject: string;
   text: string;
   attachments?: { filename: string; content: Buffer | string }[];

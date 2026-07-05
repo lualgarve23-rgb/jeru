@@ -37,6 +37,7 @@ export const sessionTypeLabels: Record<string, string> = {
 
 export const ataStatusLabels: Record<string, string> = {
   RASCUNHO: "Rascunho",
+  EM_VALIDACAO: "Em validação pelos irmãos",
   AGUARDANDO_ASSINATURAS: "Aguardando assinaturas",
   ASSINADA: "Assinada",
 };
@@ -154,7 +155,8 @@ export function notificationTypeTone(type: string): BadgeTone {
 
 export function ataStatusTone(status: string): BadgeTone {
   if (status === "ASSINADA") return "success";
-  if (status === "AGUARDANDO_ASSINATURAS") return "warning";
+  if (status === "AGUARDANDO_ASSINATURAS" || status === "EM_VALIDACAO")
+    return "warning";
   return "secondary";
 }
 

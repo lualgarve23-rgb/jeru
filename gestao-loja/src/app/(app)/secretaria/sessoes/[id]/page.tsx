@@ -100,11 +100,57 @@ export default async function SessaoPage({
                 </div>
               </ActionForm>
               {!session.ata ? (
-                <form action={createAtaAction}>
-                  <Button variant="secondary" type="submit">
+                <details className="rounded-md border">
+                  <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
                     Lavrar Ata desta sessão
-                  </Button>
-                </form>
+                  </summary>
+                  <form action={createAtaAction} className="space-y-3 border-t p-4">
+                    <p className="text-xs text-muted-foreground">
+                      Preencha os campos abaixo para gerar o rascunho já
+                      completo. Campos em branco saem como ____ no texto, para
+                      completar depois no editor.
+                    </p>
+                    {(
+                      [
+                        ["pautaDoDia", "Pauta do dia (lida pelo Secretário)"],
+                        ["primeiroLevantamento", "Primeiro levantamento"],
+                        ["segundoLevantamento", "Segundo levantamento"],
+                        [
+                          "terceiroLevantamento",
+                          "Terceiro levantamento (manifestações dos irmãos)",
+                        ],
+                        [
+                          "ausenciasJustificadas",
+                          "Irmãos que justificaram ausência",
+                        ],
+                      ] as const
+                    ).map(([name, label]) => (
+                      <div key={name} className="space-y-1">
+                        <Label htmlFor={name}>{label}</Label>
+                        <textarea
+                          id={name}
+                          name={name}
+                          rows={name === "pautaDoDia" ? 3 : 2}
+                          className="w-full rounded-md border bg-transparent p-2 text-sm"
+                        />
+                      </div>
+                    ))}
+                    <div className="space-y-1">
+                      <Label htmlFor="horaEncerramento">
+                        Horário de encerramento (por extenso)
+                      </Label>
+                      <input
+                        id="horaEncerramento"
+                        name="horaEncerramento"
+                        placeholder="ex.: vinte e duas horas"
+                        className="h-9 w-full rounded-md border bg-transparent px-2 text-sm"
+                      />
+                    </div>
+                    <Button variant="secondary" type="submit">
+                      Gerar rascunho da Ata
+                    </Button>
+                  </form>
+                </details>
               ) : (
                 <Button asChild variant="secondary">
                   <Link href={`/secretaria/atas/${session.ata.id}`}>

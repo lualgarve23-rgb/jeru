@@ -1,0 +1,1 @@
+ALTER TABLE "atas" ADD COLUMN "sentToMembersAt" TIMESTAMP(3);

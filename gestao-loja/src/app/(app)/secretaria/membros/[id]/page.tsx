@@ -91,6 +91,33 @@ export default async function MembroPage({
                 </select>
               </div>
             </div>
+            {["VENERAVEL_MESTRE", "SECRETARIO", "ORADOR"].includes(
+              member.currentRole
+            ) && (
+              <div className="space-y-2">
+                <Label htmlFor="signature">
+                  Imagem da assinatura ({roleLabels[member.currentRole]})
+                </Label>
+                {member.signatureUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={member.signatureUrl}
+                    alt={`Assinatura de ${member.name}`}
+                    className="h-16 rounded-md border bg-white object-contain p-1"
+                  />
+                )}
+                <Input
+                  id="signature"
+                  name="signature"
+                  type="file"
+                  accept="image/*"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Usada como assinatura visual nas atas e documentos da Loja
+                  (imagem de até 500 KB, fundo branco ou transparente).
+                </p>
+              </div>
+            )}
           </ActionForm>
         </CardContent>
       </Card>
