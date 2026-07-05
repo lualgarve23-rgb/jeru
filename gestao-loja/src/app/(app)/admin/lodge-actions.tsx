@@ -22,6 +22,7 @@ type LodgeData = {
   number: string;
   potencia: string | null;
   oriente: string | null;
+  address: string | null;
 };
 
 // Botões Editar/Excluir de cada linha da tabela de lojas do /admin
@@ -81,6 +82,15 @@ export function LodgeActions({ lodge }: { lodge: LodgeData }) {
                 id={`oriente-${lodge.id}`}
                 name="oriente"
                 defaultValue={lodge.oriente ?? ""}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor={`address-${lodge.id}`}>Endereço da sede</Label>
+              <Input
+                id={`address-${lodge.id}`}
+                name="address"
+                defaultValue={lodge.address ?? ""}
+                placeholder="Av. ..., nº — bairro — cidade — UF"
               />
             </div>
             <div className="space-y-1">

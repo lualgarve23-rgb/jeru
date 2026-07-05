@@ -33,6 +33,7 @@ export async function createLodge(
   const number = String(formData.get("number") ?? "").trim();
   const potencia = String(formData.get("potencia") ?? "").trim() || null;
   const oriente = String(formData.get("oriente") ?? "").trim() || null;
+  const address = String(formData.get("address") ?? "").trim() || null;
 
   const vmName = String(formData.get("vmName") ?? "").trim();
   const vmCim = String(formData.get("vmCim") ?? "").trim();
@@ -61,6 +62,7 @@ export async function createLodge(
       number,
       potencia,
       oriente,
+      address,
       logoUrl: logo,
       users: {
         create: {
@@ -95,6 +97,7 @@ export async function updateLodge(
   const number = String(formData.get("number") ?? "").trim();
   const potencia = String(formData.get("potencia") ?? "").trim() || null;
   const oriente = String(formData.get("oriente") ?? "").trim() || null;
+  const address = String(formData.get("address") ?? "").trim() || null;
 
   if (!id || !name || !number) {
     return { error: "Nome e número são obrigatórios." };
@@ -115,7 +118,7 @@ export async function updateLodge(
 
   await prisma.lodge.update({
     where: { id },
-    data: { name, number, potencia, oriente, ...(logo ? { logoUrl: logo } : {}) },
+    data: { name, number, potencia, oriente, address, ...(logo ? { logoUrl: logo } : {}) },
   });
 
   revalidatePath("/admin");

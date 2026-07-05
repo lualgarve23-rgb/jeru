@@ -14,6 +14,7 @@ import { requireUser } from "@/lib/session";
 import { canWriteSecretaria, INTERSTICE_MONTHS } from "@/lib/permissions";
 import { uploadToLodgeDrive, isDriveAvailable } from "@/lib/google-drive";
 import { sendLodgeEmail, GUARDA_SELOS_EMAIL } from "@/lib/gmail";
+import { gerarTextoAta } from "@/lib/ata-template";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
@@ -261,17 +262,48 @@ export async function createAta(sessionId: string): Promise<void> {
   const user = await requireSecretariaWriter();
   const session = await prisma.lodgeSession.findUniqueOrThrow({
     where: { id: sessionId, lodgeId: user.lodgeId },
+    include: {
+      lodge: true,
+      attendances: { include: { user: true }, orderBy: { checkedInAt: "asc" } },
+    },
   });
   const last = await prisma.ata.findFirst({
     where: { lodgeId: user.lodgeId },
     orderBy: { number: "desc" },
   });
+
+  // Pré-preenche o rascunho com o modelo da Loja e os dados da sessão
+  const membros = session.attendances.filter((a) => a.user);
+  const byRole = (role: Role) =>
+    membros.find((a) => a.user!.currentRole === role)?.user!.name ?? null;
+  const content = gerarTextoAta({
+    lodgeName: `${session.lodge.name} nº ${session.lodge.number}`,
+    address: session.lodge.address,
+    degree: session.degree,
+    type: session.type,
+    date: session.date,
+    masterName: byRole("VENERAVEL_MESTRE"),
+    secretaryName: byRole("SECRETARIO"),
+    treasurerName: byRole("TESOUREIRO"),
+    presentes: membros
+      .filter((a) => !["VENERAVEL_MESTRE", "SECRETARIO", "TESOUREIRO"].includes(a.user!.currentRole))
+      .map((a) => ({ name: a.user!.name })),
+    visitantes: session.attendances
+      .filter((a) => !a.user && a.visitorName)
+      .map((a) => ({
+        name: a.visitorName!,
+        lodge: a.visitorLodge,
+        potencia: a.visitorPotencia,
+      })),
+    totalMembros: membros.length,
+  });
+
   const ata = await prisma.ata.create({
     data: {
       lodgeId: user.lodgeId,
       sessionId: session.id,
       number: (last?.number ?? 0) + 1,
-      content: "",
+      content,
     },
   });
   redirect(`/secretaria/atas/${ata.id}`);

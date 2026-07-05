@@ -94,6 +94,7 @@ export default async function AdminPage() {
                             number: l.number,
                             potencia: l.potencia,
                             oriente: l.oriente,
+                            address: l.address,
                           }}
                         />
                       </TableCell>
@@ -132,6 +133,14 @@ export default async function AdminPage() {
               <div className="space-y-1">
                 <Label htmlFor="oriente">Oriente (cidade/UF)</Label>
                 <Input id="oriente" name="oriente" />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="address">Endereço da sede</Label>
+                <Input
+                  id="address"
+                  name="address"
+                  placeholder="Av. ..., nº — bairro — cidade — UF"
+                />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="logo">Logo da loja (até 500 KB)</Label>

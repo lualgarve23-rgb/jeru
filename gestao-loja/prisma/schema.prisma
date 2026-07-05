@@ -19,6 +19,7 @@ model Lodge {
   number             String   @unique // nº da Loja na potência
   potencia           String? // GOB, GLESP, COMAB etc.
   oriente            String? // cidade/UF
+  address            String? // endereço da sede (citado no texto das atas)
   driveFolderId      String? // pasta raiz da Loja no Google Drive
   pixKey             String? // chave Pix da Loja (recebimento das capitações)
   logoUrl            String? // logo da Loja (data URI ou URL)
