@@ -85,6 +85,17 @@ export default async function AdminPage() {
                       </TableCell>
                       <TableCell>
                         {l.createdAt.toLocaleDateString("pt-BR")}
+                        {l.licencaInvoiceUrl && (
+                          <a
+                            href={l.licencaInvoiceUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block text-xs text-primary underline"
+                          >
+                            Licença R${" "}
+                            {Number(l.licencaValor).toFixed(2).replace(".", ",")}
+                          </a>
+                        )}
                       </TableCell>
                       <TableCell>
                         <LodgeActions
@@ -164,6 +175,27 @@ export default async function AdminPage() {
               <div className="space-y-1">
                 <Label htmlFor="vmEmail">E-mail</Label>
                 <Input id="vmEmail" name="vmEmail" type="email" required />
+              </div>
+              <div className="space-y-2 rounded-md border p-3">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input type="checkbox" name="cobrarLicenca" />
+                  Cobrar licença do sistema
+                </label>
+                <div className="space-y-1">
+                  <Label htmlFor="licencaValor">Valor da licença (R$)</Label>
+                  <Input
+                    id="licencaValor"
+                    name="licencaValor"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="ex.: 199,90"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Gera cobrança boleto/Pix (Asaas da plataforma) em nome do
+                    VM, com vencimento em 7 dias.
+                  </p>
+                </div>
               </div>
             </ActionForm>
           </CardContent>

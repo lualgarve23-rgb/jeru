@@ -44,6 +44,23 @@ export async function createLodge(
     return { error: "Preencha todos os campos (CPF com 11 dígitos)." };
   }
 
+  // Licença do sistema: opcional; cobrança boleto/Pix pela conta Asaas da plataforma
+  const cobrarLicenca = formData.get("cobrarLicenca") === "on";
+  const licencaValor = Number(
+    String(formData.get("licencaValor") ?? "").replace(",", ".")
+  );
+  if (cobrarLicenca) {
+    if (!Number.isFinite(licencaValor) || licencaValor <= 0) {
+      return { error: "Informe o valor da licença (em reais)." };
+    }
+    if (!process.env.ASAAS_PLATFORM_API_KEY) {
+      return {
+        error:
+          "ASAAS_PLATFORM_API_KEY não configurada no servidor — não é possível gerar a cobrança da licença.",
+      };
+    }
+  }
+
   const logo = await readLogo(formData);
   if (logo && typeof logo === "object") return logo;
 
@@ -79,9 +96,48 @@ export async function createLodge(
     },
   });
 
+  // Cobrança da licença (boleto/Pix — o pagador escolhe no link do Asaas)
+  let licencaMsg = "";
+  if (cobrarLicenca) {
+    try {
+      const { ensureCustomer, createPayment } = await import("@/lib/asaas");
+      const apiKey = process.env.ASAAS_PLATFORM_API_KEY!;
+      const lodge = await prisma.lodge.findUniqueOrThrow({
+        where: { number },
+        select: { id: true },
+      });
+      const customerId = await ensureCustomer(apiKey, {
+        name: vmName,
+        cpf: vmCpf,
+        email: vmEmail,
+        asaasCustomerId: null,
+      });
+      const due = new Date();
+      due.setDate(due.getDate() + 7);
+      const payment = await createPayment(apiKey, {
+        customerId,
+        amountCents: Math.round(licencaValor * 100),
+        dueDate: due,
+        description: `Licença do sistema — ${name} nº ${number}`,
+        externalReference: `licenca:${lodge.id}`,
+      });
+      await prisma.lodge.update({
+        where: { id: lodge.id },
+        data: {
+          licencaValor,
+          licencaChargeId: payment.id,
+          licencaInvoiceUrl: payment.invoiceUrl,
+        },
+      });
+      licencaMsg = ` Licença de R$ ${licencaValor.toFixed(2)} gerada — link de pagamento (boleto/Pix) disponível na lista de lojas.`;
+    } catch (e) {
+      licencaMsg = ` Atenção: a loja foi criada, mas a cobrança da licença falhou (${e instanceof Error ? e.message : "erro Asaas"}).`;
+    }
+  }
+
   revalidatePath("/admin");
   return {
-    ok: `Loja "${name}" criada. VM ${vmName} acessa com CIM ${vmCim} e senha inicial igual ao CPF (somente dígitos).`,
+    ok: `Loja "${name}" criada. VM ${vmName} acessa com CIM ${vmCim} e senha inicial igual ao CPF (somente dígitos).${licencaMsg}`,
   };
 }
 

@@ -28,6 +28,11 @@ model Lodge {
   minFreqProgressao  Int      @default(50)
   // Nº de capitações vencidas para o membro ficar IRREGULAR (inadimplência)
   limiteInadimplencia Int     @default(3)
+  // Licença do sistema cobrada da loja (opcional, definida no cadastro pelo
+  // SUPER_ADMIN; a cobrança boleto/Pix sai da conta Asaas da plataforma)
+  licencaValor      Decimal? @db.Decimal(10, 2)
+  licencaChargeId   String?
+  licencaInvoiceUrl String?
   // Instruções exigidas para progressão de grau (0 = sem exigência):
   // Aprendizes instruídos pelo 2º Vigilante, Companheiros pelo 1º Vigilante
   instrucoesAprendiz    Int @default(0)
