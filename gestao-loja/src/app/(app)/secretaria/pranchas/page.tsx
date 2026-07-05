@@ -27,6 +27,8 @@ import {
   CATEGORIAS_FORMULARIOS,
 } from "@/lib/formularios-gob";
 import { Download, FileWarning } from "lucide-react";
+import { entradasDoFormulario } from "@/lib/formularios-fill";
+import { PreencherFormulario } from "./preencher-formulario";
 
 export default async function PranchasPage() {
   const user = await requireRole(
@@ -35,7 +37,7 @@ export default async function PranchasPage() {
     "CONSELHO_CONTAS"
   );
   const isWriter = canWriteSecretaria(user.role);
-  const [pranchas, driveDocs] = await Promise.all([
+  const [pranchas, driveDocs, membros] = await Promise.all([
     prisma.prancha.findMany({
       where: { lodgeId: user.lodgeId },
       orderBy: [{ year: "desc" }, { number: "desc" }],
@@ -44,6 +46,11 @@ export default async function PranchasPage() {
       where: { lodgeId: user.lodgeId },
       orderBy: { createdAt: "desc" },
       select: { id: true, title: true },
+    }),
+    prisma.user.findMany({
+      where: { lodgeId: user.lodgeId, currentRole: { not: "SUPER_ADMIN" } },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, cim: true },
     }),
   ]);
 
@@ -57,8 +64,10 @@ export default async function PranchasPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Baixe o formulário da categoria correspondente, preencha conforme a
-            necessidade e anexe-o à prancha no campo de anexo abaixo.
+            Baixe o formulário da categoria correspondente ou use{" "}
+            <span className="font-medium">preencher</span> para baixá-lo já com
+            os dados da Loja, do Oriente e dos cargos atuais. Complete o que
+            faltar no Word e anexe-o à prancha no campo de anexo abaixo.
           </p>
           {CATEGORIAS_FORMULARIOS.map((cat) => (
             <div key={cat} className="space-y-1">
@@ -90,7 +99,21 @@ export default async function PranchasPage() {
                         <span className="text-muted-foreground">
                           — {f.descricao}
                           {!disponivel && " (arquivo indisponível)"}
-                        </span>
+                        </span>{" "}
+                        {disponivel &&
+                          isWriter &&
+                          (() => {
+                            const entradas = entradasDoFormulario(f.arquivo);
+                            if (!entradas) return null;
+                            return (
+                              <PreencherFormulario
+                                arquivo={f.arquivo}
+                                titulo={f.titulo}
+                                membros={membros}
+                                {...entradas}
+                              />
+                            );
+                          })()}
                       </span>
                     </li>
                   );
