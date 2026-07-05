@@ -238,6 +238,16 @@ export default async function AtaPage({
             {canSign && ata.status !== "RASCUNHO" && (
               <ActionButton action={signAction} label="Assinar como meu cargo" />
             )}
+            {ata.driveFileId && (
+              <a
+                href={`https://drive.google.com/file/d/${ata.driveFileId}/view`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center text-sm underline underline-offset-2"
+              >
+                Abrir PDF assinado no Drive
+              </a>
+            )}
             {ata.status === "ASSINADA" && canWriteSecretaria(user.role) && (
               <ActionButton
                 action={sendAction}

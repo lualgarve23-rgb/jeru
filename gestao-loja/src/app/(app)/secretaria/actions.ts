@@ -524,13 +524,108 @@ export async function signAta(ataId: string): Promise<ActionResult> {
     where: { id: ataId, lodgeId: user.lodgeId },
     data,
   });
+
+  // Ata selada: o PDF assinado vai automaticamente ao Drive da Loja
+  // (best-effort — falha no Drive não desfaz a assinatura)
+  let driveAviso = "";
+  if (data.status === "ASSINADA") {
+    try {
+      if (await isDriveAvailable(user.lodgeId)) {
+        await uploadAtaAssinadaToDrive(ataId, user.lodgeId, user.id);
+      } else {
+        driveAviso =
+          " Drive não conectado — o PDF assinado não foi arquivado no Drive.";
+      }
+    } catch (e) {
+      driveAviso = ` Falha ao arquivar no Drive: ${
+        e instanceof Error ? e.message : "erro desconhecido"
+      }`;
+    }
+  }
+
   revalidatePath(`/secretaria/atas/${ataId}`);
   return {
     ok:
       data.status === "ASSINADA"
-        ? "Ata assinada por ambos — documento selado."
+        ? `Ata assinada por ambos — documento selado e arquivado.${driveAviso}`
         : "Assinatura registrada. Aguardando a segunda assinatura.",
   };
+}
+
+// Monta o PDF final da ata com as assinaturas registradas
+async function gerarPdfAtaAssinada(ataId: string, lodgeId: string) {
+  const ata = await prisma.ata.findUniqueOrThrow({
+    where: { id: ataId, lodgeId },
+    include: { lodge: true },
+  });
+  const [master, sec] = await Promise.all([
+    ata.signedByMasterId
+      ? prisma.user.findUnique({
+          where: { id: ata.signedByMasterId },
+          select: { name: true, signatureUrl: true },
+        })
+      : null,
+    ata.signedBySecId
+      ? prisma.user.findUnique({
+          where: { id: ata.signedBySecId },
+          select: { name: true, signatureUrl: true },
+        })
+      : null,
+  ]);
+  const pdf = await gerarAtaPdf({
+    lodgeName: ata.lodge.name,
+    number: ata.number,
+    content: ata.content,
+    signers: [
+      master && {
+        name: master.name,
+        cargo: "Venerável Mestre",
+        signedAt: ata.signedByMasterAt,
+        signatureUrl: master.signatureUrl,
+      },
+      sec && {
+        name: sec.name,
+        cargo: "Secretário",
+        signedAt: ata.signedBySecAt,
+        signatureUrl: sec.signatureUrl,
+      },
+    ].filter((s) => s !== null),
+  });
+  return { ata, pdf };
+}
+
+// Envia o PDF assinado ao Drive da Loja e registra em Documentos
+async function uploadAtaAssinadaToDrive(
+  ataId: string,
+  lodgeId: string,
+  userId: string
+) {
+  const { ata, pdf } = await gerarPdfAtaAssinada(ataId, lodgeId);
+  if (ata.driveFileId) return; // já arquivada
+  const fileName = `ata-${ata.number}-assinada.pdf`;
+  const driveFileId = await uploadToLodgeDrive(
+    lodgeId,
+    fileName,
+    "application/pdf",
+    pdf
+  );
+  await Promise.all([
+    prisma.ata.update({
+      where: { id: ataId, lodgeId },
+      data: { driveFileId },
+    }),
+    prisma.document.create({
+      data: {
+        lodgeId,
+        uploadedById: userId,
+        title: `Ata nº ${ata.number} (assinada)`,
+        type: "ATA_ESCANEADA",
+        driveFileId,
+        mimeType: "application/pdf",
+        sizeBytes: pdf.length,
+      },
+    }),
+  ]);
 }
 
 // ───────────────────────── Pranchas ─────────────────────────
@@ -643,39 +738,15 @@ export async function sendAtaToMembers(ataId: string): Promise<ActionResult> {
     return { error: "Nenhum irmão ativo com e-mail cadastrado." };
   }
   try {
-    const [master, sec] = await Promise.all([
-      ata.signedByMasterId
-        ? prisma.user.findUnique({
-            where: { id: ata.signedByMasterId },
-            select: { name: true, signatureUrl: true },
-          })
-        : null,
-      ata.signedBySecId
-        ? prisma.user.findUnique({
-            where: { id: ata.signedBySecId },
-            select: { name: true, signatureUrl: true },
-          })
-        : null,
-    ]);
-    const pdf = await gerarAtaPdf({
-      lodgeName: ata.lodge.name,
-      number: ata.number,
-      content: ata.content,
-      signers: [
-        master && {
-          name: master.name,
-          cargo: "Venerável Mestre",
-          signedAt: ata.signedByMasterAt,
-          signatureUrl: master.signatureUrl,
-        },
-        sec && {
-          name: sec.name,
-          cargo: "Secretário",
-          signedAt: ata.signedBySecAt,
-          signatureUrl: sec.signatureUrl,
-        },
-      ].filter((s) => s !== null),
-    });
+    const { pdf } = await gerarPdfAtaAssinada(ataId, user.lodgeId);
+    // Retro-arquivamento: atas assinadas antes do arquivamento automático
+    if (!ata.driveFileId && (await isDriveAvailable(user.lodgeId))) {
+      try {
+        await uploadAtaAssinadaToDrive(ataId, user.lodgeId, user.id);
+      } catch {
+        // o envio aos irmãos segue mesmo se o Drive falhar
+      }
+    }
     await sendLodgeEmail({
       to: process.env.GMAIL_USER!,
       bcc: emails,
