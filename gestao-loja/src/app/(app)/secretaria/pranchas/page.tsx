@@ -20,11 +20,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { GUARDA_SELOS_EMAIL } from "@/lib/gmail";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import {
   FORMULARIOS_GOB,
   CATEGORIAS_FORMULARIOS,
 } from "@/lib/formularios-gob";
-import { Download } from "lucide-react";
+import { Download, FileWarning } from "lucide-react";
 
 export default async function PranchasPage() {
   const user = await requireRole(
@@ -62,26 +64,44 @@ export default async function PranchasPage() {
             <div key={cat} className="space-y-1">
               <p className="text-sm font-medium">{cat}</p>
               <ul className="space-y-1">
-                {FORMULARIOS_GOB.filter((f) => f.categoria === cat).map((f) => (
-                  <li key={f.slug} className="flex items-start gap-2 text-sm">
-                    <Download className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span>
-                      <a
-                        href={`/formularios-gob/${f.slug}.pdf`}
-                        target="_blank"
-                        className="font-medium underline underline-offset-2"
-                      >
-                        {f.titulo}
-                      </a>{" "}
-                      <span className="text-muted-foreground">
-                        — {f.descricao}
+                {FORMULARIOS_GOB.filter((f) => f.categoria === cat).map((f) => {
+                  const disponivel = existsSync(
+                    join(process.cwd(), "public", "formularios-gob", `${f.slug}.pdf`)
+                  );
+                  return (
+                    <li key={f.slug} className="flex items-start gap-2 text-sm">
+                      {disponivel ? (
+                        <Download className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                      ) : (
+                        <FileWarning className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                      )}
+                      <span>
+                        {disponivel ? (
+                          <a
+                            href={`/formularios-gob/${f.slug}.pdf`}
+                            target="_blank"
+                            className="font-medium underline underline-offset-2"
+                          >
+                            {f.titulo}
+                          </a>
+                        ) : (
+                          <span className="font-medium">{f.titulo}</span>
+                        )}{" "}
+                        <span className="text-muted-foreground">
+                          — {disponivel ? f.descricao : "aguardando o PDF oficial (Conecta GOB-SP)"}
+                        </span>
                       </span>
-                    </span>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}
+          <p className="text-xs text-muted-foreground">
+            Os formulários marcados em amarelo ainda não estão disponíveis:
+            obtenha os PDFs oficiais na área restrita do Conecta GOB-SP e
+            solicite a inclusão no sistema.
+          </p>
         </CardContent>
       </Card>
 
