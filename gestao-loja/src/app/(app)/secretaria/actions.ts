@@ -15,6 +15,7 @@ import { canWriteSecretaria, INTERSTICE_MONTHS } from "@/lib/permissions";
 import { uploadToLodgeDrive, isDriveAvailable } from "@/lib/google-drive";
 import { sendLodgeEmail, GUARDA_SELOS_EMAIL } from "@/lib/gmail";
 import { gerarTextoAta } from "@/lib/ata-template";
+import { gerarAtaPdf } from "@/lib/ata-pdf";
 import { enviarCertificadoVisita } from "@/lib/certificado";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
@@ -449,14 +450,23 @@ export async function sendAtaForReview(ataId: string): Promise<ActionResult> {
     return { error: "Nenhum irmão ativo com e-mail cadastrado." };
   }
   try {
+    const pdf = await gerarAtaPdf({
+      lodgeName: ata.lodge.name,
+      number: ata.number,
+      content: ata.content,
+      signers: [],
+      minuta: true,
+    });
     await sendLodgeEmail({
       to: process.env.GMAIL_USER!,
       bcc: emails,
       subject: `[Para validação] Ata nº ${ata.number} — ${ata.lodge.name}`,
       text:
-        `Ir∴, segue para validação a minuta da Ata nº ${ata.number}, da sessão de ${ata.session.date.toLocaleDateString("pt-BR")}.\n` +
-        `Pedidos de ajuste devem ser apresentados na próxima reunião, no momento da validação.\n\n` +
-        ata.content,
+        `Ir∴, segue em anexo, para validação, a minuta da Ata nº ${ata.number}, da sessão de ${ata.session.date.toLocaleDateString("pt-BR")}.\n` +
+        `Pedidos de ajuste devem ser apresentados na próxima reunião, no momento da validação.`,
+      attachments: [
+        { filename: `ata-${ata.number}-minuta.pdf`, content: pdf },
+      ],
     });
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Falha no envio." };
@@ -633,13 +643,45 @@ export async function sendAtaToMembers(ataId: string): Promise<ActionResult> {
     return { error: "Nenhum irmão ativo com e-mail cadastrado." };
   }
   try {
+    const [master, sec] = await Promise.all([
+      ata.signedByMasterId
+        ? prisma.user.findUnique({
+            where: { id: ata.signedByMasterId },
+            select: { name: true, signatureUrl: true },
+          })
+        : null,
+      ata.signedBySecId
+        ? prisma.user.findUnique({
+            where: { id: ata.signedBySecId },
+            select: { name: true, signatureUrl: true },
+          })
+        : null,
+    ]);
+    const pdf = await gerarAtaPdf({
+      lodgeName: ata.lodge.name,
+      number: ata.number,
+      content: ata.content,
+      signers: [
+        master && {
+          name: master.name,
+          cargo: "Venerável Mestre",
+          signedAt: ata.signedByMasterAt,
+          signatureUrl: master.signatureUrl,
+        },
+        sec && {
+          name: sec.name,
+          cargo: "Secretário",
+          signedAt: ata.signedBySecAt,
+          signatureUrl: sec.signatureUrl,
+        },
+      ].filter((s) => s !== null),
+    });
     await sendLodgeEmail({
       to: process.env.GMAIL_USER!,
       bcc: emails,
       subject: `Ata nº ${ata.number} — ${ata.lodge.name}`,
-      text:
-        `Ir∴, segue a Ata nº ${ata.number}, da sessão de ${ata.session.date.toLocaleDateString("pt-BR")}, assinada pelo Venerável Mestre e pelo Secretário.\n\n` +
-        ata.content,
+      text: `Ir∴, segue em anexo a Ata nº ${ata.number}, da sessão de ${ata.session.date.toLocaleDateString("pt-BR")}, assinada pelo Venerável Mestre e pelo Secretário.`,
+      attachments: [{ filename: `ata-${ata.number}.pdf`, content: pdf }],
     });
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Falha no envio." };

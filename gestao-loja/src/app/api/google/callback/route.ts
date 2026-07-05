@@ -6,21 +6,22 @@ import { oauthClient } from "@/lib/google-drive";
 
 // Callback do OAuth: guarda o refresh token na Loja do usuário logado.
 export async function GET(req: NextRequest) {
+  const baseUrl = process.env.APP_URL ?? req.url;
   const session = await auth();
   const role = session?.user?.role;
   if (!session?.user || !["VENERAVEL_MESTRE", "SECRETARIO"].includes(role!)) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    return NextResponse.redirect(new URL("/login", baseUrl));
   }
 
   const code = req.nextUrl.searchParams.get("code");
   if (!code) {
     return NextResponse.redirect(
-      new URL("/dashboard/loja?erro=google-negado", req.url)
+      new URL("/dashboard/loja?erro=google-negado", baseUrl)
     );
   }
 
   try {
-    const redirectUri = new URL("/api/google/callback", req.url).toString();
+    const redirectUri = new URL("/api/google/callback", baseUrl).toString();
     const client = oauthClient(redirectUri);
     const { tokens } = await client.getToken(code);
 
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
 
     if (!tokens.refresh_token) {
       return NextResponse.redirect(
-        new URL("/dashboard/loja?erro=sem-refresh-token", req.url)
+        new URL("/dashboard/loja?erro=sem-refresh-token", baseUrl)
       );
     }
 
@@ -49,9 +50,9 @@ export async function GET(req: NextRequest) {
     });
   } catch {
     return NextResponse.redirect(
-      new URL("/dashboard/loja?erro=google-falhou", req.url)
+      new URL("/dashboard/loja?erro=google-falhou", baseUrl)
     );
   }
 
-  return NextResponse.redirect(new URL("/dashboard/loja?ok=1", req.url));
+  return NextResponse.redirect(new URL("/dashboard/loja?ok=1", baseUrl));
 }
