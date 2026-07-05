@@ -20,6 +20,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { GUARDA_SELOS_EMAIL } from "@/lib/gmail";
+import {
+  FORMULARIOS_GOB,
+  CATEGORIAS_FORMULARIOS,
+} from "@/lib/formularios-gob";
+import { Download } from "lucide-react";
 
 export default async function PranchasPage() {
   const user = await requireRole(
@@ -43,6 +48,42 @@ export default async function PranchasPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Expedição de Pranchas</h1>
+
+      <Card className="max-w-xl">
+        <CardHeader>
+          <CardTitle>Formulários obrigatórios do GOB-SP</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Baixe o formulário da categoria correspondente, preencha conforme a
+            necessidade e anexe-o à prancha no campo de anexo abaixo.
+          </p>
+          {CATEGORIAS_FORMULARIOS.map((cat) => (
+            <div key={cat} className="space-y-1">
+              <p className="text-sm font-medium">{cat}</p>
+              <ul className="space-y-1">
+                {FORMULARIOS_GOB.filter((f) => f.categoria === cat).map((f) => (
+                  <li key={f.slug} className="flex items-start gap-2 text-sm">
+                    <Download className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span>
+                      <a
+                        href={`/formularios-gob/${f.slug}.pdf`}
+                        target="_blank"
+                        className="font-medium underline underline-offset-2"
+                      >
+                        {f.titulo}
+                      </a>{" "}
+                      <span className="text-muted-foreground">
+                        — {f.descricao}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       {isWriter && (
         <Card className="max-w-xl">
