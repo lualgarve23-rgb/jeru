@@ -15,6 +15,7 @@ import { canWriteSecretaria, INTERSTICE_MONTHS } from "@/lib/permissions";
 import { uploadToLodgeDrive, isDriveAvailable } from "@/lib/google-drive";
 import { sendLodgeEmail, GUARDA_SELOS_EMAIL } from "@/lib/gmail";
 import { gerarTextoAta } from "@/lib/ata-template";
+import { enviarCertificadoVisita } from "@/lib/certificado";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
@@ -258,18 +259,55 @@ export async function qrCheckinVisitor(
   if (!session) return { error: "Sessão não encontrada." };
   const visitorName = String(formData.get("visitorName")).trim();
   if (!visitorName) return { error: "Informe o nome." };
-  await prisma.attendance.create({
+  const visitorEmail =
+    String(formData.get("visitorEmail") ?? "").trim().toLowerCase() || null;
+  const attendance = await prisma.attendance.create({
     data: {
       lodgeId: session.lodgeId,
       sessionId: session.id,
       visitorName,
+      visitorEmail,
       visitorCim: (formData.get("visitorCim") as string) || null,
       visitorLodge: (formData.get("visitorLodge") as string) || null,
       visitorPotencia: (formData.get("visitorPotencia") as string) || null,
       viaQrCode: true,
     },
   });
+  if (visitorEmail) {
+    try {
+      await enviarCertificadoVisita(attendance.id);
+      return {
+        ok: "Presença confirmada. O Certificado de Visita foi enviado para o seu e-mail!",
+      };
+    } catch (e) {
+      // Não bloqueia o check-in — a Secretaria pode reenviar pela página da sessão
+      console.error("Falha ao enviar certificado de visita:", e);
+    }
+  }
   return { ok: "Presença de visitante confirmada. Seja bem-vindo!" };
+}
+
+// Reenvio manual do Certificado de Visita pela Secretaria
+export async function reenviarCertificadoVisita(
+  attendanceId: string
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const att = await prisma.attendance.findUnique({
+    where: { id: attendanceId },
+  });
+  if (!att || att.lodgeId !== user.lodgeId || !att.visitorName) {
+    return { error: "Presença de visitante não encontrada." };
+  }
+  if (!att.visitorEmail) {
+    return { error: "Este visitante não informou e-mail no check-in." };
+  }
+  try {
+    await enviarCertificadoVisita(att.id);
+  } catch (e) {
+    console.error("Falha ao enviar certificado de visita:", e);
+    return { error: "Falha ao enviar o certificado. Verifique o Gmail da loja." };
+  }
+  return { ok: `Certificado de Visita enviado para ${att.visitorEmail}.` };
 }
 
 // ───────────────────────── Atas ─────────────────────────

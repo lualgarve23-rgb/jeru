@@ -62,6 +62,15 @@ export default async function CheckinPage({
                 <Input id="visitorName" name="visitorName" required />
               </div>
               <div className="space-y-1">
+                <Label htmlFor="visitorEmail">E-mail</Label>
+                <Input
+                  id="visitorEmail"
+                  name="visitorEmail"
+                  type="email"
+                  placeholder="para receber o Certificado de Visita em PDF"
+                />
+              </div>
+              <div className="space-y-1">
                 <Label htmlFor="visitorCim">CIM</Label>
                 <Input id="visitorCim" name="visitorCim" />
               </div>

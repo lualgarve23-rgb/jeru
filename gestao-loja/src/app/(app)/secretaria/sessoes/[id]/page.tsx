@@ -3,8 +3,12 @@ import QRCode from "qrcode";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
-import { registerAttendance, createAta } from "../../actions";
-import { ActionForm } from "@/components/action-form";
+import {
+  registerAttendance,
+  createAta,
+  reenviarCertificadoVisita,
+} from "../../actions";
+import { ActionForm, ActionButton } from "@/components/action-form";
 import { Label } from "@/components/ui/label";
 import { sessionTypeLabels, degreeLabels } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
@@ -181,6 +185,15 @@ export default async function SessaoPage({
                   {" "}
                   às {a.checkedInAt.toLocaleTimeString("pt-BR")}
                 </span>
+                {!a.user && a.visitorEmail && isWriter && (
+                  <span className="ml-2 inline-flex align-middle">
+                    <ActionButton
+                      action={reenviarCertificadoVisita.bind(null, a.id)}
+                      label="Enviar Certificado de Visita"
+                      variant="outline"
+                    />
+                  </span>
+                )}
               </li>
             ))}
             {session.attendances.length === 0 && (

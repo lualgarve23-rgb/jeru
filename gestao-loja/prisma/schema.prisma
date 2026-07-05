@@ -219,6 +219,7 @@ model Attendance {
   userId          String? // null = visitante
   // dados do visitante
   visitorName     String?
+  visitorEmail    String? // para envio do certificado de visita em PDF
   visitorCim      String?
   visitorLodge    String? // loja de origem
   visitorPotencia String? // potência de origem
