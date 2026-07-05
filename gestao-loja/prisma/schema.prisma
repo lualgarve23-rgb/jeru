@@ -124,6 +124,8 @@ model User {
   currentRole    Role         @default(MEMBER)
   // Imagem da assinatura (data URI) — VM, Secretário e Orador, para assinar atas e documentos
   signatureUrl   String?
+  // Foto do membro (data URI, upload pelo próprio usuário em /dashboard/perfil)
+  photoUrl       String?
   status         MemberStatus @default(ATIVO)
   initiationDate DateTime? // data de iniciação (base do interstício)
 

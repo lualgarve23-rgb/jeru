@@ -40,6 +40,7 @@ function navFor(role: string, unread: number): NavItem[] {
     { href: "/tesouraria/despesas", label: "Despesas", icon: "despesas", section: "Tesouraria", roles: tesouraria },
     { href: "/tesouraria/balancete", label: "Balancete", icon: "balancete", section: "Tesouraria", roles: tesouraria },
     { href: "/dashboard/loja", label: "Configurações da Loja", icon: "loja", section: "Configurações", roles: gestaoLoja },
+    { href: "/dashboard/perfil", label: "Meu perfil", icon: "perfil", section: "Minha conta" },
     { href: "/dashboard/privacidade", label: "Privacidade (LGPD)", icon: "privacidade", section: "Minha conta" },
     { href: "/dashboard/senha", label: "Alterar senha", icon: "senha", section: "Minha conta" },
   ];

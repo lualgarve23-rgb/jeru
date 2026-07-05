@@ -57,7 +57,23 @@ export default async function MembrosPage() {
               isSecretaria || m.id === user.id || m.isDataPublic;
             return (
               <TableRow key={m.id}>
-                <TableCell className="font-medium">{m.name}</TableCell>
+                <TableCell className="font-medium">
+                  <span className="flex items-center gap-2">
+                    {m.photoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={m.photoUrl}
+                        alt=""
+                        className="h-8 w-8 shrink-0 rounded-full border object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border bg-muted text-xs text-muted-foreground">
+                        {m.name.charAt(0)}
+                      </span>
+                    )}
+                    {m.name}
+                  </span>
+                </TableCell>
                 <TableCell>{m.cim}</TableCell>
                 <TableCell>{degreeLabels[m.degree] ?? m.degree}</TableCell>
                 <TableCell>{roleLabels[m.currentRole] ?? m.currentRole}</TableCell>

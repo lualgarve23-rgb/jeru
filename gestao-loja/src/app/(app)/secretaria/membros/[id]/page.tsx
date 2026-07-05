@@ -42,7 +42,15 @@ export default async function MembroPage({
 
   return (
     <div className="max-w-3xl space-y-6">
-      <h1 className="text-2xl font-bold">
+      <h1 className="flex items-center gap-3 text-2xl font-bold">
+        {member.photoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={member.photoUrl}
+            alt={`Foto de ${member.name}`}
+            className="h-14 w-14 rounded-full border object-cover"
+          />
+        )}
         {member.name}{" "}
         <span className="text-base font-normal text-muted-foreground">
           CIM {member.cim} · {degreeLabels[member.degree] ?? member.degree}
