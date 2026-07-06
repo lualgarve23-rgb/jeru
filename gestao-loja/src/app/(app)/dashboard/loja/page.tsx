@@ -30,6 +30,8 @@ const erros: Record<string, string> = {
   "sem-refresh-token":
     "O Google não devolveu a autorização completa. Tente novamente.",
   "google-falhou": "Falha ao concluir a conexão com o Google.",
+  "sem-permissao-drive":
+    "A permissão do Google Drive não foi marcada na tela do Google. Conecte novamente e marque a caixa de acesso ao Drive.",
 };
 
 export default async function LojaConfigPage({

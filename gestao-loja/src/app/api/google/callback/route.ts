@@ -34,6 +34,14 @@ export async function GET(req: NextRequest) {
       email = info.data.email ?? null;
     }
 
+    // Permissão do Drive é opcional na tela do Google (caixinha) — sem ela a
+    // conexão fica inútil (uploads falham com "insufficient scopes").
+    if (!tokens.scope?.includes("https://www.googleapis.com/auth/drive.file")) {
+      return NextResponse.redirect(
+        new URL("/dashboard/loja?erro=sem-permissao-drive", baseUrl)
+      );
+    }
+
     if (!tokens.refresh_token) {
       return NextResponse.redirect(
         new URL("/dashboard/loja?erro=sem-refresh-token", baseUrl)
