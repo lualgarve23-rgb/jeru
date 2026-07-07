@@ -248,7 +248,7 @@ Inicie o desenvolvimento configurando o banco de dados (PostgreSQL + Prisma) com
 
 Com esse documento, a IA (como o Claude Code) terá não apenas a arquitetura técnica, mas todo o entendimento das regras de conformidade institucionais (trava financeira, dupla assinatura, prazos de relatórios) garantindo que o software reflita exatamente a realidade operacional exigida pelas Lojas e obediências [6, 9, 11, 17].
 
-## 9. Estado da Implementação (atualizado em 05/07/2026)
+## 9. Estado da Implementação (atualizado em 07/07/2026)
 
 Tudo do §1–§7 está implementado, testado e em produção (https://jeru.olgado.org). Além do spec original:
 
@@ -262,5 +262,12 @@ Tudo do §1–§7 está implementado, testado e em produção (https://jeru.olga
 - **Cargos de Loja completos:** enum `Role` inclui 1º/2º Vigilante, 1º/2º Diácono, Orador, Guarda Interno, Guarda Externo e Diretor de Cerimônias — todos com nível de acesso de Obreiro (as permissões de escrita seguem restritas a Secretário/Tesoureiro/VM; Conselho de Contas somente leitura). A ata preenche automaticamente todos os cargos citados no modelo.
 - **Formulários oficiais do GOB-SP:** catálogo com 31 formulários (Form. 009 a 129 + atestado, obtidos no Conecta GOB-SP) em `src/lib/formularios-gob.ts` e `public/formularios-gob/`, exibidos por categoria (Admissão, Filiação e Regularização, Vida do Obreiro, Mútua, Administração da Loja) na página de Pranchas, com download atrás do login. Fluxo: baixar → preencher → anexar à prancha → expedir à Guarda dos Selos.
 - **Gmail da loja ativo** para envio de pranchas à Guarda dos Selos (gselos@gobsp.org.br), atas aos irmãos (validação e versão final) e códigos 2FA.
+- **Certificado de Visita via QR Code:** visitante que faz check-in e informa e-mail recebe o certificado em PDF automaticamente (`src/lib/certificado.ts`); template personalizável por loja (upload de PPTX com marcadores em Configurações da Loja).
+- **Preenchimento automático dos formulários GOB-SP:** diálogo "Preencher" no card das Pranchas gera o DOCX oficial com loja/oriente/datas/cargos (com CIM)/obreiro/candidato já preenchidos (`src/lib/formularios-fill.ts`).
+- **Ata assinada → Drive:** na 2ª assinatura o PDF final é arquivado automaticamente no Google Drive da Loja (OAuth por loja, escopo drive.file); PDF e preview com **cabeçalho institucional** (logo, títulos, filete vermelho e divisa no rodapé — `Lodge.ataCabecalho/ataDivisa`, card em Configurações da Loja).
+- **Interstícios vigentes:** Aprendiz→Companheiro 12 meses; Companheiro→Mestre **6 meses** no grau atual (`INTERSTICE_MONTHS` em `src/lib/permissions.ts`).
+- **Foto do candidato no Kanban de Admissões:** `ProcessoAdmissao.fotoUrl` (até 500 KB) — upload no cadastro do candidato ou clicando no avatar do card.
+- **Histórico de graus e cargos editável:** na página do membro, cada registro pode ser editado ou excluído; o sistema recalcula automaticamente o grau e o cargo atuais.
+- **Cargos do rito personalizados:** página `/secretaria/cargos` (Secretário/VM) cadastra cargos conforme o rito da Loja (model `CargoRito`, único por nome no tenant); disponíveis na nomeação de membros e no histórico, exibidos no Quadro de Obreiros, sempre com nível de acesso de Obreiro. Cargo em uso não pode ser excluído.
 
-Próximo módulo planejado: **certificado de visita para irmãos visitantes via QR Code** (aguardando modelo do certificado).
+Frentes planejadas: painel do super admin com status de pagamento das licenças (webhook Asaas da plataforma), lembretes automáticos de instruções/interstício por e-mail e publicação do app OAuth do Google (saída do modo de teste).
