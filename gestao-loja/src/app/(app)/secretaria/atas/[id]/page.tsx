@@ -33,6 +33,7 @@ export default async function AtaPage({
   const ata = await prisma.ata.findUnique({
     where: { id, lodgeId: user.lodgeId },
     include: {
+      lodge: true,
       session: true,
       signedByMaster: true,
       signedBySec: true,
@@ -158,6 +159,32 @@ export default async function AtaPage({
         </CardHeader>
         <CardContent>
           <div className="rounded-md border bg-white p-6 font-serif text-[15px] leading-7 text-neutral-900 shadow-sm sm:p-10">
+            {/* Cabeçalho institucional — espelha o PDF (ata-pdf.ts) */}
+            <div className="relative mb-4 border-b-4 border-red-900 pb-3">
+              {ata.lodge.logoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={ata.lodge.logoUrl}
+                  alt={`Símbolo de ${ata.lodge.name}`}
+                  className="absolute left-0 top-0 h-16 w-16 object-contain"
+                />
+              )}
+              <div className="px-16 text-center">
+                <p className="text-base font-bold">
+                  {ata.lodge.name} nº {ata.lodge.number}
+                </p>
+                {(ata.lodge.ataCabecalho ?? "")
+                  .split("\n")
+                  .map((l) => l.trim())
+                  .filter(Boolean)
+                  .concat(ata.lodge.address ? [ata.lodge.address] : [])
+                  .map((line) => (
+                    <p key={line} className="text-xs leading-5">
+                      {line}
+                    </p>
+                  ))}
+              </div>
+            </div>
             <p className="whitespace-pre-wrap text-justify">
               {ata.content || "(sem conteúdo)"}
             </p>
@@ -200,6 +227,17 @@ export default async function AtaPage({
                 )}
               </div>
             )}
+            {/* Rodapé institucional — espelha o PDF */}
+            <div className="mt-10 border-t border-neutral-800 pt-2 text-center">
+              <p className="text-xs font-bold">
+                {ata.lodge.name} – nº {ata.lodge.number}
+              </p>
+              {ata.lodge.ataDivisa && (
+                <p className="text-[11px] italic text-neutral-500">
+                  “{ata.lodge.ataDivisa.replace(/^[“"]|[”"]$/g, "")}”
+                </p>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
