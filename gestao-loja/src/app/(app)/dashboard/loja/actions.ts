@@ -17,6 +17,25 @@ export async function disconnectGoogle(): Promise<ActionResult> {
   return { ok: "Conta Google desconectada." };
 }
 
+// Cabeçalho institucional e divisa exibidos no PDF das atas
+export async function updateAtaCabecalho(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireRole("VENERAVEL_MESTRE", "SECRETARIO");
+  const cabecalho = String(formData.get("cabecalho") ?? "").trim();
+  const divisa = String(formData.get("divisa") ?? "").trim();
+  if (cabecalho.length > 600 || divisa.length > 200) {
+    return { error: "Texto longo demais — reduza o cabeçalho ou a divisa." };
+  }
+  await prisma.lodge.update({
+    where: { id: user.lodgeId },
+    data: { ataCabecalho: cabecalho || null, ataDivisa: divisa || null },
+  });
+  revalidatePath("/dashboard/loja");
+  return { ok: "Cabeçalho das atas atualizado." };
+}
+
 // Frequência mínima (%) exigida para sair de "Instrução e Frequência"
 // no Kanban de Progressões — parametrizada por loja
 export async function updateMinFreqProgressao(

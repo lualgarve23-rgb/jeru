@@ -8,6 +8,7 @@ import {
   updateCertTemplate,
   removeCertTemplate,
   updateInstrucoesNecessarias,
+  updateAtaCabecalho,
 } from "./actions";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
@@ -87,6 +88,44 @@ export default async function LojaConfigPage({
             <div className="space-y-1">
               <Label htmlFor="logo">Nova imagem</Label>
               <Input id="logo" name="logo" type="file" accept="image/*" required />
+            </div>
+          </ActionForm>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Cabeçalho das Atas</CardTitle>
+          <CardDescription>
+            Linhas institucionais exibidas no topo do PDF das atas, abaixo do
+            nome da Loja e ao lado do símbolo (o logo acima), e a divisa que
+            aparece no rodapé de cada página. O endereço da sede cadastrado já
+            entra como última linha do cabeçalho.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ActionForm action={updateAtaCabecalho} submitLabel="Salvar cabeçalho">
+            <div className="space-y-1">
+              <Label htmlFor="cabecalho">Linhas do cabeçalho (uma por linha)</Label>
+              <textarea
+                id="cabecalho"
+                name="cabecalho"
+                rows={4}
+                className="w-full rounded-md border bg-transparent p-3 text-sm"
+                placeholder={
+                  "LOJA BENFEITORA DA FAMÍLIA\nFundada em 15 de novembro de 1998 – Or∴ de São Paulo – Ritual de Emulação\nFederada ao G∴O∴B∴ Jurisdicionada ao G∴O∴B∴ de São Paulo"
+                }
+                defaultValue={lodge.ataCabecalho ?? ""}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="divisa">Divisa do rodapé</Label>
+              <Input
+                id="divisa"
+                name="divisa"
+                placeholder="...Ele continua a proteger nossa Ordem, cimentando-a e adornando-a com todas as virtudes morais e sociais"
+                defaultValue={lodge.ataDivisa ?? ""}
+              />
             </div>
           </ActionForm>
         </CardContent>

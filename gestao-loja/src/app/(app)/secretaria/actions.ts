@@ -452,10 +452,15 @@ export async function sendAtaForReview(ataId: string): Promise<ActionResult> {
   try {
     const pdf = await gerarAtaPdf({
       lodgeName: ata.lodge.name,
+      lodgeNumber: ata.lodge.number,
       number: ata.number,
       content: ata.content,
       signers: [],
       minuta: true,
+      logoUrl: ata.lodge.logoUrl,
+      cabecalho: ata.lodge.ataCabecalho,
+      address: ata.lodge.address,
+      divisa: ata.lodge.ataDivisa,
     });
     await sendLodgeEmail({
       to: process.env.GMAIL_USER!,
@@ -574,8 +579,13 @@ async function gerarPdfAtaAssinada(ataId: string, lodgeId: string) {
   ]);
   const pdf = await gerarAtaPdf({
     lodgeName: ata.lodge.name,
+    lodgeNumber: ata.lodge.number,
     number: ata.number,
     content: ata.content,
+    logoUrl: ata.lodge.logoUrl,
+    cabecalho: ata.lodge.ataCabecalho,
+    address: ata.lodge.address,
+    divisa: ata.lodge.ataDivisa,
     signers: [
       master && {
         name: master.name,

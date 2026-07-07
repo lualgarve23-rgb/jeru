@@ -23,6 +23,11 @@ model Lodge {
   driveFolderId      String? // pasta raiz da Loja no Google Drive
   pixKey             String? // chave Pix da Loja (recebimento das capitações)
   logoUrl            String? // logo da Loja (data URI ou URL)
+  // Cabeçalho institucional das atas em PDF (linhas centralizadas sob o
+  // nome da Loja, ex.: título honorífico, fundação, federação) e divisa
+  // exibida no rodapé de cada página
+  ataCabecalho       String?
+  ataDivisa          String?
   // Frequência mínima (%) nas sessões durante o processo de progressão
   // (trava da coluna Instrução e Frequência — ajuste conforme o regulamento)
   minFreqProgressao  Int      @default(50)

@@ -23,10 +23,15 @@ export type AtaPdfSigner = {
 
 export type AtaPdfData = {
   lodgeName: string;
+  lodgeNumber?: string; // nº da Loja na potência (cabeçalho/rodapé)
   number: number;
   content: string;
   signers: AtaPdfSigner[]; // vazio na minuta em validação
   minuta?: boolean; // marca "MINUTA PARA VALIDAÇÃO"
+  logoUrl?: string | null; // símbolo da Loja no cabeçalho (data URI png/jpg)
+  cabecalho?: string | null; // linhas institucionais sob o nome (Lodge.ataCabecalho)
+  address?: string | null; // endereço da sede (última linha do cabeçalho)
+  divisa?: string | null; // frase do rodapé (Lodge.ataDivisa)
 };
 
 function wrapText(text: string, font: PDFFont, size: number, maxWidth: number) {
@@ -64,36 +69,82 @@ export async function gerarAtaPdf(data: AtaPdfData): Promise<Buffer> {
   );
 
   const maxWidth = PAGE.width - 2 * MARGIN;
+  const FOOTER_H = 46; // reserva para o rodapé institucional
   let page: PDFPage = doc.addPage([PAGE.width, PAGE.height]);
-  let y = PAGE.height - MARGIN;
+  let y = PAGE.height - 52;
 
   const newPageIfNeeded = (needed: number) => {
-    if (y - needed < MARGIN) {
+    if (y - needed < MARGIN + FOOTER_H) {
       page = doc.addPage([PAGE.width, PAGE.height]);
       y = PAGE.height - MARGIN;
     }
   };
 
-  // Cabeçalho
-  const title = data.lodgeName;
-  page.drawText(title, {
-    x: (PAGE.width - serifBold.widthOfTextAtSize(title, 14)) / 2,
-    y,
-    size: 14,
-    font: serifBold,
+  const vermelho = rgb(0.55, 0.08, 0.08);
+  const centered = (
+    text: string,
+    size: number,
+    font: PDFFont,
+    color = rgb(0, 0, 0)
+  ) => {
+    page.drawText(text, {
+      x: (PAGE.width - font.widthOfTextAtSize(text, size)) / 2,
+      y,
+      size,
+      font,
+      color,
+    });
+  };
+
+  // Cabeçalho institucional (1ª página): símbolo da Loja à esquerda,
+  // nome + linhas do Lodge.ataCabecalho + endereço centralizados, e
+  // filete vermelho separando do corpo
+  const headerTop = y;
+  if (data.logoUrl?.startsWith("data:image/")) {
+    try {
+      const bytes = Buffer.from(data.logoUrl.split(",")[1], "base64");
+      const img = data.logoUrl.includes("png")
+        ? await doc.embedPng(bytes)
+        : await doc.embedJpg(bytes);
+      const size = 68;
+      const scale = Math.min(size / img.width, size / img.height);
+      page.drawImage(img, {
+        x: MARGIN - 14,
+        y: headerTop - size + 12,
+        width: img.width * scale,
+        height: img.height * scale,
+      });
+    } catch {
+      // logo ilegível — segue sem imagem
+    }
+  }
+  const title = data.lodgeNumber
+    ? `${data.lodgeName} nº ${data.lodgeNumber}`
+    : data.lodgeName;
+  centered(title, 14, serifBold);
+  y -= 15;
+  const headerLines = (data.cabecalho ?? "")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (data.address) headerLines.push(data.address);
+  for (const line of headerLines) {
+    centered(line, 8.5, serif, rgb(0.15, 0.15, 0.15));
+    y -= 12;
+  }
+  y = Math.min(y, headerTop - 58); // não invadir o logo
+  page.drawLine({
+    start: { x: MARGIN - 14, y },
+    end: { x: PAGE.width - MARGIN + 14, y },
+    thickness: 3,
+    color: vermelho,
   });
-  y -= 20;
+  y -= 24;
   const sub = data.minuta
     ? `Ata nº ${data.number} — MINUTA PARA VALIDAÇÃO`
     : `Ata nº ${data.number}`;
-  page.drawText(sub, {
-    x: (PAGE.width - serif.widthOfTextAtSize(sub, 11)) / 2,
-    y,
-    size: 11,
-    font: serif,
-    color: data.minuta ? rgb(0.6, 0.1, 0.1) : rgb(0.2, 0.2, 0.2),
-  });
-  y -= 30;
+  centered(sub, 11, serif, data.minuta ? rgb(0.6, 0.1, 0.1) : rgb(0.2, 0.2, 0.2));
+  y -= 28;
 
   // Corpo
   for (const line of wrapText(data.content, serif, BODY_SIZE, maxWidth)) {
@@ -154,6 +205,35 @@ export async function gerarAtaPdf(data: AtaPdfData): Promise<Buffer> {
       });
     }
     y -= blockH;
+  }
+
+  // Rodapé institucional em todas as páginas: nome da Loja e divisa
+  const footerName = data.lodgeNumber
+    ? `${data.lodgeName} – nº ${data.lodgeNumber}`
+    : data.lodgeName;
+  for (const p of doc.getPages()) {
+    p.drawLine({
+      start: { x: MARGIN, y: 46 },
+      end: { x: PAGE.width - MARGIN, y: 46 },
+      thickness: 1,
+      color: rgb(0.1, 0.1, 0.1),
+    });
+    p.drawText(footerName, {
+      x: (PAGE.width - serifBold.widthOfTextAtSize(footerName, 9)) / 2,
+      y: 34,
+      size: 9,
+      font: serifBold,
+    });
+    if (data.divisa) {
+      const divisa = `“${data.divisa.replace(/^[“"]|[”"]$/g, "")}”`;
+      p.drawText(divisa, {
+        x: (PAGE.width - serif.widthOfTextAtSize(divisa, 7.5)) / 2,
+        y: 23,
+        size: 7.5,
+        font: serif,
+        color: rgb(0.35, 0.35, 0.35),
+      });
+    }
   }
 
   return Buffer.from(await doc.save());
