@@ -22,6 +22,7 @@ import {
   TrendingUp,
   GraduationCap,
   CircleUserRound,
+  BadgeCheck,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -46,6 +47,7 @@ const icons: Record<string, LucideIcon> = {
   progressoes: TrendingUp,
   instrucoes: GraduationCap,
   perfil: CircleUserRound,
+  cargos: BadgeCheck,
 };
 
 export type NavItem = {

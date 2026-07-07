@@ -72,6 +72,7 @@ model Lodge {
   processosProgressao ProcessoProgressao[]
   quittePlacets       QuittePlacet[]
   notifications       Notification[]
+  cargosRito          CargoRito[]
 
   @@map("lodges")
 }
@@ -132,6 +133,9 @@ model User {
   asaasSubscriptionId String?
   degree         Degree       @default(APRENDIZ)
   currentRole    Role         @default(MEMBER)
+  // Cargo do rito (personalizado pela Loja) — exibição; o nível de acesso
+  // continua sendo o de currentRole (cargos do rito = nível Obreiro)
+  cargoRito      String?
   // Imagem da assinatura (data URI) — VM, Secretário e Orador, para assinar atas e documentos
   signatureUrl   String?
   // Foto do membro (data URI, upload pelo próprio usuário em /dashboard/perfil)
@@ -196,6 +200,7 @@ model RoleHistory {
   lodgeId   String
   userId    String
   role      Role
+  cargoRito String? // nome do cargo do rito quando a nomeação for personalizada
   startDate DateTime
   endDate   DateTime?
   createdAt DateTime  @default(now())
@@ -206,6 +211,20 @@ model RoleHistory {
   @@index([lodgeId])
   @@index([userId])
   @@map("role_history")
+}
+
+// Cargos personalizados da Loja conforme o rito (ex.: Hospitaleiro,
+// Mestre de Harmonia, Porta-Estandarte) — cadastrados pelo Secretário
+model CargoRito {
+  id        String   @id @default(cuid())
+  lodgeId   String
+  nome      String
+  createdAt DateTime @default(now())
+
+  lodge Lodge @relation(fields: [lodgeId], references: [id])
+
+  @@unique([lodgeId, nome])
+  @@map("cargos_rito")
 }
 
 // ─────────────── Sessões, Presenças e Atas ───────────────

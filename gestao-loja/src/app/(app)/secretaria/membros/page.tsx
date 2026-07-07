@@ -76,7 +76,9 @@ export default async function MembrosPage() {
                 </TableCell>
                 <TableCell>{m.cim}</TableCell>
                 <TableCell>{degreeLabels[m.degree] ?? m.degree}</TableCell>
-                <TableCell>{roleLabels[m.currentRole] ?? m.currentRole}</TableCell>
+                <TableCell>
+                  {m.cargoRito ?? roleLabels[m.currentRole] ?? m.currentRole}
+                </TableCell>
                 <TableCell>
                   <Badge variant={memberStatusTone(m.status)}>
                     {memberStatusLabels[m.status] ?? m.status}

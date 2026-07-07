@@ -30,6 +30,11 @@ export default async function MembroPage({
   });
   if (!member) notFound();
 
+  const cargosRito = await prisma.cargoRito.findMany({
+    where: { lodgeId: user.lodgeId },
+    orderBy: { nome: "asc" },
+  });
+
   const nextDegree =
     member.degree === "APRENDIZ"
       ? "COMPANHEIRO"
@@ -166,7 +171,11 @@ export default async function MembroPage({
                 <select
                   id="role"
                   name="role"
-                  defaultValue={member.currentRole}
+                  defaultValue={
+                    member.cargoRito
+                      ? `rito:${member.cargoRito}`
+                      : member.currentRole
+                  }
                   className="h-9 w-full rounded-md border bg-transparent px-2 text-sm"
                 >
                   <option value="MEMBER">Obreiro</option>
@@ -182,10 +191,22 @@ export default async function MembroPage({
                   <option value="GUARDA_INTERNO">Guarda Interno</option>
                   <option value="GUARDA_EXTERNO">Guarda Externo</option>
                   <option value="DIRETOR_CERIMONIAS">Diretor de Cerimônias</option>
+                  {cargosRito.length > 0 && (
+                    <optgroup label="Cargos do rito">
+                      {cargosRito.map((c) => (
+                        <option key={c.id} value={`rito:${c.nome}`}>
+                          {c.nome}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
                 <p className="text-xs text-muted-foreground">
-                  Vigilantes, Diáconos, Orador, Guardas e Dir. de Cerimônias
-                  têm o mesmo nível de acesso de um Obreiro.
+                  Vigilantes, Diáconos, Orador, Guardas, Dir. de Cerimônias e
+                  cargos do rito têm o mesmo nível de acesso de um Obreiro.{" "}
+                  <a href="/secretaria/cargos" className="underline">
+                    Gerenciar cargos do rito
+                  </a>
                 </p>
               </div>
               <div className="space-y-1">
@@ -213,9 +234,11 @@ export default async function MembroPage({
             entries={member.roleHistory.map((r) => ({
               id: r.id,
               role: r.role,
+              cargoRito: r.cargoRito,
               startDate: r.startDate.toISOString().slice(0, 10),
               endDate: r.endDate ? r.endDate.toISOString().slice(0, 10) : null,
             }))}
+            cargosRito={cargosRito.map((c) => c.nome)}
           />
         </CardContent>
       </Card>

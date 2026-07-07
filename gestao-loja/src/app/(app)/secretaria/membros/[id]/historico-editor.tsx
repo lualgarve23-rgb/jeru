@@ -15,6 +15,7 @@ type DegreeEntry = { id: string; degree: string; date: string };
 type RoleEntry = {
   id: string;
   role: string;
+  cargoRito: string | null;
   startDate: string;
   endDate: string | null;
 };
@@ -123,7 +124,13 @@ export function HistoricoGraus({ entries }: { entries: DegreeEntry[] }) {
   );
 }
 
-export function HistoricoCargos({ entries }: { entries: RoleEntry[] }) {
+export function HistoricoCargos({
+  entries,
+  cargosRito,
+}: {
+  entries: RoleEntry[];
+  cargosRito: string[];
+}) {
   const [editing, setEditing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -157,7 +164,11 @@ export function HistoricoCargos({ entries }: { entries: RoleEntry[] }) {
                   run(() => updateRoleHistory(r.id, fd));
                 }}
               >
-                <select name="role" defaultValue={r.role} className={selectClass + " w-48"}>
+                <select
+                  name="role"
+                  defaultValue={r.cargoRito ? `rito:${r.cargoRito}` : r.role}
+                  className={selectClass + " w-48"}
+                >
                   {Object.entries(roleLabels)
                     .filter(([value]) => value !== "SUPER_ADMIN")
                     .map(([value, label]) => (
@@ -165,6 +176,21 @@ export function HistoricoCargos({ entries }: { entries: RoleEntry[] }) {
                         {label}
                       </option>
                     ))}
+                  {(r.cargoRito && !cargosRito.includes(r.cargoRito)
+                    ? [...cargosRito, r.cargoRito]
+                    : cargosRito
+                  ).length > 0 && (
+                    <optgroup label="Cargos do rito">
+                      {(r.cargoRito && !cargosRito.includes(r.cargoRito)
+                        ? [...cargosRito, r.cargoRito]
+                        : cargosRito
+                      ).map((nome) => (
+                        <option key={nome} value={`rito:${nome}`}>
+                          {nome}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
                 <Input
                   name="startDate"
@@ -200,7 +226,8 @@ export function HistoricoCargos({ entries }: { entries: RoleEntry[] }) {
           ) : (
             <li key={r.id} className="flex flex-wrap items-center gap-2">
               <span>
-                {roleLabels[r.role] ?? r.role} — {formatBR(r.startDate)}
+                {r.cargoRito ?? roleLabels[r.role] ?? r.role} —{" "}
+                {formatBR(r.startDate)}
                 {r.endDate ? ` a ${formatBR(r.endDate)}` : " (atual)"}
               </span>
               <button

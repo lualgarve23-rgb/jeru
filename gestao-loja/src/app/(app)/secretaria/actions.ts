@@ -168,6 +168,24 @@ export async function elevateDegree(
   return { ok: `Grau ${newDegree} registrado.` };
 }
 
+// Resolve o valor do select de cargo: um Role do sistema ou um cargo do
+// rito cadastrado pela Loja ("rito:<nome>", nível de acesso de Obreiro).
+async function resolveCargo(
+  lodgeId: string,
+  raw: string
+): Promise<{ role: Role; cargoRito: string | null } | { error: string }> {
+  if (raw.startsWith("rito:")) {
+    const nome = raw.slice(5);
+    const cargo = await prisma.cargoRito.findUnique({
+      where: { lodgeId_nome: { lodgeId, nome } },
+    });
+    if (!cargo) return { error: "Cargo do rito não encontrado." };
+    return { role: "MEMBER" as Role, cargoRito: cargo.nome };
+  }
+  if (!(raw in Role)) return { error: "Cargo inválido." };
+  return { role: raw as Role, cargoRito: null };
+}
+
 // Nomeação de cargo — encerra o cargo anterior no histórico
 export async function assignRole(
   memberId: string,
@@ -175,7 +193,11 @@ export async function assignRole(
   formData: FormData
 ): Promise<ActionResult> {
   const user = await requireSecretariaWriter();
-  const role = formData.get("role") as Role;
+  const cargo = await resolveCargo(
+    user.lodgeId,
+    String(formData.get("role"))
+  );
+  if ("error" in cargo) return { error: cargo.error };
   const startDate = new Date(String(formData.get("startDate")));
 
   await prisma.$transaction([
@@ -184,15 +206,61 @@ export async function assignRole(
       data: { endDate: startDate },
     }),
     prisma.roleHistory.create({
-      data: { lodgeId: user.lodgeId, userId: memberId, role, startDate },
+      data: {
+        lodgeId: user.lodgeId,
+        userId: memberId,
+        role: cargo.role,
+        cargoRito: cargo.cargoRito,
+        startDate,
+      },
     }),
     prisma.user.update({
       where: { id: memberId, lodgeId: user.lodgeId },
-      data: { currentRole: role },
+      data: { currentRole: cargo.role, cargoRito: cargo.cargoRito },
     }),
   ]);
   revalidatePath(`/secretaria/membros/${memberId}`);
   return { ok: "Cargo registrado." };
+}
+
+// ─────────────── Cargos do rito (personalizados por Loja) ───────────────
+
+export async function createCargoRito(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const nome = String(formData.get("nome")).trim();
+  if (!nome) return { error: "Informe o nome do cargo." };
+  try {
+    await prisma.cargoRito.create({
+      data: { lodgeId: user.lodgeId, nome },
+    });
+  } catch {
+    return { error: "Já existe um cargo com esse nome." };
+  }
+  revalidatePath("/secretaria/cargos");
+  return { ok: "Cargo do rito cadastrado." };
+}
+
+export async function deleteCargoRito(cargoId: string): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const cargo = await prisma.cargoRito.findUniqueOrThrow({
+    where: { id: cargoId, lodgeId: user.lodgeId },
+  });
+  const emUso = await prisma.user.count({
+    where: { lodgeId: user.lodgeId, cargoRito: cargo.nome },
+  });
+  if (emUso > 0) {
+    return {
+      error: `Há ${emUso} membro(s) com este cargo — nomeie outro cargo antes de excluir.`,
+    };
+  }
+  await prisma.cargoRito.delete({
+    where: { id: cargoId, lodgeId: user.lodgeId },
+  });
+  revalidatePath("/secretaria/cargos");
+  return { ok: "Cargo do rito excluído." };
 }
 
 // ─────────────── Correção de histórico (graus e cargos) ───────────────
@@ -219,7 +287,10 @@ async function syncMemberRole(lodgeId: string, userId: string) {
   });
   await prisma.user.update({
     where: { id: userId, lodgeId },
-    data: { currentRole: open?.role ?? "MEMBER" },
+    data: {
+      currentRole: open?.role ?? "MEMBER",
+      cargoRito: open?.cargoRito ?? null,
+    },
   });
 }
 
@@ -266,7 +337,11 @@ export async function updateRoleHistory(
   const entry = await prisma.roleHistory.findUniqueOrThrow({
     where: { id: entryId, lodgeId: user.lodgeId },
   });
-  const role = formData.get("role") as Role;
+  const cargo = await resolveCargo(
+    user.lodgeId,
+    String(formData.get("role"))
+  );
+  if ("error" in cargo) return { error: cargo.error };
   const startDate = new Date(String(formData.get("startDate")));
   if (Number.isNaN(startDate.getTime())) {
     return { error: "Informe uma data de início válida." };
@@ -278,7 +353,7 @@ export async function updateRoleHistory(
   }
   await prisma.roleHistory.update({
     where: { id: entryId, lodgeId: user.lodgeId },
-    data: { role, startDate, endDate },
+    data: { role: cargo.role, cargoRito: cargo.cargoRito, startDate, endDate },
   });
   await syncMemberRole(user.lodgeId, entry.userId);
   revalidatePath(`/secretaria/membros/${entry.userId}`);

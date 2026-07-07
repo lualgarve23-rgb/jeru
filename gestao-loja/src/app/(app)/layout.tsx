@@ -28,6 +28,7 @@ function navFor(role: string, unread: number): NavItem[] {
     { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
     { href: "/dashboard/notificacoes", label: "Notificações", icon: "notificacoes", badge: unread },
     { href: "/secretaria/membros", label: "Membros", icon: "membros", section: "Secretaria" },
+    { href: "/secretaria/cargos", label: "Cargos do Rito", icon: "cargos", section: "Secretaria", roles: fiscal },
     { href: "/secretaria/sessoes", label: "Sessões e Presenças", icon: "sessoes", section: "Secretaria" },
     { href: "/secretaria/atas", label: "Atas", icon: "atas", section: "Secretaria" },
     { href: "/secretaria/pranchas", label: "Pranchas", icon: "pranchas", section: "Secretaria", roles: fiscal },

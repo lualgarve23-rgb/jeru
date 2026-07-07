@@ -220,6 +220,7 @@ export async function deleteLodge(
     prisma.document.deleteMany({ where }),
     prisma.degreeHistory.deleteMany({ where }),
     prisma.roleHistory.deleteMany({ where }),
+    prisma.cargoRito.deleteMany({ where }),
     prisma.user.deleteMany({ where }),
     prisma.lodge.delete({ where: { id } }),
   ]);
