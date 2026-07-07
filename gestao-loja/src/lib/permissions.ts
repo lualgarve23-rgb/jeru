@@ -15,7 +15,7 @@ export function canWriteTesouraria(role: string) {
 // Interstícios mínimos em meses (ajuste conforme o Regulamento da Potência)
 export const INTERSTICE_MONTHS: Record<string, number> = {
   COMPANHEIRO: 12, // Aprendiz → Companheiro
-  MESTRE: 12, // Companheiro → Mestre
+  MESTRE: 6, // Companheiro → Mestre (mínimo de 6 meses no grau atual)
 };
 
 // Instruções de grau: Aprendizes com o 2º Vigilante, Companheiros com o

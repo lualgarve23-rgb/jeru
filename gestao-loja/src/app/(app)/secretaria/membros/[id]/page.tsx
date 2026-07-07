@@ -6,6 +6,7 @@ import { ActionForm } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { degreeLabels, roleLabels } from "@/lib/labels";
+import { HistoricoGraus, HistoricoCargos } from "./historico-editor";
 import {
   Card,
   CardContent,
@@ -201,37 +202,21 @@ export default async function MembroPage({
           <CardTitle>Histórico</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-6 text-sm sm:grid-cols-2">
-          <div>
-            <p className="mb-2 font-semibold">Graus</p>
-            <ul className="space-y-1">
-              {member.degreeHistory.map((d) => (
-                <li key={d.id}>
-                  {degreeLabels[d.degree] ?? d.degree} —{" "}
-                  {d.date.toLocaleDateString("pt-BR")}
-                </li>
-              ))}
-              {member.degreeHistory.length === 0 && (
-                <li className="text-muted-foreground">Sem registros.</li>
-              )}
-            </ul>
-          </div>
-          <div>
-            <p className="mb-2 font-semibold">Cargos</p>
-            <ul className="space-y-1">
-              {member.roleHistory.map((r) => (
-                <li key={r.id}>
-                  {roleLabels[r.role] ?? r.role} —{" "}
-                  {r.startDate.toLocaleDateString("pt-BR")}
-                  {r.endDate
-                    ? ` a ${r.endDate.toLocaleDateString("pt-BR")}`
-                    : " (atual)"}
-                </li>
-              ))}
-              {member.roleHistory.length === 0 && (
-                <li className="text-muted-foreground">Sem registros.</li>
-              )}
-            </ul>
-          </div>
+          <HistoricoGraus
+            entries={member.degreeHistory.map((d) => ({
+              id: d.id,
+              degree: d.degree,
+              date: d.date.toISOString().slice(0, 10),
+            }))}
+          />
+          <HistoricoCargos
+            entries={member.roleHistory.map((r) => ({
+              id: r.id,
+              role: r.role,
+              startDate: r.startDate.toISOString().slice(0, 10),
+              endDate: r.endDate ? r.endDate.toISOString().slice(0, 10) : null,
+            }))}
+          />
         </CardContent>
       </Card>
     </div>

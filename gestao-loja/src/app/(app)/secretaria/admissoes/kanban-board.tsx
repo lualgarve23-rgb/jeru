@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   moveProcessoAdmissao,
   setCertidoesValidas,
+  setFotoProcessoAdmissao,
   reprovarProcessoAdmissao,
 } from "../actions";
 
@@ -30,12 +31,47 @@ type Processo = {
   certidoesValidas: boolean;
   cpf: string | null;
   email: string | null;
+  fotoUrl: string | null;
 };
+
+function CandidatoAvatar({
+  processo,
+  className = "h-9 w-9",
+}: {
+  processo: Pick<Processo, "nomeCandidato" | "fotoUrl">;
+  className?: string;
+}) {
+  if (processo.fotoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={processo.fotoUrl}
+        alt={`Foto de ${processo.nomeCandidato}`}
+        className={`${className} shrink-0 rounded-full border object-cover`}
+      />
+    );
+  }
+  return (
+    <span
+      aria-hidden
+      className={`${className} flex shrink-0 items-center justify-center rounded-full border bg-muted text-xs font-semibold text-muted-foreground`}
+    >
+      {processo.nomeCandidato
+        .split(/\s+/)
+        .map((p) => p[0])
+        .filter(Boolean)
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()}
+    </span>
+  );
+}
 
 function Card({ processo }: { processo: Processo }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: processo.id });
   const [pending, startTransition] = useTransition();
+  const fotoInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <div
@@ -50,10 +86,46 @@ function Card({ processo }: { processo: Processo }) {
       }}
       className="cursor-grab select-none touch-manipulation space-y-2 rounded-lg border bg-card p-3 text-sm shadow-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:cursor-grabbing"
     >
-      <p className="font-medium">{processo.nomeCandidato}</p>
-      {processo.email && (
-        <p className="text-xs text-muted-foreground">{processo.email}</p>
-      )}
+      <div className="flex items-center gap-2.5">
+        <button
+          type="button"
+          title={processo.fotoUrl ? "Trocar foto do candidato" : "Adicionar foto do candidato"}
+          disabled={pending}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => fotoInputRef.current?.click()}
+          className="rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        >
+          <CandidatoAvatar processo={processo} />
+          <span className="sr-only">
+            {processo.fotoUrl ? "Trocar" : "Adicionar"} foto de{" "}
+            {processo.nomeCandidato}
+          </span>
+        </button>
+        <input
+          ref={fotoInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (!file) return;
+            const fd = new FormData();
+            fd.set("foto", file);
+            startTransition(() => {
+              void setFotoProcessoAdmissao(processo.id, fd);
+            });
+          }}
+        />
+        <div className="min-w-0">
+          <p className="truncate font-medium">{processo.nomeCandidato}</p>
+          {processo.email && (
+            <p className="truncate text-xs text-muted-foreground">
+              {processo.email}
+            </p>
+          )}
+        </div>
+      </div>
       <div className="flex items-center justify-between gap-2">
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <input
@@ -189,7 +261,8 @@ export function AdmissaoKanban({
         </div>
         <DragOverlay>
           {active ? (
-            <div className="w-64 rounded-lg border bg-card p-3 text-sm shadow-lg">
+            <div className="flex w-64 items-center gap-2.5 rounded-lg border bg-card p-3 text-sm shadow-lg">
+              <CandidatoAvatar processo={active} />
               {active.nomeCandidato}
             </div>
           ) : null}

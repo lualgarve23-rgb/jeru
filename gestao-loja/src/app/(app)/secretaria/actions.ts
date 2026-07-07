@@ -28,6 +28,23 @@ async function requireSecretariaWriter() {
   return user;
 }
 
+// Converte um upload de imagem em data URI (limite de 500 KB); retorna
+// string de erro quando o arquivo não serve.
+async function imageToDataUri(
+  file: File | null,
+  label: string
+): Promise<{ dataUri?: string; error?: string }> {
+  if (!file || file.size === 0) return {};
+  if (!file.type.startsWith("image/")) {
+    return { error: `${label} deve ser uma imagem (PNG, JPG...).` };
+  }
+  if (file.size > 500_000) {
+    return { error: `${label} muito grande — use uma imagem de até 500 KB.` };
+  }
+  const buf = Buffer.from(await file.arrayBuffer());
+  return { dataUri: `data:${file.type};base64,${buf.toString("base64")}` };
+}
+
 // ───────────────────────── Membros ─────────────────────────
 
 export async function createMember(
@@ -82,18 +99,12 @@ export async function updateMember(
   const user = await requireSecretariaWriter();
 
   // Imagem de assinatura (VM, Secretário e Orador) — data URI, até 500 KB
-  let signatureUrl: string | undefined;
-  const sig = formData.get("signature") as File | null;
-  if (sig && sig.size > 0) {
-    if (!sig.type.startsWith("image/")) {
-      return { error: "A assinatura deve ser uma imagem (PNG, JPG...)." };
-    }
-    if (sig.size > 500_000) {
-      return { error: "Assinatura muito grande — use uma imagem de até 500 KB." };
-    }
-    const buf = Buffer.from(await sig.arrayBuffer());
-    signatureUrl = `data:${sig.type};base64,${buf.toString("base64")}`;
-  }
+  const sig = await imageToDataUri(
+    formData.get("signature") as File | null,
+    "A assinatura"
+  );
+  if (sig.error) return { error: sig.error };
+  const signatureUrl = sig.dataUri;
 
   await prisma.user.update({
     // filtro composto garante o isolamento por tenant
@@ -182,6 +193,111 @@ export async function assignRole(
   ]);
   revalidatePath(`/secretaria/membros/${memberId}`);
   return { ok: "Cargo registrado." };
+}
+
+// ─────────────── Correção de histórico (graus e cargos) ───────────────
+// O grau atual do membro sempre reflete o registro mais recente do
+// histórico; o cargo atual reflete o registro em aberto (sem data fim).
+
+async function syncMemberDegree(lodgeId: string, userId: string) {
+  const latest = await prisma.degreeHistory.findFirst({
+    where: { lodgeId, userId },
+    orderBy: { date: "desc" },
+  });
+  if (latest) {
+    await prisma.user.update({
+      where: { id: userId, lodgeId },
+      data: { degree: latest.degree },
+    });
+  }
+}
+
+async function syncMemberRole(lodgeId: string, userId: string) {
+  const open = await prisma.roleHistory.findFirst({
+    where: { lodgeId, userId, endDate: null },
+    orderBy: { startDate: "desc" },
+  });
+  await prisma.user.update({
+    where: { id: userId, lodgeId },
+    data: { currentRole: open?.role ?? "MEMBER" },
+  });
+}
+
+export async function updateDegreeHistory(
+  entryId: string,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const entry = await prisma.degreeHistory.findUniqueOrThrow({
+    where: { id: entryId, lodgeId: user.lodgeId },
+  });
+  const degree = formData.get("degree") as Degree;
+  const date = new Date(String(formData.get("date")));
+  if (Number.isNaN(date.getTime())) return { error: "Informe uma data válida." };
+  await prisma.degreeHistory.update({
+    where: { id: entryId, lodgeId: user.lodgeId },
+    data: { degree, date },
+  });
+  await syncMemberDegree(user.lodgeId, entry.userId);
+  revalidatePath(`/secretaria/membros/${entry.userId}`);
+  return { ok: "Registro de grau atualizado." };
+}
+
+export async function deleteDegreeHistory(
+  entryId: string
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const entry = await prisma.degreeHistory.findUniqueOrThrow({
+    where: { id: entryId, lodgeId: user.lodgeId },
+  });
+  await prisma.degreeHistory.delete({
+    where: { id: entryId, lodgeId: user.lodgeId },
+  });
+  await syncMemberDegree(user.lodgeId, entry.userId);
+  revalidatePath(`/secretaria/membros/${entry.userId}`);
+  return { ok: "Registro de grau excluído." };
+}
+
+export async function updateRoleHistory(
+  entryId: string,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const entry = await prisma.roleHistory.findUniqueOrThrow({
+    where: { id: entryId, lodgeId: user.lodgeId },
+  });
+  const role = formData.get("role") as Role;
+  const startDate = new Date(String(formData.get("startDate")));
+  if (Number.isNaN(startDate.getTime())) {
+    return { error: "Informe uma data de início válida." };
+  }
+  const endRaw = String(formData.get("endDate") ?? "").trim();
+  const endDate = endRaw ? new Date(endRaw) : null;
+  if (endDate && endDate < startDate) {
+    return { error: "A data de fim não pode ser anterior ao início." };
+  }
+  await prisma.roleHistory.update({
+    where: { id: entryId, lodgeId: user.lodgeId },
+    data: { role, startDate, endDate },
+  });
+  await syncMemberRole(user.lodgeId, entry.userId);
+  revalidatePath(`/secretaria/membros/${entry.userId}`);
+  return { ok: "Registro de cargo atualizado." };
+}
+
+export async function deleteRoleHistory(
+  entryId: string
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const entry = await prisma.roleHistory.findUniqueOrThrow({
+    where: { id: entryId, lodgeId: user.lodgeId },
+  });
+  await prisma.roleHistory.delete({
+    where: { id: entryId, lodgeId: user.lodgeId },
+  });
+  await syncMemberRole(user.lodgeId, entry.userId);
+  revalidatePath(`/secretaria/membros/${entry.userId}`);
+  return { ok: "Registro de cargo excluído." };
 }
 
 // ───────────────────── Sessões e Presenças ─────────────────────
@@ -830,6 +946,11 @@ export async function createProcessoAdmissao(
   const user = await requireSecretariaWriter();
   const nomeCandidato = String(formData.get("nomeCandidato")).trim();
   if (!nomeCandidato) return { error: "Informe o nome do candidato." };
+  const foto = await imageToDataUri(
+    formData.get("foto") as File | null,
+    "A foto do candidato"
+  );
+  if (foto.error) return { error: foto.error };
   await prisma.processoAdmissao.create({
     data: {
       lodgeId: user.lodgeId,
@@ -837,6 +958,7 @@ export async function createProcessoAdmissao(
       cpf: (formData.get("cpf") as string)?.replace(/\D/g, "") || null,
       email: (formData.get("email") as string)?.trim().toLowerCase() || null,
       phone: (formData.get("phone") as string) || null,
+      fotoUrl: foto.dataUri ?? null,
     },
   });
   revalidatePath("/secretaria/admissoes");
@@ -871,6 +993,25 @@ export async function moveProcessoAdmissao(
   });
   revalidatePath("/secretaria/admissoes");
   return { ok: "Processo atualizado." };
+}
+
+export async function setFotoProcessoAdmissao(
+  processoId: string,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const foto = await imageToDataUri(
+    formData.get("foto") as File | null,
+    "A foto do candidato"
+  );
+  if (foto.error) return { error: foto.error };
+  if (!foto.dataUri) return { error: "Selecione uma imagem." };
+  await prisma.processoAdmissao.update({
+    where: { id: processoId, lodgeId: user.lodgeId },
+    data: { fotoUrl: foto.dataUri },
+  });
+  revalidatePath("/secretaria/admissoes");
+  return { ok: "Foto do candidato atualizada." };
 }
 
 export async function setCertidoesValidas(

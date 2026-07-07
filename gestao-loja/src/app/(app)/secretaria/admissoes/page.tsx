@@ -25,6 +25,7 @@ export default async function AdmissoesPage() {
       certidoesValidas: true,
       cpf: true,
       email: true,
+      fotoUrl: true,
     },
   });
 
@@ -64,6 +65,13 @@ export default async function AdmissoesPage() {
               <div className="space-y-1">
                 <Label htmlFor="email">E-mail</Label>
                 <Input id="email" name="email" type="email" />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="foto">Foto do candidato</Label>
+                <Input id="foto" name="foto" type="file" accept="image/*" />
+                <p className="text-xs text-muted-foreground">
+                  Opcional — imagem de até 500 KB, exibida no card do pipeline.
+                </p>
               </div>
             </ActionForm>
           </CardContent>
