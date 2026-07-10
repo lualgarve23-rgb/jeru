@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
+import { isGovbrConfigured } from "@/lib/govbr";
 import {
   updateAta,
   signAta,
@@ -23,13 +24,31 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+const govbrMensagens: Record<string, string> = {
+  ok: "✅ Assinatura gov.br registrada com sucesso.",
+  "nao-configurado":
+    "A assinatura gov.br ainda não está habilitada no servidor (credenciamento ITI pendente).",
+  "ata-nao-assinada":
+    "A ata precisa das duas assinaturas internas antes da assinatura gov.br.",
+  "nao-assinante": "Apenas quem assinou a ata internamente assina no gov.br.",
+  "ja-assinou": "Você já assinou esta ata com o gov.br.",
+  "cpf-divergente":
+    "A conta gov.br usada não é do próprio assinante (CPF divergente).",
+  "sessao-expirada": "Sessão de assinatura expirada — tente novamente.",
+  negado: "Autorização negada no gov.br.",
+  falhou: "Falha ao assinar com o gov.br — tente novamente.",
+};
+
 export default async function AtaPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ govbr?: string }>;
 }) {
   const user = await requireUser();
   const { id } = await params;
+  const { govbr } = await searchParams;
   const ata = await prisma.ata.findUnique({
     where: { id, lodgeId: user.lodgeId },
     include: {
@@ -49,6 +68,16 @@ export default async function AtaPage({
     (user.role === "SECRETARIO" &&
       !!ata.signedByMasterId &&
       !ata.signedBySecId);
+
+  const govbrDisponivel = isGovbrConfigured();
+  const podeAssinarGovbr =
+    ata.status === "ASSINADA" &&
+    ((user.role === "VENERAVEL_MESTRE" &&
+      ata.signedByMasterId === user.id &&
+      !ata.govbrMasterAt) ||
+      (user.role === "SECRETARIO" &&
+        ata.signedBySecId === user.id &&
+        !ata.govbrSecAt));
 
   const updateAction = updateAta.bind(null, ata.id);
   const signAction = signAta.bind(null, ata.id);
@@ -300,6 +329,71 @@ export default async function AtaPage({
           </div>
         </CardContent>
       </Card>
+
+      {/* Assinatura digital gov.br — após as duas assinaturas internas */}
+      {ata.status === "ASSINADA" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Assinatura digital gov.br</CardTitle>
+            <CardDescription>
+              Opcional: o Venerável Mestre e o Secretário podem assinar o PDF
+              final com a conta gov.br (assinatura eletrônica avançada do ITI,
+              validável em validar.iti.gov.br). Cada um assina com o próprio
+              CPF; as assinaturas se acumulam no mesmo arquivo.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {govbr && (
+              <p
+                className={
+                  govbr === "ok"
+                    ? "rounded-md bg-emerald-50 p-2 text-emerald-800"
+                    : "rounded-md bg-amber-50 p-2 text-amber-800"
+                }
+              >
+                {govbrMensagens[govbr] ?? govbrMensagens.falhou}
+              </p>
+            )}
+            {!govbrDisponivel && (
+              <p className="text-muted-foreground">
+                Ainda não habilitada neste servidor — depende do credenciamento
+                da aplicação junto ao ITI/Serpro (GOVBR_SIGN_CLIENT_ID e
+                GOVBR_SIGN_CLIENT_SECRET).
+              </p>
+            )}
+            <p>
+              Venerável Mestre:{" "}
+              {ata.govbrMasterAt
+                ? `✅ assinado via gov.br em ${ata.govbrMasterAt.toLocaleString("pt-BR")}`
+                : "⏳ pendente"}
+            </p>
+            <p>
+              Secretário:{" "}
+              {ata.govbrSecAt
+                ? `✅ assinado via gov.br em ${ata.govbrSecAt.toLocaleString("pt-BR")}`
+                : "⏳ pendente"}
+            </p>
+            <div className="flex flex-wrap gap-3">
+              {govbrDisponivel && podeAssinarGovbr && (
+                <a
+                  href={`/api/govbr/authorize?ata=${ata.id}`}
+                  className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                >
+                  Assinar com gov.br
+                </a>
+              )}
+              {ata.govbrMasterAt || ata.govbrSecAt ? (
+                <a
+                  href={`/api/govbr/pdf?ata=${ata.id}`}
+                  className="inline-flex items-center text-sm underline underline-offset-2"
+                >
+                  Baixar PDF assinado (gov.br)
+                </a>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

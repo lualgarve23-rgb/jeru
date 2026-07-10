@@ -1,0 +1,4 @@
+ALTER TABLE "atas"
+  ADD COLUMN "govbrPdf" BYTEA,
+  ADD COLUMN "govbrMasterAt" TIMESTAMP(3),
+  ADD COLUMN "govbrSecAt" TIMESTAMP(3);

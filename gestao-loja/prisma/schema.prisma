@@ -320,6 +320,11 @@ model Ata {
   signedBySecAt    DateTime?
 
   driveFileId      String?   // PDF assinado no Google Drive
+
+  // Assinatura digital gov.br (PAdES) — cada assinante assina com a própria conta
+  govbrPdf      Bytes?    // PDF com as assinaturas digitais acumuladas
+  govbrMasterAt DateTime? // assinatura gov.br do Venerável Mestre
+  govbrSecAt    DateTime? // assinatura gov.br do Secretário
   ajustes          String?   // ajustes solicitados pelos irmãos na validação
   sentForReviewAt  DateTime? // envio aos irmãos para validação (antes das assinaturas)
   sentToMembersAt  DateTime? // envio da versão final assinada aos irmãos
