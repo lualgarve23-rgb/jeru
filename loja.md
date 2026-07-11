@@ -248,7 +248,7 @@ Inicie o desenvolvimento configurando o banco de dados (PostgreSQL + Prisma) com
 
 Com esse documento, a IA (como o Claude Code) terá não apenas a arquitetura técnica, mas todo o entendimento das regras de conformidade institucionais (trava financeira, dupla assinatura, prazos de relatórios) garantindo que o software reflita exatamente a realidade operacional exigida pelas Lojas e obediências [6, 9, 11, 17].
 
-## 9. Estado da Implementação (atualizado em 07/07/2026)
+## 9. Estado da Implementação (atualizado em 11/07/2026)
 
 Tudo do §1–§7 está implementado, testado e em produção (https://jeru.olgado.org). Além do spec original:
 
@@ -269,5 +269,7 @@ Tudo do §1–§7 está implementado, testado e em produção (https://jeru.olga
 - **Foto do candidato no Kanban de Admissões:** `ProcessoAdmissao.fotoUrl` (até 500 KB) — upload no cadastro do candidato ou clicando no avatar do card.
 - **Histórico de graus e cargos editável:** na página do membro, cada registro pode ser editado ou excluído; o sistema recalcula automaticamente o grau e o cargo atuais.
 - **Cargos do rito personalizados:** página `/secretaria/cargos` (Secretário/VM) cadastra cargos conforme o rito da Loja (model `CargoRito`, único por nome no tenant); disponíveis na nomeação de membros e no histórico, exibidos no Quadro de Obreiros, sempre com nível de acesso de Obreiro. Cargo em uso não pode ser excluído.
+
+- **Assinatura gov.br da ata (fluxo externo):** o credenciamento direto na API do ITI é restrito a órgãos públicos, então o caminho em produção é o assinador.iti.br. Na liberação para assinaturas o Secretário escolhe o destino (`Ata.govbrSolicitado`): assinatura normal ou encaminhar também ao gov.br (a escolha pode ser mudada depois, enquanto não houver assinatura gov.br). Ordem de governança igual à interna: o VM baixa o PDF final (`/api/atas/pdf`), assina no assinador.iti.br e sobe (`govbrMasterAt`); o Secretário baixa a versão com a assinatura do VM, assina e sobe o arquivo final (`govbrSecAt`), validado (PAdES `/ByteRange`) e arquivado no Drive. O código da API do ITI (`src/lib/govbr.ts`, OAuth + assinarPKCS7) permanece pronto e dormante, com a mesma trava de ordem no callback, caso um dia haja credenciamento.
 
 Frentes planejadas: painel do super admin com status de pagamento das licenças (webhook Asaas da plataforma), lembretes automáticos de instruções/interstício por e-mail e publicação do app OAuth do Google (saída do modo de teste).
