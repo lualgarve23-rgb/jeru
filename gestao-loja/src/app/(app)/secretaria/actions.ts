@@ -783,6 +783,88 @@ async function uploadAtaAssinadaToDrive(
   ]);
 }
 
+// Upload da ata assinada externamente (assinador.iti.br): o PDF baixado do
+// sistema é assinado com a conta gov.br dos oficiais e devolvido aqui. O
+// arquivo passa a ser a versão gov.br da ata e é arquivado no Drive.
+export async function uploadAtaAssinadaGovbr(
+  ataId: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireUser();
+  const ata = await prisma.ata.findUniqueOrThrow({
+    where: { id: ataId, lodgeId: user.lodgeId },
+  });
+  const podeSubir =
+    canWriteSecretaria(user.role) ||
+    ata.signedByMasterId === user.id ||
+    ata.signedBySecId === user.id;
+  if (!podeSubir) {
+    return { error: "Apenas a Secretaria ou os assinantes da ata podem subir o PDF assinado." };
+  }
+  if (ata.status !== "ASSINADA") {
+    return { error: "A ata precisa das duas assinaturas internas antes do upload." };
+  }
+
+  const file = formData.get("file") as File | null;
+  if (!file || file.size === 0) {
+    return { error: "Selecione o PDF assinado no gov.br." };
+  }
+  if (file.size > 15_000_000) {
+    return { error: "Arquivo muito grande — o PDF deve ter até 15 MB." };
+  }
+  const pdf = Buffer.from(await file.arrayBuffer());
+  if (!pdf.subarray(0, 5).toString("latin1").startsWith("%PDF-")) {
+    return { error: "O arquivo enviado não é um PDF." };
+  }
+  // Um PDF assinado digitalmente (PAdES) carrega um dicionário de assinatura
+  // com /ByteRange — sem isso, o arquivo veio sem a assinatura gov.br.
+  if (!pdf.includes("/ByteRange")) {
+    return {
+      error:
+        "O PDF não contém assinatura digital. Assine o arquivo em assinador.iti.br antes de enviar.",
+    };
+  }
+
+  await prisma.ata.update({
+    where: { id: ataId, lodgeId: user.lodgeId },
+    data: { govbrPdf: new Uint8Array(pdf), govbrUploadedAt: new Date() },
+  });
+
+  // Arquivamento no Drive (best-effort — falha não desfaz o upload)
+  let driveAviso = "";
+  try {
+    if (await isDriveAvailable(user.lodgeId)) {
+      const driveFileId = await uploadToLodgeDrive(
+        user.lodgeId,
+        `ata-${ata.number}-assinada-govbr.pdf`,
+        "application/pdf",
+        pdf
+      );
+      await prisma.document.create({
+        data: {
+          lodgeId: user.lodgeId,
+          uploadedById: user.id,
+          title: `Ata nº ${ata.number} (assinada gov.br)`,
+          type: "ATA_ESCANEADA",
+          driveFileId,
+          mimeType: "application/pdf",
+          sizeBytes: pdf.length,
+        },
+      });
+    } else {
+      driveAviso = " Drive não conectado — o arquivo não foi arquivado no Drive.";
+    }
+  } catch (e) {
+    driveAviso = ` Falha ao arquivar no Drive: ${
+      e instanceof Error ? e.message : "erro desconhecido"
+    }`;
+  }
+
+  revalidatePath(`/secretaria/atas/${ataId}`);
+  return { ok: `Ata assinada no gov.br registrada.${driveAviso}` };
+}
+
 // ───────────────────────── Pranchas ─────────────────────────
 
 export async function createPrancha(

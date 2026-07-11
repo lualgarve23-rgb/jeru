@@ -325,6 +325,7 @@ model Ata {
   govbrPdf      Bytes?    // PDF com as assinaturas digitais acumuladas
   govbrMasterAt DateTime? // assinatura gov.br do Venerável Mestre
   govbrSecAt    DateTime? // assinatura gov.br do Secretário
+  govbrUploadedAt DateTime? // upload do PDF assinado externamente no assinador.iti.br
   ajustes          String?   // ajustes solicitados pelos irmãos na validação
   sentForReviewAt  DateTime? // envio aos irmãos para validação (antes das assinaturas)
   sentToMembersAt  DateTime? // envio da versão final assinada aos irmãos

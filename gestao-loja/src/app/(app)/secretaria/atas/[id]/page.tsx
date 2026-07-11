@@ -8,6 +8,7 @@ import {
   signAta,
   sendAtaForReview,
   sendAtaToMembers,
+  uploadAtaAssinadaGovbr,
 } from "../../actions";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Badge } from "@/components/ui/badge";
@@ -79,7 +80,14 @@ export default async function AtaPage({
         ata.signedBySecId === user.id &&
         !ata.govbrSecAt));
 
+  const podeSubirGovbr =
+    ata.status === "ASSINADA" &&
+    (canWriteSecretaria(user.role) ||
+      ata.signedByMasterId === user.id ||
+      ata.signedBySecId === user.id);
+
   const updateAction = updateAta.bind(null, ata.id);
+  const uploadGovbrAction = uploadAtaAssinadaGovbr.bind(null, ata.id);
   const signAction = signAta.bind(null, ata.id);
   const sendAction = sendAtaToMembers.bind(null, ata.id);
   const reviewAction = sendAtaForReview.bind(null, ata.id);
@@ -336,10 +344,10 @@ export default async function AtaPage({
           <CardHeader>
             <CardTitle>Assinatura digital gov.br</CardTitle>
             <CardDescription>
-              Opcional: o Venerável Mestre e o Secretário podem assinar o PDF
-              final com a conta gov.br (assinatura eletrônica avançada do ITI,
-              validável em validar.iti.gov.br). Cada um assina com o próprio
-              CPF; as assinaturas se acumulam no mesmo arquivo.
+              Opcional: o Venerável Mestre e o Secretário assinam o PDF final
+              com a conta gov.br (assinatura eletrônica avançada, validável em
+              validar.iti.gov.br) — pelo portal assinador.iti.br, subindo o
+              arquivo assinado aqui em seguida.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
@@ -354,25 +362,28 @@ export default async function AtaPage({
                 {govbrMensagens[govbr] ?? govbrMensagens.falhou}
               </p>
             )}
-            {!govbrDisponivel && (
-              <p className="text-muted-foreground">
-                Ainda não habilitada neste servidor — depende do credenciamento
-                da aplicação junto ao ITI/Serpro (GOVBR_SIGN_CLIENT_ID e
-                GOVBR_SIGN_CLIENT_SECRET).
+            {govbrDisponivel && (
+              <>
+                <p>
+                  Venerável Mestre:{" "}
+                  {ata.govbrMasterAt
+                    ? `✅ assinado via gov.br em ${ata.govbrMasterAt.toLocaleString("pt-BR")}`
+                    : "⏳ pendente"}
+                </p>
+                <p>
+                  Secretário:{" "}
+                  {ata.govbrSecAt
+                    ? `✅ assinado via gov.br em ${ata.govbrSecAt.toLocaleString("pt-BR")}`
+                    : "⏳ pendente"}
+                </p>
+              </>
+            )}
+            {ata.govbrUploadedAt && (
+              <p>
+                📎 PDF assinado no gov.br enviado em{" "}
+                {ata.govbrUploadedAt.toLocaleString("pt-BR")}
               </p>
             )}
-            <p>
-              Venerável Mestre:{" "}
-              {ata.govbrMasterAt
-                ? `✅ assinado via gov.br em ${ata.govbrMasterAt.toLocaleString("pt-BR")}`
-                : "⏳ pendente"}
-            </p>
-            <p>
-              Secretário:{" "}
-              {ata.govbrSecAt
-                ? `✅ assinado via gov.br em ${ata.govbrSecAt.toLocaleString("pt-BR")}`
-                : "⏳ pendente"}
-            </p>
             <div className="flex flex-wrap gap-3">
               {govbrDisponivel && podeAssinarGovbr && (
                 <a
@@ -382,7 +393,7 @@ export default async function AtaPage({
                   Assinar com gov.br
                 </a>
               )}
-              {ata.govbrMasterAt || ata.govbrSecAt ? (
+              {ata.govbrMasterAt || ata.govbrSecAt || ata.govbrUploadedAt ? (
                 <a
                   href={`/api/govbr/pdf?ata=${ata.id}`}
                   className="inline-flex items-center text-sm underline underline-offset-2"
@@ -391,6 +402,57 @@ export default async function AtaPage({
                 </a>
               ) : null}
             </div>
+
+            {/* Fluxo externo: assinar no assinador.iti.br e subir o PDF */}
+            {podeSubirGovbr && (
+              <div className="space-y-3 rounded-md border p-3">
+                <p className="font-medium">
+                  Assinar externamente (assinador.iti.br)
+                </p>
+                <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
+                  <li>
+                    <a
+                      href={`/api/atas/pdf?ata=${ata.id}`}
+                      className="underline underline-offset-2"
+                    >
+                      Baixe o PDF final da ata
+                    </a>
+                    .
+                  </li>
+                  <li>
+                    Assine o arquivo em{" "}
+                    <a
+                      href="https://assinador.iti.br"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline underline-offset-2"
+                    >
+                      assinador.iti.br
+                    </a>{" "}
+                    com a conta gov.br (nível prata ou ouro) — o Venerável
+                    Mestre e o Secretário podem assinar o mesmo arquivo em
+                    sequência.
+                  </li>
+                  <li>Envie aqui o PDF assinado.</li>
+                </ol>
+                <ActionForm
+                  action={uploadGovbrAction}
+                  submitLabel={
+                    ata.govbrUploadedAt
+                      ? "Substituir PDF assinado"
+                      : "Enviar PDF assinado"
+                  }
+                >
+                  <input
+                    type="file"
+                    name="file"
+                    accept="application/pdf"
+                    required
+                    className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium"
+                  />
+                </ActionForm>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
