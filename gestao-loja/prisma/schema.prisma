@@ -326,6 +326,7 @@ model Ata {
   govbrMasterAt DateTime? // assinatura gov.br do Venerável Mestre
   govbrSecAt    DateTime? // assinatura gov.br do Secretário
   govbrUploadedAt DateTime? // upload do PDF assinado externamente no assinador.iti.br
+  govbrSolicitado Boolean   @default(false) // Secretário optou por encaminhar ao gov.br
   ajustes          String?   // ajustes solicitados pelos irmãos na validação
   sentForReviewAt  DateTime? // envio aos irmãos para validação (antes das assinaturas)
   sentToMembersAt  DateTime? // envio da versão final assinada aos irmãos

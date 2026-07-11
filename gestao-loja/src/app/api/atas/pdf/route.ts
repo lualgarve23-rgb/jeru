@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   const ata = await prisma.ata.findUnique({
     where: { id: ataId, lodgeId: session.user.lodgeId },
-    select: { status: true },
+    select: { status: true, number: true, govbrPdf: true },
   });
   if (!ata) return new NextResponse("Ata não encontrada.", { status: 404 });
   if (ata.status !== "ASSINADA") {
@@ -28,14 +28,15 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const { ata: dados, pdf } = await gerarPdfAtaAssinada(
-    ataId,
-    session.user.lodgeId
-  );
+  // Se o Venerável Mestre já assinou no gov.br, o Secretário baixa essa
+  // versão para acrescentar a própria assinatura sobre ela
+  const pdf = ata.govbrPdf
+    ? Buffer.from(ata.govbrPdf)
+    : (await gerarPdfAtaAssinada(ataId, session.user.lodgeId)).pdf;
   return new NextResponse(Buffer.from(pdf), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="ata-${dados.number}.pdf"`,
+      "Content-Disposition": `attachment; filename="ata-${ata.number}.pdf"`,
     },
   });
 }

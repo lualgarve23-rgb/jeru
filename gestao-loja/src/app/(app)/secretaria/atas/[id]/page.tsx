@@ -9,6 +9,7 @@ import {
   sendAtaForReview,
   sendAtaToMembers,
   uploadAtaAssinadaGovbr,
+  setAtaGovbr,
 } from "../../actions";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,8 @@ const govbrMensagens: Record<string, string> = {
     "A ata precisa das duas assinaturas internas antes da assinatura gov.br.",
   "nao-assinante": "Apenas quem assinou a ata internamente assina no gov.br.",
   "ja-assinou": "Você já assinou esta ata com o gov.br.",
+  "nao-encaminhada": "Esta ata não foi encaminhada para assinatura gov.br.",
+  ordem: "O Venerável Mestre assina primeiro no gov.br — aguarde a assinatura dele.",
   "cpf-divergente":
     "A conta gov.br usada não é do próprio assinante (CPF divergente).",
   "sessao-expirada": "Sessão de assinatura expirada — tente novamente.",
@@ -71,23 +74,36 @@ export default async function AtaPage({
       !ata.signedBySecId);
 
   const govbrDisponivel = isGovbrConfigured();
+  // Ordem de governança no gov.br: VM assina primeiro; o Secretário, depois
   const podeAssinarGovbr =
     ata.status === "ASSINADA" &&
+    ata.govbrSolicitado &&
     ((user.role === "VENERAVEL_MESTRE" &&
       ata.signedByMasterId === user.id &&
       !ata.govbrMasterAt) ||
       (user.role === "SECRETARIO" &&
         ata.signedBySecId === user.id &&
+        !!ata.govbrMasterAt &&
         !ata.govbrSecAt));
 
+  const govbrEtapaVm =
+    !ata.govbrMasterAt &&
+    user.role === "VENERAVEL_MESTRE" &&
+    ata.signedByMasterId === user.id;
+  const govbrEtapaSec =
+    !!ata.govbrMasterAt &&
+    !ata.govbrSecAt &&
+    user.role === "SECRETARIO" &&
+    ata.signedBySecId === user.id;
   const podeSubirGovbr =
     ata.status === "ASSINADA" &&
-    (canWriteSecretaria(user.role) ||
-      ata.signedByMasterId === user.id ||
-      ata.signedBySecId === user.id);
+    ata.govbrSolicitado &&
+    (govbrEtapaVm || govbrEtapaSec);
 
   const updateAction = updateAta.bind(null, ata.id);
   const uploadGovbrAction = uploadAtaAssinadaGovbr.bind(null, ata.id);
+  const encaminharGovbrAction = setAtaGovbr.bind(null, ata.id, true);
+  const cancelarGovbrAction = setAtaGovbr.bind(null, ata.id, false);
   const signAction = signAta.bind(null, ata.id);
   const sendAction = sendAtaToMembers.bind(null, ata.id);
   const reviewAction = sendAtaForReview.bind(null, ata.id);
@@ -128,10 +144,37 @@ export default async function AtaPage({
             />
           </div>
           {ata.sentForReviewAt ? (
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="submit" value="final" />
-              Validação concluída — liberar para assinaturas
-            </label>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="submit" value="final" />
+                Validação concluída — liberar para assinaturas
+              </label>
+              <div className="space-y-1 pl-6 text-sm">
+                <p className="text-xs text-muted-foreground">
+                  Destino após as assinaturas internas:
+                </p>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="assinatura"
+                    value="normal"
+                    defaultChecked={!ata.govbrSolicitado}
+                  />
+                  Assinatura normal (somente Venerável Mestre e Secretário no
+                  sistema)
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="assinatura"
+                    value="govbr"
+                    defaultChecked={ata.govbrSolicitado}
+                  />
+                  Encaminhar também para assinatura gov.br (VM assina primeiro;
+                  depois o Secretário)
+                </label>
+              </div>
+            </div>
           ) : (
             <p className="text-xs text-muted-foreground">
               Antes das assinaturas, a minuta precisa ser enviada aos irmãos
@@ -338,8 +381,31 @@ export default async function AtaPage({
         </CardContent>
       </Card>
 
+      {/* Encaminhamento ao gov.br — escolha do Secretário */}
+      {ata.status === "ASSINADA" &&
+        !ata.govbrSolicitado &&
+        canWriteSecretaria(user.role) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Assinatura digital gov.br</CardTitle>
+              <CardDescription>
+                Esta ata segue com a assinatura normal. Se desejar, encaminhe
+                também para assinatura gov.br pelo Venerável Mestre e pelo
+                Secretário (o VM assina primeiro).
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ActionButton
+                action={encaminharGovbrAction}
+                variant="outline"
+                label="Encaminhar para assinatura gov.br"
+              />
+            </CardContent>
+          </Card>
+        )}
+
       {/* Assinatura digital gov.br — após as duas assinaturas internas */}
-      {ata.status === "ASSINADA" && (
+      {ata.status === "ASSINADA" && ata.govbrSolicitado && (
         <Card>
           <CardHeader>
             <CardTitle>Assinatura digital gov.br</CardTitle>
@@ -362,28 +428,20 @@ export default async function AtaPage({
                 {govbrMensagens[govbr] ?? govbrMensagens.falhou}
               </p>
             )}
-            {govbrDisponivel && (
-              <>
-                <p>
-                  Venerável Mestre:{" "}
-                  {ata.govbrMasterAt
-                    ? `✅ assinado via gov.br em ${ata.govbrMasterAt.toLocaleString("pt-BR")}`
-                    : "⏳ pendente"}
-                </p>
-                <p>
-                  Secretário:{" "}
-                  {ata.govbrSecAt
-                    ? `✅ assinado via gov.br em ${ata.govbrSecAt.toLocaleString("pt-BR")}`
-                    : "⏳ pendente"}
-                </p>
-              </>
-            )}
-            {ata.govbrUploadedAt && (
-              <p>
-                📎 PDF assinado no gov.br enviado em{" "}
-                {ata.govbrUploadedAt.toLocaleString("pt-BR")}
-              </p>
-            )}
+            <p>
+              Venerável Mestre:{" "}
+              {ata.govbrMasterAt
+                ? `✅ assinado via gov.br em ${ata.govbrMasterAt.toLocaleString("pt-BR")}`
+                : "⏳ pendente (assina primeiro)"}
+            </p>
+            <p>
+              Secretário:{" "}
+              {ata.govbrSecAt
+                ? `✅ assinado via gov.br em ${ata.govbrSecAt.toLocaleString("pt-BR")}`
+                : ata.govbrMasterAt
+                  ? "⏳ pendente"
+                  : "⏳ aguardando a assinatura do Venerável Mestre"}
+            </p>
             <div className="flex flex-wrap gap-3">
               {govbrDisponivel && podeAssinarGovbr && (
                 <a
@@ -407,7 +465,9 @@ export default async function AtaPage({
             {podeSubirGovbr && (
               <div className="space-y-3 rounded-md border p-3">
                 <p className="font-medium">
-                  Assinar externamente (assinador.iti.br)
+                  {govbrEtapaVm
+                    ? "Sua vez de assinar (Venerável Mestre)"
+                    : "Sua vez de assinar (Secretário)"}
                 </p>
                 <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
                   <li>
@@ -415,7 +475,9 @@ export default async function AtaPage({
                       href={`/api/atas/pdf?ata=${ata.id}`}
                       className="underline underline-offset-2"
                     >
-                      Baixe o PDF final da ata
+                      {govbrEtapaVm
+                        ? "Baixe o PDF final da ata"
+                        : "Baixe o PDF já assinado pelo Venerável Mestre"}
                     </a>
                     .
                   </li>
@@ -429,19 +491,13 @@ export default async function AtaPage({
                     >
                       assinador.iti.br
                     </a>{" "}
-                    com a conta gov.br (nível prata ou ouro) — o Venerável
-                    Mestre e o Secretário podem assinar o mesmo arquivo em
-                    sequência.
+                    com a sua conta gov.br (nível prata ou ouro).
                   </li>
                   <li>Envie aqui o PDF assinado.</li>
                 </ol>
                 <ActionForm
                   action={uploadGovbrAction}
-                  submitLabel={
-                    ata.govbrUploadedAt
-                      ? "Substituir PDF assinado"
-                      : "Enviar PDF assinado"
-                  }
+                  submitLabel="Enviar PDF assinado"
                 >
                   <input
                     type="file"
@@ -453,6 +509,17 @@ export default async function AtaPage({
                 </ActionForm>
               </div>
             )}
+
+            {/* O Secretário pode desfazer o encaminhamento antes da 1ª assinatura gov.br */}
+            {canWriteSecretaria(user.role) &&
+              !ata.govbrMasterAt &&
+              !ata.govbrUploadedAt && (
+                <ActionButton
+                  action={cancelarGovbrAction}
+                  variant="outline"
+                  label="Cancelar encaminhamento ao gov.br"
+                />
+              )}
           </CardContent>
         </Card>
       )}

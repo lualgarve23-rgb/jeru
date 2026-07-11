@@ -55,10 +55,13 @@ export async function GET(req: NextRequest) {
     role === "VENERAVEL_MESTRE" && ata.signedByMasterId === session.user.id;
   const isSec =
     role === "SECRETARIO" && ata.signedBySecId === session.user.id;
+  if (!ata.govbrSolicitado) return fail("nao-encaminhada");
   if (!isMaster && !isSec) return fail("nao-assinante");
   if ((isMaster && ata.govbrMasterAt) || (isSec && ata.govbrSecAt)) {
     return fail("ja-assinou");
   }
+  // Ordem de governança: o Venerável Mestre assina primeiro no gov.br
+  if (isSec && !ata.govbrMasterAt) return fail("ordem");
 
   try {
     const token = await govbrExchangeCode(code);

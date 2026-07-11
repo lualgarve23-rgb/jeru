@@ -607,16 +607,55 @@ export async function updateAta(
         "Envie a ata aos irmãos para validação antes de liberá-la para assinaturas.",
     };
   }
+  // Na liberação, o Secretário escolhe o destino: assinatura normal
+  // (somente as assinaturas internas) ou encaminhar também ao gov.br
+  const govbrSolicitado = liberar
+    ? formData.get("assinatura") === "govbr"
+    : ata.govbrSolicitado;
   await prisma.ata.update({
     where: { id: ataId, lodgeId: user.lodgeId },
     data: {
       content: String(formData.get("content")),
       ajustes: String(formData.get("ajustes") ?? "").trim() || null,
       status: liberar ? "AGUARDANDO_ASSINATURAS" : ata.status === "EM_VALIDACAO" ? "EM_VALIDACAO" : "RASCUNHO",
+      govbrSolicitado,
     },
   });
   revalidatePath(`/secretaria/atas/${ataId}`);
-  return { ok: liberar ? "Ata liberada para assinaturas." : "Ata salva." };
+  return {
+    ok: liberar
+      ? govbrSolicitado
+        ? "Ata liberada para assinaturas, com encaminhamento ao gov.br."
+        : "Ata liberada para assinaturas."
+      : "Ata salva.",
+  };
+}
+
+// Muda o destino da ata depois da liberação (assinatura normal ⇄ gov.br)
+export async function setAtaGovbr(
+  ataId: string,
+  solicitar: boolean
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const ata = await prisma.ata.findUniqueOrThrow({
+    where: { id: ataId, lodgeId: user.lodgeId },
+  });
+  if (!solicitar && (ata.govbrPdf || ata.govbrUploadedAt)) {
+    return {
+      error:
+        "A ata já tem assinatura gov.br registrada — o encaminhamento não pode ser desfeito.",
+    };
+  }
+  await prisma.ata.update({
+    where: { id: ataId, lodgeId: user.lodgeId },
+    data: { govbrSolicitado: solicitar },
+  });
+  revalidatePath(`/secretaria/atas/${ataId}`);
+  return {
+    ok: solicitar
+      ? "Ata encaminhada para assinatura gov.br."
+      : "Encaminhamento ao gov.br cancelado — a ata segue só com as assinaturas internas.",
+  };
 }
 
 // Envio da ata aos irmãos para validação, antes das assinaturas
@@ -783,9 +822,11 @@ async function uploadAtaAssinadaToDrive(
   ]);
 }
 
-// Upload da ata assinada externamente (assinador.iti.br): o PDF baixado do
-// sistema é assinado com a conta gov.br dos oficiais e devolvido aqui. O
-// arquivo passa a ser a versão gov.br da ata e é arquivado no Drive.
+// Upload da ata assinada externamente (assinador.iti.br), em duas etapas na
+// mesma ordem de governança das assinaturas internas: o Venerável Mestre
+// assina e sobe primeiro; o Secretário baixa a versão com a assinatura do
+// VM, assina e sobe por último. Cada um envia o PDF assinado com a própria
+// conta gov.br; o arquivo final é arquivado no Drive.
 export async function uploadAtaAssinadaGovbr(
   ataId: string,
   _prev: ActionResult,
@@ -795,15 +836,31 @@ export async function uploadAtaAssinadaGovbr(
   const ata = await prisma.ata.findUniqueOrThrow({
     where: { id: ataId, lodgeId: user.lodgeId },
   });
-  const podeSubir =
-    canWriteSecretaria(user.role) ||
-    ata.signedByMasterId === user.id ||
-    ata.signedBySecId === user.id;
-  if (!podeSubir) {
-    return { error: "Apenas a Secretaria ou os assinantes da ata podem subir o PDF assinado." };
-  }
   if (ata.status !== "ASSINADA") {
     return { error: "A ata precisa das duas assinaturas internas antes do upload." };
+  }
+  if (!ata.govbrSolicitado) {
+    return { error: "Esta ata não foi encaminhada para assinatura gov.br." };
+  }
+
+  // Ordem de governança: VM assina primeiro no gov.br; o Secretário, depois
+  const etapaVm = !ata.govbrMasterAt;
+  if (etapaVm) {
+    if (user.role !== "VENERAVEL_MESTRE" || ata.signedByMasterId !== user.id) {
+      return {
+        error:
+          "O Venerável Mestre assina primeiro no gov.br — aguarde o upload dele.",
+      };
+    }
+  } else {
+    if (ata.govbrSecAt) {
+      return { error: "A assinatura gov.br desta ata já está concluída." };
+    }
+    if (user.role !== "SECRETARIO" || ata.signedBySecId !== user.id) {
+      return {
+        error: "Agora é a vez do Secretário assinar e subir o PDF no gov.br.",
+      };
+    }
   }
 
   const file = formData.get("file") as File | null;
@@ -828,10 +885,21 @@ export async function uploadAtaAssinadaGovbr(
 
   await prisma.ata.update({
     where: { id: ataId, lodgeId: user.lodgeId },
-    data: { govbrPdf: new Uint8Array(pdf), govbrUploadedAt: new Date() },
+    data: {
+      govbrPdf: new Uint8Array(pdf),
+      govbrUploadedAt: new Date(),
+      ...(etapaVm ? { govbrMasterAt: new Date() } : { govbrSecAt: new Date() }),
+    },
   });
 
-  // Arquivamento no Drive (best-effort — falha não desfaz o upload)
+  if (etapaVm) {
+    revalidatePath(`/secretaria/atas/${ataId}`);
+    return {
+      ok: "Assinatura gov.br do Venerável Mestre registrada. Agora o Secretário baixa esta versão, assina e sobe o arquivo final.",
+    };
+  }
+
+  // Etapa final concluída: arquivamento no Drive (best-effort)
   let driveAviso = "";
   try {
     if (await isDriveAvailable(user.lodgeId)) {
@@ -862,7 +930,7 @@ export async function uploadAtaAssinadaGovbr(
   }
 
   revalidatePath(`/secretaria/atas/${ataId}`);
-  return { ok: `Ata assinada no gov.br registrada.${driveAviso}` };
+  return { ok: `Assinatura gov.br concluída pelos dois cargos.${driveAviso}` };
 }
 
 // ───────────────────────── Pranchas ─────────────────────────
