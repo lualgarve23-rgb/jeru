@@ -183,7 +183,7 @@ async function MemberDashboard({
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat
           label="Grau"
           value={degreeLabels[me.degree] ?? me.degree}
@@ -322,7 +322,7 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat
           label="Membros ativos"
           value={String(count("ATIVO"))}
@@ -447,7 +447,7 @@ async function TesoureiroDashboard({ lodgeId }: { lodgeId: string }) {
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat label="Receitas do mês" value={brl(receitas)} />
         <Stat label="Despesas do mês" value={brl(despesas)} />
         <Stat
@@ -593,7 +593,7 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat label="Membros ativos" value={String(ativos)} />
         <Stat
           label="Saldo do mês"
@@ -799,7 +799,7 @@ async function ConselhoDashboard({ lodgeId }: { lodgeId: string }) {
       <p className="text-sm text-muted-foreground">
         Acesso de fiscalização — somente leitura em Secretaria e Tesouraria.
       </p>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat label="Receitas do mês" value={brl(receitas)} />
         <Stat label="Despesas do mês" value={brl(despesas)} />
         <Stat

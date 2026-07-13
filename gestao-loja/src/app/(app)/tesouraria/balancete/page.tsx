@@ -57,7 +57,7 @@ export default async function BalancetePage({
         Balancete — {String(month).padStart(2, "0")}/{year}
       </h1>
 
-      <form className="flex items-end gap-3" method="get">
+      <form className="flex flex-wrap items-end gap-3" method="get">
         <div>
           <label className="text-sm" htmlFor="mes">Mês</label>
           <input
@@ -92,7 +92,7 @@ export default async function BalancetePage({
         </a>
       </form>
 
-      <div className="grid max-w-2xl grid-cols-3 gap-4">
+      <div className="grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
         <Card>
           <CardHeader>
             <CardTitle className="text-sm">Receitas</CardTitle>

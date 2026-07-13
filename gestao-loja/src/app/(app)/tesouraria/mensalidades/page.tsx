@@ -80,7 +80,7 @@ export default async function MensalidadesPage() {
       </div>
 
       {isWriter && (
-        <div className="grid max-w-4xl grid-cols-2 gap-6">
+        <div className="grid max-w-4xl gap-6 sm:grid-cols-2">
           <Card>
             <CardHeader>
               <CardTitle>Chave Pix da Loja</CardTitle>

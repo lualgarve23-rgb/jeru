@@ -130,7 +130,7 @@ export function AppShell({
         </div>
       </aside>
 
-      <main className="flex-1 p-4 pt-20 lg:ml-64 lg:p-8 lg:pt-8">{children}</main>
+      <main className="min-w-0 flex-1 p-4 pt-20 lg:ml-64 lg:p-8 lg:pt-8">{children}</main>
     </div>
   );
 }
