@@ -595,8 +595,8 @@ export async function updateAta(
   const ata = await prisma.ata.findUniqueOrThrow({
     where: { id: ataId, lodgeId: user.lodgeId },
   });
-  // Trava: após qualquer assinatura o texto é imutável
-  if (ata.signedByMasterId || ata.signedBySecId) {
+  // Trava: após qualquer assinatura (interna ou gov.br) o texto é imutável
+  if (ata.signedByMasterId || ata.signedBySecId || ata.govbrUploadedAt) {
     return { error: "Ata já assinada — o texto não pode ser alterado." };
   }
   const liberar = formData.get("submit") === "final";
@@ -607,8 +607,8 @@ export async function updateAta(
         "Envie a ata aos irmãos para validação antes de liberá-la para assinaturas.",
     };
   }
-  // Na liberação, o Secretário escolhe o destino: assinatura normal
-  // (somente as assinaturas internas) ou encaminhar também ao gov.br
+  // Na liberação, o Secretário escolhe a forma de assinatura — exclusiva:
+  // ou a assinatura normal (interna, no sistema) ou a assinatura gov.br
   const govbrSolicitado = liberar
     ? formData.get("assinatura") === "govbr"
     : ata.govbrSolicitado;
@@ -625,13 +625,14 @@ export async function updateAta(
   return {
     ok: liberar
       ? govbrSolicitado
-        ? "Ata liberada para assinaturas, com encaminhamento ao gov.br."
+        ? "Ata liberada para assinatura gov.br."
         : "Ata liberada para assinaturas."
       : "Ata salva.",
   };
 }
 
-// Muda o destino da ata depois da liberação (assinatura normal ⇄ gov.br)
+// Muda a forma de assinatura depois da liberação (normal ⇄ gov.br) —
+// só enquanto nenhuma assinatura foi registrada em nenhum dos fluxos
 export async function setAtaGovbr(
   ataId: string,
   solicitar: boolean
@@ -640,6 +641,12 @@ export async function setAtaGovbr(
   const ata = await prisma.ata.findUniqueOrThrow({
     where: { id: ataId, lodgeId: user.lodgeId },
   });
+  if (solicitar && (ata.signedByMasterId || ata.signedBySecId)) {
+    return {
+      error:
+        "A ata já tem assinatura interna — as formas são exclusivas e não é possível mudar para o gov.br.",
+    };
+  }
   if (!solicitar && (ata.govbrPdf || ata.govbrUploadedAt)) {
     return {
       error:
@@ -653,8 +660,8 @@ export async function setAtaGovbr(
   revalidatePath(`/secretaria/atas/${ataId}`);
   return {
     ok: solicitar
-      ? "Ata encaminhada para assinatura gov.br."
-      : "Encaminhamento ao gov.br cancelado — a ata segue só com as assinaturas internas.",
+      ? "Ata encaminhada para assinatura gov.br (substitui a assinatura interna)."
+      : "Encaminhamento ao gov.br cancelado — a ata segue pela assinatura normal.",
   };
 }
 
@@ -665,7 +672,12 @@ export async function sendAtaForReview(ataId: string): Promise<ActionResult> {
     where: { id: ataId, lodgeId: user.lodgeId },
     include: { lodge: true, session: true },
   });
-  if (ata.signedByMasterId || ata.signedBySecId || ata.status === "ASSINADA") {
+  if (
+    ata.signedByMasterId ||
+    ata.signedBySecId ||
+    ata.govbrUploadedAt ||
+    ata.status === "ASSINADA"
+  ) {
     return { error: "Ata já em assinatura — a validação ocorre antes." };
   }
   const membros = await prisma.user.findMany({
@@ -729,6 +741,13 @@ export async function signAta(ataId: string): Promise<ActionResult> {
   }
   if (ata.status === "ASSINADA") {
     return { error: "Ata já está totalmente assinada." };
+  }
+  // Fluxos exclusivos: ata encaminhada ao gov.br não tem assinatura interna
+  if (ata.govbrSolicitado) {
+    return {
+      error:
+        "Esta ata segue pela assinatura gov.br — não há assinatura interna. Se preferir a assinatura normal, o Secretário deve cancelar o encaminhamento ao gov.br.",
+    };
   }
 
   const data: Record<string, unknown> = {};
@@ -823,10 +842,10 @@ async function uploadAtaAssinadaToDrive(
 }
 
 // Upload da ata assinada externamente (assinador.iti.br), em duas etapas na
-// mesma ordem de governança das assinaturas internas: o Venerável Mestre
-// assina e sobe primeiro; o Secretário baixa a versão com a assinatura do
-// VM, assina e sobe por último. Cada um envia o PDF assinado com a própria
-// conta gov.br; o arquivo final é arquivado no Drive.
+// mesma ordem de governança: o Venerável Mestre assina e sobe primeiro; o
+// Secretário baixa a versão com a assinatura do VM, assina e sobe por último.
+// O fluxo gov.br substitui a assinatura interna — a ata vai direto para cá
+// após a liberação; a etapa final sela a ata (ASSINADA) e arquiva no Drive.
 export async function uploadAtaAssinadaGovbr(
   ataId: string,
   _prev: ActionResult,
@@ -836,8 +855,11 @@ export async function uploadAtaAssinadaGovbr(
   const ata = await prisma.ata.findUniqueOrThrow({
     where: { id: ataId, lodgeId: user.lodgeId },
   });
-  if (ata.status !== "ASSINADA") {
-    return { error: "A ata precisa das duas assinaturas internas antes do upload." };
+  if (ata.status === "RASCUNHO" || ata.status === "EM_VALIDACAO") {
+    return {
+      error:
+        "A ata precisa ser validada pelos irmãos e liberada para assinaturas antes do upload.",
+    };
   }
   if (!ata.govbrSolicitado) {
     return { error: "Esta ata não foi encaminhada para assinatura gov.br." };
@@ -846,7 +868,7 @@ export async function uploadAtaAssinadaGovbr(
   // Ordem de governança: VM assina primeiro no gov.br; o Secretário, depois
   const etapaVm = !ata.govbrMasterAt;
   if (etapaVm) {
-    if (user.role !== "VENERAVEL_MESTRE" || ata.signedByMasterId !== user.id) {
+    if (user.role !== "VENERAVEL_MESTRE") {
       return {
         error:
           "O Venerável Mestre assina primeiro no gov.br — aguarde o upload dele.",
@@ -856,7 +878,7 @@ export async function uploadAtaAssinadaGovbr(
     if (ata.govbrSecAt) {
       return { error: "A assinatura gov.br desta ata já está concluída." };
     }
-    if (user.role !== "SECRETARIO" || ata.signedBySecId !== user.id) {
+    if (user.role !== "SECRETARIO") {
       return {
         error: "Agora é a vez do Secretário assinar e subir o PDF no gov.br.",
       };
@@ -888,7 +910,10 @@ export async function uploadAtaAssinadaGovbr(
     data: {
       govbrPdf: new Uint8Array(pdf),
       govbrUploadedAt: new Date(),
-      ...(etapaVm ? { govbrMasterAt: new Date() } : { govbrSecAt: new Date() }),
+      // A 2ª assinatura gov.br sela a ata
+      ...(etapaVm
+        ? { govbrMasterAt: new Date() }
+        : { govbrSecAt: new Date(), status: "ASSINADA" as const }),
     },
   });
 
@@ -909,17 +934,23 @@ export async function uploadAtaAssinadaGovbr(
         "application/pdf",
         pdf
       );
-      await prisma.document.create({
-        data: {
-          lodgeId: user.lodgeId,
-          uploadedById: user.id,
-          title: `Ata nº ${ata.number} (assinada gov.br)`,
-          type: "ATA_ESCANEADA",
-          driveFileId,
-          mimeType: "application/pdf",
-          sizeBytes: pdf.length,
-        },
-      });
+      await Promise.all([
+        prisma.ata.update({
+          where: { id: ataId, lodgeId: user.lodgeId },
+          data: { driveFileId },
+        }),
+        prisma.document.create({
+          data: {
+            lodgeId: user.lodgeId,
+            uploadedById: user.id,
+            title: `Ata nº ${ata.number} (assinada gov.br)`,
+            type: "ATA_ESCANEADA",
+            driveFileId,
+            mimeType: "application/pdf",
+            sizeBytes: pdf.length,
+          },
+        }),
+      ]);
     } else {
       driveAviso = " Drive não conectado — o arquivo não foi arquivado no Drive.";
     }
@@ -1043,9 +1074,13 @@ export async function sendAtaToMembers(ataId: string): Promise<ActionResult> {
     return { error: "Nenhum irmão ativo com e-mail cadastrado." };
   }
   try {
-    const { pdf } = await gerarPdfAtaAssinada(ataId, user.lodgeId);
+    // Ata gov.br: o documento que circula é o PDF com as assinaturas gov.br
+    const pdf =
+      ata.govbrSolicitado && ata.govbrPdf && ata.govbrSecAt
+        ? Buffer.from(ata.govbrPdf)
+        : (await gerarPdfAtaAssinada(ataId, user.lodgeId)).pdf;
     // Retro-arquivamento: atas assinadas antes do arquivamento automático
-    if (!ata.driveFileId && (await isDriveAvailable(user.lodgeId))) {
+    if (!ata.govbrSolicitado && !ata.driveFileId && (await isDriveAvailable(user.lodgeId))) {
       try {
         await uploadAtaAssinadaToDrive(ataId, user.lodgeId, user.id);
       } catch {

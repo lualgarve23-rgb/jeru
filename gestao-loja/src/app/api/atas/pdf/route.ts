@@ -3,9 +3,9 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { gerarPdfAtaAssinada } from "@/lib/ata-final";
 
-// Download do PDF final da ata (com as assinaturas internas) — usado para
-// levar o arquivo ao assinador externo (assinador.iti.br) e depois subir
-// a versão assinada de volta.
+// Download do PDF final da ata — usado para levar o arquivo ao assinador
+// externo (assinador.iti.br) e depois subir a versão assinada de volta.
+// No fluxo gov.br (exclusivo) o PDF sai sem assinaturas internas.
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user) {
@@ -18,12 +18,20 @@ export async function GET(req: NextRequest) {
 
   const ata = await prisma.ata.findUnique({
     where: { id: ataId, lodgeId: session.user.lodgeId },
-    select: { status: true, number: true, govbrPdf: true },
+    select: {
+      status: true,
+      number: true,
+      govbrPdf: true,
+      govbrSolicitado: true,
+    },
   });
   if (!ata) return new NextResponse("Ata não encontrada.", { status: 404 });
-  if (ata.status !== "ASSINADA") {
+  const liberada = ata.status !== "RASCUNHO" && ata.status !== "EM_VALIDACAO";
+  if (ata.govbrSolicitado ? !liberada : ata.status !== "ASSINADA") {
     return new NextResponse(
-      "A ata precisa das duas assinaturas internas antes do download.",
+      ata.govbrSolicitado
+        ? "A ata precisa ser liberada para assinaturas antes do download."
+        : "A ata precisa das duas assinaturas internas antes do download.",
       { status: 400 }
     );
   }

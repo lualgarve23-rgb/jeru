@@ -31,8 +31,9 @@ const govbrMensagens: Record<string, string> = {
   "nao-configurado":
     "A assinatura gov.br ainda não está habilitada no servidor (credenciamento ITI pendente).",
   "ata-nao-assinada":
-    "A ata precisa das duas assinaturas internas antes da assinatura gov.br.",
-  "nao-assinante": "Apenas quem assinou a ata internamente assina no gov.br.",
+    "A ata precisa ser liberada para assinaturas antes da assinatura gov.br.",
+  "nao-assinante":
+    "Apenas o Venerável Mestre e o Secretário assinam no gov.br.",
   "ja-assinou": "Você já assinou esta ata com o gov.br.",
   "nao-encaminhada": "Esta ata não foi encaminhada para assinatura gov.br.",
   ordem: "O Venerável Mestre assina primeiro no gov.br — aguarde a assinatura dele.",
@@ -65,40 +66,37 @@ export default async function AtaPage({
   if (!ata) notFound();
 
   const editable =
-    canWriteSecretaria(user.role) && !ata.signedByMasterId && !ata.signedBySecId;
-  // Ordem de governança: VM assina primeiro; o Secretário, na sequência
+    canWriteSecretaria(user.role) &&
+    !ata.signedByMasterId &&
+    !ata.signedBySecId &&
+    !ata.govbrUploadedAt;
+  // Ordem de governança: VM assina primeiro; o Secretário, na sequência.
+  // As formas são exclusivas — ata encaminhada ao gov.br não assina aqui.
   const canSign =
-    (user.role === "VENERAVEL_MESTRE" && !ata.signedByMasterId) ||
-    (user.role === "SECRETARIO" &&
-      !!ata.signedByMasterId &&
-      !ata.signedBySecId);
+    !ata.govbrSolicitado &&
+    ((user.role === "VENERAVEL_MESTRE" && !ata.signedByMasterId) ||
+      (user.role === "SECRETARIO" &&
+        !!ata.signedByMasterId &&
+        !ata.signedBySecId));
 
   const govbrDisponivel = isGovbrConfigured();
-  // Ordem de governança no gov.br: VM assina primeiro; o Secretário, depois
-  const podeAssinarGovbr =
-    ata.status === "ASSINADA" &&
+  // Fluxo gov.br exclusivo: disponível assim que a ata é liberada.
+  // Ordem de governança: VM assina primeiro; o Secretário, depois
+  const govbrLiberada =
     ata.govbrSolicitado &&
-    ((user.role === "VENERAVEL_MESTRE" &&
-      ata.signedByMasterId === user.id &&
-      !ata.govbrMasterAt) ||
+    ata.status !== "RASCUNHO" &&
+    ata.status !== "EM_VALIDACAO";
+  const podeAssinarGovbr =
+    govbrLiberada &&
+    ((user.role === "VENERAVEL_MESTRE" && !ata.govbrMasterAt) ||
       (user.role === "SECRETARIO" &&
-        ata.signedBySecId === user.id &&
         !!ata.govbrMasterAt &&
         !ata.govbrSecAt));
 
-  const govbrEtapaVm =
-    !ata.govbrMasterAt &&
-    user.role === "VENERAVEL_MESTRE" &&
-    ata.signedByMasterId === user.id;
+  const govbrEtapaVm = !ata.govbrMasterAt && user.role === "VENERAVEL_MESTRE";
   const govbrEtapaSec =
-    !!ata.govbrMasterAt &&
-    !ata.govbrSecAt &&
-    user.role === "SECRETARIO" &&
-    ata.signedBySecId === user.id;
-  const podeSubirGovbr =
-    ata.status === "ASSINADA" &&
-    ata.govbrSolicitado &&
-    (govbrEtapaVm || govbrEtapaSec);
+    !!ata.govbrMasterAt && !ata.govbrSecAt && user.role === "SECRETARIO";
+  const podeSubirGovbr = govbrLiberada && (govbrEtapaVm || govbrEtapaSec);
 
   const updateAction = updateAta.bind(null, ata.id);
   const uploadGovbrAction = uploadAtaAssinadaGovbr.bind(null, ata.id);
@@ -151,7 +149,7 @@ export default async function AtaPage({
               </label>
               <div className="space-y-1 pl-6 text-sm">
                 <p className="text-xs text-muted-foreground">
-                  Destino após as assinaturas internas:
+                  Forma de assinatura (uma ou outra):
                 </p>
                 <label className="flex items-center gap-2">
                   <input
@@ -160,7 +158,7 @@ export default async function AtaPage({
                     value="normal"
                     defaultChecked={!ata.govbrSolicitado}
                   />
-                  Assinatura normal (somente Venerável Mestre e Secretário no
+                  Assinatura normal (Venerável Mestre e Secretário assinam no
                   sistema)
                 </label>
                 <label className="flex items-center gap-2">
@@ -170,8 +168,8 @@ export default async function AtaPage({
                     value="govbr"
                     defaultChecked={ata.govbrSolicitado}
                   />
-                  Encaminhar também para assinatura gov.br (VM assina primeiro;
-                  depois o Secretário)
+                  Assinatura gov.br (vai direto ao gov.br, sem assinatura no
+                  sistema — VM assina primeiro; depois o Secretário)
                 </label>
               </div>
             </div>
@@ -185,7 +183,10 @@ export default async function AtaPage({
       )}
 
       {/* Validação pelos irmãos — etapa anterior às assinaturas */}
-      {!ata.signedByMasterId && !ata.signedBySecId && (
+      {!ata.signedByMasterId &&
+        !ata.signedBySecId &&
+        !ata.govbrUploadedAt &&
+        ata.status !== "ASSINADA" && (
         <Card>
           <CardHeader>
             <CardTitle>Validação pelos irmãos</CardTitle>
@@ -322,6 +323,7 @@ export default async function AtaPage({
         </CardContent>
       </Card>
 
+      {!ata.govbrSolicitado && (
       <Card>
         <CardHeader>
           <CardTitle>Assinaturas (trava de governança)</CardTitle>
@@ -380,38 +382,42 @@ export default async function AtaPage({
           </div>
         </CardContent>
       </Card>
+      )}
 
-      {/* Encaminhamento ao gov.br — escolha do Secretário */}
-      {ata.status === "ASSINADA" &&
+      {/* Troca para o gov.br — só antes de qualquer assinatura interna */}
+      {ata.status === "AGUARDANDO_ASSINATURAS" &&
         !ata.govbrSolicitado &&
+        !ata.signedByMasterId &&
+        !ata.signedBySecId &&
         canWriteSecretaria(user.role) && (
           <Card>
             <CardHeader>
               <CardTitle>Assinatura digital gov.br</CardTitle>
               <CardDescription>
-                Esta ata segue com a assinatura normal. Se desejar, encaminhe
-                também para assinatura gov.br pelo Venerável Mestre e pelo
-                Secretário (o VM assina primeiro).
+                Esta ata segue pela assinatura normal. Se preferir, mude para a
+                assinatura gov.br — ela substitui a assinatura no sistema (o VM
+                assina primeiro; depois o Secretário).
               </CardDescription>
             </CardHeader>
             <CardContent>
               <ActionButton
                 action={encaminharGovbrAction}
                 variant="outline"
-                label="Encaminhar para assinatura gov.br"
+                label="Mudar para assinatura gov.br"
               />
             </CardContent>
           </Card>
         )}
 
-      {/* Assinatura digital gov.br — após as duas assinaturas internas */}
-      {ata.status === "ASSINADA" && ata.govbrSolicitado && (
+      {/* Assinatura digital gov.br — fluxo exclusivo, direto após a liberação */}
+      {govbrLiberada && (
         <Card>
           <CardHeader>
             <CardTitle>Assinatura digital gov.br</CardTitle>
             <CardDescription>
-              Opcional: o Venerável Mestre e o Secretário assinam o PDF final
-              com a conta gov.br (assinatura eletrônica avançada, validável em
+              Esta ata é assinada exclusivamente pelo gov.br: o Venerável
+              Mestre e o Secretário assinam o PDF com a conta gov.br
+              (assinatura eletrônica avançada, validável em
               validar.iti.gov.br) — pelo portal assinador.iti.br, subindo o
               arquivo assinado aqui em seguida.
             </CardDescription>
@@ -459,6 +465,27 @@ export default async function AtaPage({
                   Baixar PDF assinado (gov.br)
                 </a>
               ) : null}
+              {ata.driveFileId && (
+                <a
+                  href={`https://drive.google.com/file/d/${ata.driveFileId}/view`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center text-sm underline underline-offset-2"
+                >
+                  Abrir PDF assinado no Drive
+                </a>
+              )}
+              {ata.status === "ASSINADA" && canWriteSecretaria(user.role) && (
+                <ActionButton
+                  action={sendAction}
+                  variant="outline"
+                  label={
+                    ata.sentToMembersAt
+                      ? "Reenviar aos irmãos"
+                      : "Enviar aos irmãos do quadro"
+                  }
+                />
+              )}
             </div>
 
             {/* Fluxo externo: assinar no assinador.iti.br e subir o PDF */}
@@ -510,14 +537,14 @@ export default async function AtaPage({
               </div>
             )}
 
-            {/* O Secretário pode desfazer o encaminhamento antes da 1ª assinatura gov.br */}
+            {/* O Secretário pode voltar ao fluxo normal antes da 1ª assinatura gov.br */}
             {canWriteSecretaria(user.role) &&
               !ata.govbrMasterAt &&
               !ata.govbrUploadedAt && (
                 <ActionButton
                   action={cancelarGovbrAction}
                   variant="outline"
-                  label="Cancelar encaminhamento ao gov.br"
+                  label="Voltar para a assinatura normal"
                 />
               )}
           </CardContent>

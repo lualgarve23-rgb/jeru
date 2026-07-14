@@ -49,12 +49,12 @@ export async function GET(req: NextRequest) {
   const ata = await prisma.ata.findUnique({
     where: { id: ataId, lodgeId: session.user.lodgeId },
   });
-  if (!ata || ata.status !== "ASSINADA") return fail("ata-nao-assinada");
+  if (!ata || ata.status === "RASCUNHO" || ata.status === "EM_VALIDACAO") {
+    return fail("ata-nao-assinada");
+  }
 
-  const isMaster =
-    role === "VENERAVEL_MESTRE" && ata.signedByMasterId === session.user.id;
-  const isSec =
-    role === "SECRETARIO" && ata.signedBySecId === session.user.id;
+  const isMaster = role === "VENERAVEL_MESTRE";
+  const isSec = role === "SECRETARIO";
   if (!ata.govbrSolicitado) return fail("nao-encaminhada");
   if (!isMaster && !isSec) return fail("nao-assinante");
   if ((isMaster && ata.govbrMasterAt) || (isSec && ata.govbrSecAt)) {
@@ -89,9 +89,10 @@ export async function GET(req: NextRequest) {
       where: { id: ataId, lodgeId: session.user.lodgeId },
       data: {
         govbrPdf: new Uint8Array(signed),
+        // A 2ª assinatura gov.br sela a ata
         ...(isMaster
           ? { govbrMasterAt: new Date() }
-          : { govbrSecAt: new Date() }),
+          : { govbrSecAt: new Date(), status: "ASSINADA" as const }),
       },
     });
   } catch (e) {

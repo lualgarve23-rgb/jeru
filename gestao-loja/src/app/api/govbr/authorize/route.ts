@@ -28,16 +28,19 @@ export async function GET(req: NextRequest) {
   const ata = await prisma.ata.findUnique({
     where: { id: ataId, lodgeId: session.user.lodgeId },
   });
-  if (!ata || ata.status !== "ASSINADA") {
+  if (
+    !ata ||
+    ata.status === "RASCUNHO" ||
+    ata.status === "EM_VALIDACAO" ||
+    !ata.govbrSolicitado
+  ) {
     ataUrl.searchParams.set("govbr", "ata-nao-assinada");
     return NextResponse.redirect(ataUrl);
   }
 
-  // Só quem assinou internamente assina no gov.br, uma vez cada
-  const isMaster =
-    role === "VENERAVEL_MESTRE" && ata.signedByMasterId === session.user.id;
-  const isSec =
-    role === "SECRETARIO" && ata.signedBySecId === session.user.id;
+  // Fluxo exclusivo: o VM e o Secretário assinam direto no gov.br, uma vez cada
+  const isMaster = role === "VENERAVEL_MESTRE";
+  const isSec = role === "SECRETARIO";
   if (!isMaster && !isSec) {
     ataUrl.searchParams.set("govbr", "nao-assinante");
     return NextResponse.redirect(ataUrl);
