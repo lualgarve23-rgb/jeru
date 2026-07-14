@@ -1024,6 +1024,80 @@ export async function createPrancha(
   return { ok: driveFileId ? "Prancha expedida com anexo." : "Prancha expedida." };
 }
 
+// Upload do anexo da prancha assinado externamente no assinador.iti.br.
+// O Secretário baixa o anexo, converte em PDF se preciso, assina com a conta
+// gov.br e sobe aqui o PDF assinado — condição para enviar à Guarda dos Selos.
+export async function uploadPranchaAssinadaGovbr(
+  pranchaId: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const prancha = await prisma.prancha.findUniqueOrThrow({
+    where: { id: pranchaId, lodgeId: user.lodgeId },
+  });
+  if (!prancha.driveFileId) {
+    return { error: "Esta prancha não tem anexo para assinar." };
+  }
+  if (prancha.govbrSignedAt) {
+    return { error: "O anexo desta prancha já foi assinado no gov.br." };
+  }
+
+  const file = formData.get("file") as File | null;
+  if (!file || file.size === 0) {
+    return { error: "Selecione o PDF assinado no gov.br." };
+  }
+  if (file.size > 15_000_000) {
+    return { error: "Arquivo muito grande — o PDF deve ter até 15 MB." };
+  }
+  const pdf = Buffer.from(await file.arrayBuffer());
+  if (!pdf.subarray(0, 5).toString("latin1").startsWith("%PDF-")) {
+    return { error: "O arquivo enviado não é um PDF." };
+  }
+  // Um PDF assinado digitalmente (PAdES) carrega um dicionário de assinatura
+  // com /ByteRange — sem isso, o arquivo veio sem a assinatura gov.br.
+  if (!pdf.includes("/ByteRange")) {
+    return {
+      error:
+        "O PDF não contém assinatura digital. Assine o arquivo em assinador.iti.br antes de enviar.",
+    };
+  }
+
+  await prisma.prancha.update({
+    where: { id: pranchaId, lodgeId: user.lodgeId },
+    data: { govbrPdf: new Uint8Array(pdf), govbrSignedAt: new Date() },
+  });
+
+  // Arquiva a versão assinada no Drive da Loja (best-effort)
+  let driveAviso = "";
+  try {
+    if (await isDriveAvailable(user.lodgeId)) {
+      const driveFileId = await uploadToLodgeDrive(
+        user.lodgeId,
+        `prancha-${prancha.number}-${prancha.year}-assinada-govbr.pdf`,
+        "application/pdf",
+        pdf
+      );
+      await prisma.prancha.update({
+        where: { id: pranchaId, lodgeId: user.lodgeId },
+        data: { driveFileId },
+      });
+    } else {
+      driveAviso =
+        " Drive não conectado — a versão assinada não foi arquivada no Drive.";
+    }
+  } catch (e) {
+    driveAviso = ` Falha ao arquivar no Drive: ${
+      e instanceof Error ? e.message : "erro desconhecido"
+    }`;
+  }
+
+  revalidatePath("/secretaria/pranchas");
+  return {
+    ok: `Anexo assinado no gov.br registrado — a prancha está pronta para envio.${driveAviso}`,
+  };
+}
+
 // Envio à Guarda dos Selos pelo Gmail da Loja
 export async function sendPranchaToGSelos(
   pranchaId: string
@@ -1033,15 +1107,33 @@ export async function sendPranchaToGSelos(
     where: { id: pranchaId, lodgeId: user.lodgeId },
     include: { lodge: true },
   });
+  // Trava: prancha com anexo só sai após a assinatura gov.br do anexo
+  if (prancha.driveFileId && !prancha.govbrSignedAt) {
+    return {
+      error:
+        "Assine o anexo no gov.br (assinador.iti.br) e suba o PDF assinado antes de enviar à Guarda dos Selos.",
+    };
+  }
   try {
     await sendLodgeEmail({
       to: GUARDA_SELOS_EMAIL,
       subject: `Prancha nº ${prancha.number}/${prancha.year} — ${prancha.lodge.name}`,
       text:
         `Destinatário: ${prancha.recipient}\nAssunto: ${prancha.subject}\n\n${prancha.content}` +
+        (prancha.govbrSignedAt
+          ? `\n\nAnexo assinado digitalmente via gov.br (validável em validar.iti.gov.br).`
+          : "") +
         (prancha.driveFileId
           ? `\n\nAnexo (Google Drive): https://drive.google.com/file/d/${prancha.driveFileId}/view`
           : ""),
+      attachments: prancha.govbrPdf
+        ? [
+            {
+              filename: `prancha-${prancha.number}-${prancha.year}-assinada-govbr.pdf`,
+              content: Buffer.from(prancha.govbrPdf),
+            },
+          ]
+        : undefined,
     });
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Falha no envio." };

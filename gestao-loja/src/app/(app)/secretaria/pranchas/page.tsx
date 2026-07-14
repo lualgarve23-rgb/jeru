@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
-import { createPrancha, sendPranchaToGSelos } from "../actions";
+import {
+  createPrancha,
+  sendPranchaToGSelos,
+  uploadPranchaAssinadaGovbr,
+} from "../actions";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -176,7 +180,9 @@ export default async function PranchasPage() {
                 </select>
                 <p className="text-xs text-muted-foreground">
                   Se enviar um arquivo, ele tem prioridade sobre a seleção do
-                  Drive.
+                  Drive. Pranchas com anexo precisam da assinatura gov.br
+                  (assinador.iti.br) antes do envio à Guarda dos Selos — o
+                  passo aparece na tabela abaixo após a expedição.
                 </p>
               </div>
             </ActionForm>
@@ -191,6 +197,7 @@ export default async function PranchasPage() {
             <TableHead>Destinatário</TableHead>
             <TableHead>Assunto</TableHead>
             <TableHead>Anexo</TableHead>
+            <TableHead>Assinatura gov.br</TableHead>
             <TableHead>Data</TableHead>
             <TableHead />
           </TableRow>
@@ -204,17 +211,80 @@ export default async function PranchasPage() {
               <TableCell>{p.recipient}</TableCell>
               <TableCell>{p.subject}</TableCell>
               <TableCell>
-                {p.driveFileId ? (
-                  <a
-                    href={`https://drive.google.com/file/d/${p.driveFileId}/view`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-sm underline"
-                  >
-                    Abrir no Drive
-                  </a>
+                {p.driveFileId || p.govbrSignedAt ? (
+                  <span className="flex flex-col gap-0.5 text-sm">
+                    <a
+                      href={`/api/pranchas/anexo?prancha=${p.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline"
+                    >
+                      Abrir no aplicativo
+                    </a>
+                    {p.driveFileId && (
+                      <a
+                        href={`https://drive.google.com/file/d/${p.driveFileId}/view`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-muted-foreground underline"
+                      >
+                        Abrir no Drive
+                      </a>
+                    )}
+                  </span>
                 ) : (
                   <span className="text-sm text-muted-foreground">—</span>
+                )}
+              </TableCell>
+              <TableCell>
+                {p.govbrSignedAt ? (
+                  <span className="text-sm text-emerald-700">
+                    ✅ assinado em{" "}
+                    {p.govbrSignedAt.toLocaleDateString("pt-BR")}
+                  </span>
+                ) : p.driveFileId ? (
+                  isWriter ? (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">
+                        1.{" "}
+                        <a
+                          href={`/api/pranchas/anexo?prancha=${p.id}`}
+                          className="underline"
+                        >
+                          Baixe o anexo
+                        </a>{" "}
+                        · 2. Assine em{" "}
+                        <a
+                          href="https://assinador.iti.br"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline"
+                        >
+                          assinador.iti.br
+                        </a>{" "}
+                        · 3. Suba o PDF assinado:
+                      </p>
+                      <ActionForm
+                        action={uploadPranchaAssinadaGovbr.bind(null, p.id)}
+                        submitLabel="Subir PDF assinado"
+                        className="space-y-1"
+                      >
+                        <Input
+                          name="file"
+                          type="file"
+                          accept="application/pdf"
+                          required
+                          className="h-8 text-xs"
+                        />
+                      </ActionForm>
+                    </div>
+                  ) : (
+                    <span className="text-sm text-amber-700">⏳ pendente</span>
+                  )
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    — sem anexo —
+                  </span>
                 )}
               </TableCell>
               <TableCell>{p.createdAt.toLocaleDateString("pt-BR")}</TableCell>

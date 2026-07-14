@@ -108,3 +108,26 @@ export async function uploadToLodgeDrive(
   });
   return res.data.id!;
 }
+
+// Baixa um arquivo do Drive da Loja para exibição dentro do aplicativo.
+export async function downloadFromLodgeDrive(
+  lodgeId: string,
+  fileId: string
+): Promise<{ data: Buffer; mimeType: string; name: string }> {
+  const lodge = await prisma.lodge.findUniqueOrThrow({
+    where: { id: lodgeId },
+  });
+  const drive = driveClientFor(lodge);
+  const [meta, media] = await Promise.all([
+    drive.files.get({ fileId, fields: "name, mimeType" }),
+    drive.files.get(
+      { fileId, alt: "media" },
+      { responseType: "arraybuffer" }
+    ),
+  ]);
+  return {
+    data: Buffer.from(media.data as ArrayBuffer),
+    mimeType: meta.data.mimeType ?? "application/octet-stream",
+    name: meta.data.name ?? "anexo",
+  };
+}

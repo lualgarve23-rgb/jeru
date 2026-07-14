@@ -354,6 +354,8 @@ model Prancha {
   recipient   String
   content     String
   driveFileId String?
+  govbrPdf      Bytes?    // anexo assinado no assinador.iti.br
+  govbrSignedAt DateTime? // upload do anexo assinado (gov.br)
   createdAt   DateTime @default(now())
 
   lodge Lodge @relation(fields: [lodgeId], references: [id])
