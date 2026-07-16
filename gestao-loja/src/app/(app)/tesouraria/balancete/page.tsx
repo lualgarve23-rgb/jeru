@@ -1,8 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
+import { canWriteTesouraria } from "@/lib/permissions";
+import { createReceita, deleteCategoria } from "../actions";
+import { ActionForm, ActionButton } from "@/components/action-form";
+import { CategoriaSelect } from "@/components/categoria-select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -39,10 +47,17 @@ export default async function BalancetePage({
   const start = new Date(year, month - 1, 1);
   const end = new Date(year, month, 1);
 
-  const transactions = await prisma.transaction.findMany({
-    where: { lodgeId: user.lodgeId, date: { gte: start, lt: end } },
-    orderBy: { date: "asc" },
-  });
+  const isWriter = canWriteTesouraria(user.role);
+  const [transactions, categorias] = await Promise.all([
+    prisma.transaction.findMany({
+      where: { lodgeId: user.lodgeId, date: { gte: start, lt: end } },
+      orderBy: { date: "asc" },
+    }),
+    prisma.categoriaFinanceira.findMany({
+      where: { lodgeId: user.lodgeId },
+      orderBy: [{ tipo: "asc" }, { nome: "asc" }],
+    }),
+  ]);
 
   const receitas = transactions
     .filter((t) => t.type === "RECEITA")
@@ -50,6 +65,26 @@ export default async function BalancetePage({
   const despesas = transactions
     .filter((t) => t.type === "DESPESA")
     .reduce((s, t) => s + t.amountCents, 0);
+
+  // Consolidado por categoria (tags): totais de cada grupo no mês
+  const porCategoria = new Map<
+    string,
+    { tipo: string; categoria: string; total: number }
+  >();
+  for (const t of transactions) {
+    const categoria = t.category ?? "Sem categoria";
+    const key = `${t.type}:${categoria}`;
+    const atual = porCategoria.get(key) ?? {
+      tipo: t.type,
+      categoria,
+      total: 0,
+    };
+    atual.total += t.amountCents;
+    porCategoria.set(key, atual);
+  }
+  const consolidado = [...porCategoria.values()].sort(
+    (a, b) => a.tipo.localeCompare(b.tipo) || b.total - a.total
+  );
 
   return (
     <div className="space-y-6">
@@ -118,6 +153,147 @@ export default async function BalancetePage({
           </CardContent>
         </Card>
       </div>
+
+      {isWriter && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Lançar receita</CardTitle>
+              <CardDescription>
+                Receita manual (tronco, eventos, doações…) — entra direto no
+                livro-caixa. As capitações do Asaas/Pix continuam automáticas.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ActionForm action={createReceita} submitLabel="Lançar receita">
+                <div className="space-y-1">
+                  <Label htmlFor="description">Descrição</Label>
+                  <Input id="description" name="description" required />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="amount">Valor (R$)</Label>
+                    <Input
+                      id="amount"
+                      name="amount"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="date">Data</Label>
+                    <Input
+                      id="date"
+                      name="date"
+                      type="date"
+                      defaultValue={new Date().toISOString().slice(0, 10)}
+                      required
+                    />
+                  </div>
+                </div>
+                <CategoriaSelect
+                  categorias={categorias
+                    .filter((c) => c.tipo === "RECEITA")
+                    .map((c) => c.nome)}
+                />
+              </ActionForm>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Categorias cadastradas</CardTitle>
+              <CardDescription>
+                Tags usadas nos formulários de receitas e despesas. Novas
+                categorias são criadas nos próprios formulários.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {(["RECEITA", "DESPESA"] as const).map((tipo) => (
+                <div key={tipo}>
+                  <p className="mb-1 font-medium">
+                    {tipo === "RECEITA" ? "Receitas" : "Despesas"}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {categorias
+                      .filter((c) => c.tipo === tipo)
+                      .map((c) => (
+                        <span key={c.id} className="inline-flex items-center gap-1">
+                          <Badge variant="outline">{c.nome}</Badge>
+                          <ActionButton
+                            action={deleteCategoria.bind(null, c.id)}
+                            label="×"
+                            variant="outline"
+                          />
+                        </span>
+                      ))}
+                    {categorias.filter((c) => c.tipo === tipo).length === 0 && (
+                      <span className="text-muted-foreground">Nenhuma.</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Consolidado por categoria</CardTitle>
+          <CardDescription>
+            Totais do mês agrupados pelas categorias dos lançamentos.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Categoria</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {consolidado.map((c) => (
+                <TableRow key={`${c.tipo}:${c.categoria}`}>
+                  <TableCell>{c.categoria}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={c.tipo === "RECEITA" ? "success" : "warning"}
+                    >
+                      {c.tipo === "RECEITA" ? "Receita" : "Despesa"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell
+                    className={`text-right ${c.tipo === "RECEITA" ? "text-green-700" : "text-red-700"}`}
+                  >
+                    {c.tipo === "RECEITA" ? "+" : "−"} {brl(c.total)}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {consolidado.length > 0 && (
+                <TableRow>
+                  <TableCell className="font-semibold">Saldo do mês</TableCell>
+                  <TableCell />
+                  <TableCell className="text-right font-semibold">
+                    {brl(receitas - despesas)}
+                  </TableCell>
+                </TableRow>
+              )}
+              {consolidado.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-neutral-500">
+                    Sem lançamentos no período.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <Table>
         <TableHeader>

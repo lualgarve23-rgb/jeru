@@ -65,6 +65,7 @@ model Lodge {
   documents         Document[]
   invoices          Invoice[]
   expenses          Expense[]
+  categoriasFinanceiras CategoriaFinanceira[]
   transactions      Transaction[]
   donations         Donation[]
   events            CharityEvent[]
@@ -446,6 +447,7 @@ model Expense {
   supplier    String?
   amountCents Int
   dueDate     DateTime?
+  category    String? // categoria financeira — propagada ao livro-caixa no pagamento
   status      ExpenseStatus @default(PENDENTE_APROVACAO)
 
   approvedByMasterId    String?
@@ -492,6 +494,21 @@ model Transaction {
 
   @@index([lodgeId, date])
   @@map("transactions")
+}
+
+// Categorias financeiras (tags) por Loja — para receitas e despesas;
+// Transaction.category continua string (convive com lançamentos automáticos)
+model CategoriaFinanceira {
+  id        String          @id @default(cuid())
+  lodgeId   String
+  nome      String
+  tipo      TransactionType
+  createdAt DateTime        @default(now())
+
+  lodge Lodge @relation(fields: [lodgeId], references: [id])
+
+  @@unique([lodgeId, nome, tipo])
+  @@map("categorias_financeiras")
 }
 
 enum DonationType {

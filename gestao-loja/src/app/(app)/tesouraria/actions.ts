@@ -143,7 +143,7 @@ export async function settleInvoice(
         description: invoice.description,
         amountCents: invoice.amountCents,
         date: new Date(),
-        category: "capitacao",
+        category: "Capitação",
         invoiceId: invoice.id,
       },
     }),
@@ -286,6 +286,66 @@ export async function cancelAsaasSubscription(userId: string): Promise<ActionRes
 
 // ─────────────── Despesas com dupla aprovação ───────────────
 
+// Resolve a categoria do formulário: seleção existente ou criação on-the-fly
+// via campo "novaCategoria" (cadastro dinâmico de tags por Loja)
+async function resolveCategoria(
+  lodgeId: string,
+  formData: FormData,
+  tipo: "RECEITA" | "DESPESA"
+): Promise<string | null> {
+  const nova = String(formData.get("novaCategoria") ?? "").trim();
+  if (nova) {
+    await prisma.categoriaFinanceira.upsert({
+      where: { lodgeId_nome_tipo: { lodgeId, nome: nova, tipo } },
+      create: { lodgeId, nome: nova, tipo },
+      update: {},
+    });
+    return nova;
+  }
+  const sel = String(formData.get("category") ?? "").trim();
+  return sel || null;
+}
+
+// Receita manual (além das automáticas do Asaas/Pix) — direto no livro-caixa
+export async function createReceita(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireTesourariaWriter();
+  const description = String(formData.get("description") ?? "").trim();
+  const amountCents = Math.round(
+    Number(String(formData.get("amount")).replace(",", ".")) * 100
+  );
+  const date = new Date(String(formData.get("date")));
+  if (!description) return { error: "Informe a descrição." };
+  if (!amountCents || amountCents <= 0) return { error: "Valor inválido." };
+  if (Number.isNaN(date.getTime())) return { error: "Data inválida." };
+  const category = await resolveCategoria(user.lodgeId, formData, "RECEITA");
+
+  await prisma.transaction.create({
+    data: {
+      lodgeId: user.lodgeId,
+      type: "RECEITA",
+      description,
+      amountCents,
+      date,
+      category,
+    },
+  });
+  revalidatePath("/tesouraria/balancete");
+  return { ok: "Receita lançada no livro-caixa." };
+}
+
+export async function deleteCategoria(id: string): Promise<ActionResult> {
+  const user = await requireTesourariaWriter();
+  await prisma.categoriaFinanceira.delete({
+    where: { id, lodgeId: user.lodgeId },
+  });
+  revalidatePath("/tesouraria/balancete");
+  revalidatePath("/tesouraria/despesas");
+  return { ok: "Categoria removida (lançamentos antigos não são alterados)." };
+}
+
 export async function createExpense(
   _prev: ActionResult,
   formData: FormData
@@ -293,12 +353,14 @@ export async function createExpense(
   const user = await requireTesourariaWriter();
   const amountCents = Math.round(Number(formData.get("amount")) * 100);
   if (!amountCents || amountCents <= 0) return { error: "Valor inválido." };
+  const category = await resolveCategoria(user.lodgeId, formData, "DESPESA");
   await prisma.expense.create({
     data: {
       lodgeId: user.lodgeId,
       description: String(formData.get("description")),
       supplier: (formData.get("supplier") as string) || null,
       amountCents,
+      category,
       dueDate: formData.get("dueDate")
         ? new Date(String(formData.get("dueDate")))
         : null,
@@ -383,7 +445,7 @@ export async function payExpense(expenseId: string): Promise<ActionResult> {
         description: expense.description,
         amountCents: expense.amountCents,
         date: new Date(),
-        category: "despesa",
+        category: expense.category,
         expenseId: expense.id,
       },
     }),

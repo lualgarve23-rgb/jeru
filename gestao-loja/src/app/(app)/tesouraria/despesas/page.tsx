@@ -8,6 +8,7 @@ import {
   payExpense,
 } from "../actions";
 import { ActionForm, ActionButton } from "@/components/action-form";
+import { CategoriaSelect } from "@/components/categoria-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -41,11 +42,17 @@ export default async function DespesasPage() {
     "CONSELHO_CONTAS"
   );
   const isWriter = canWriteTesouraria(user.role);
-  const expenses = await prisma.expense.findMany({
-    where: { lodgeId: user.lodgeId },
-    orderBy: { createdAt: "desc" },
-    include: { approvedByMaster: true, approvedByTreasurer: true },
-  });
+  const [expenses, categorias] = await Promise.all([
+    prisma.expense.findMany({
+      where: { lodgeId: user.lodgeId },
+      orderBy: { createdAt: "desc" },
+      include: { approvedByMaster: true, approvedByTreasurer: true },
+    }),
+    prisma.categoriaFinanceira.findMany({
+      where: { lodgeId: user.lodgeId, tipo: "DESPESA" },
+      orderBy: { nome: "asc" },
+    }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -83,6 +90,7 @@ export default async function DespesasPage() {
                   <Input id="dueDate" name="dueDate" type="date" />
                 </div>
               </div>
+              <CategoriaSelect categorias={categorias.map((c) => c.nome)} />
             </ActionForm>
           </CardContent>
         </Card>
@@ -105,6 +113,12 @@ export default async function DespesasPage() {
                 {e.description}
                 {e.supplier && (
                   <span className="text-neutral-500"> · {e.supplier}</span>
+                )}
+                {e.category && (
+                  <>
+                    {" "}
+                    <Badge variant="outline">{e.category}</Badge>
+                  </>
                 )}
               </TableCell>
               <TableCell>

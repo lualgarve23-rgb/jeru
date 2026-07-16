@@ -28,6 +28,25 @@ export async function GET(request: Request) {
     .filter((t) => t.type === "DESPESA")
     .reduce((s, t) => s + t.amountCents, 0);
 
+  const porCategoria = new Map<
+    string,
+    { tipo: string; categoria: string; total: number }
+  >();
+  for (const t of transactions) {
+    const categoria = t.category ?? "Sem categoria";
+    const key = `${t.type}:${categoria}`;
+    const atual = porCategoria.get(key) ?? {
+      tipo: t.type,
+      categoria,
+      total: 0,
+    };
+    atual.total += t.amountCents;
+    porCategoria.set(key, atual);
+  }
+  const consolidado = [...porCategoria.values()].sort(
+    (a, b) => a.tipo.localeCompare(b.tipo) || b.total - a.total
+  );
+
   const csv = toCsv(
     ["Data", "Tipo", "Categoria", "Descrição", "Valor (R$)"],
     [
@@ -42,6 +61,15 @@ export async function GET(request: Request) {
       ["", "", "", "Total de receitas", brlCsv(receitas)],
       ["", "", "", "Total de despesas", "-" + brlCsv(despesas)],
       ["", "", "", "Saldo do mês", brlCsv(receitas - despesas)],
+      [],
+      ["Consolidado por categoria"],
+      ...consolidado.map((c) => [
+        "",
+        c.tipo,
+        c.categoria,
+        "Total da categoria",
+        (c.tipo === "DESPESA" ? "-" : "") + brlCsv(c.total),
+      ]),
     ]
   );
   return csvResponse(
