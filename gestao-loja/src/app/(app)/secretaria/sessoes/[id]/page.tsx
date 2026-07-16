@@ -12,6 +12,16 @@ import { ActionForm, ActionButton } from "@/components/action-form";
 import { Label } from "@/components/ui/label";
 import { sessionTypeLabels, degreeLabels } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { frequenciaAnual, MIN_SESSOES_PARA_ALERTA } from "@/lib/frequencia";
 import {
   Card,
   CardContent,
@@ -55,6 +65,56 @@ export default async function SessaoPage({
 
   const attendanceAction = registerAttendance.bind(null, session.id);
   const createAtaAction = createAta.bind(null, session.id);
+
+  // Tabela de presenças: irmãos do quadro que podiam assistir à sessão
+  // (grau ≥ grau da sessão), com a frequência anual e alerta de mínimo legal
+  const DEGREE_RANK: Record<string, number> = {
+    APRENDIZ: 1,
+    COMPANHEIRO: 2,
+    MESTRE: 3,
+  };
+  const ano = session.date.getFullYear();
+  const [quadro, freq, lodgeCfg] = await Promise.all([
+    prisma.user.findMany({
+      where: {
+        lodgeId: user.lodgeId,
+        status: { in: ["ATIVO", "IRREGULAR"] },
+        currentRole: { not: "SUPER_ADMIN" },
+      },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, cim: true, degree: true, cargoRito: true },
+    }),
+    frequenciaAnual(user.lodgeId, ano),
+    prisma.lodge.findUniqueOrThrow({
+      where: { id: user.lodgeId },
+      select: { minFreqProgressao: true },
+    }),
+  ]);
+  const freqPorMembro = new Map(freq.map((f) => [f.userId, f]));
+  const presentes = new Set(
+    session.attendances.flatMap((a) => (a.userId ? [a.userId] : []))
+  );
+  const linhas = quadro.filter(
+    (m) => (DEGREE_RANK[m.degree] ?? 3) >= (DEGREE_RANK[session.degree] ?? 1)
+  );
+  const minFreq = lodgeCfg.minFreqProgressao;
+
+  // Situação da frequência: alerta legal para Aprendizes e Companheiros
+  function situacaoFreq(m: (typeof linhas)[number]) {
+    const f = freqPorMembro.get(m.id);
+    if (!f || f.percentual === null) return null;
+    const texto = `${f.percentual}% (${f.presencas}/${f.sessoesComputadas})`;
+    if (
+      m.degree === "MESTRE" ||
+      f.sessoesComputadas < MIN_SESSOES_PARA_ALERTA
+    ) {
+      return { texto, tone: null as string | null };
+    }
+    if (f.percentual < minFreq) return { texto, tone: "vermelho" };
+    if (f.percentual < minFreq + 10) return { texto, tone: "amarelo" };
+    return { texto, tone: "ok" };
+  }
+  const visitantes = session.attendances.filter((a) => !a.user);
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -170,38 +230,123 @@ export default async function SessaoPage({
       <Card>
         <CardHeader>
           <CardTitle>
-            Livro de Presenças ({session.attendances.length})
+            Livro de Presenças ({presentes.size} de {linhas.length} irmãos)
           </CardTitle>
+          <CardDescription>
+            Frequência acumulada em {ano} — mínimo da Loja para progressão:{" "}
+            {minFreq}%. O alerta legal vale para Aprendizes e Companheiros.{" "}
+            <Link
+              href={`/secretaria/sessoes/export?ano=${ano}`}
+              className="underline"
+            >
+              Exportar frequência anual (CSV)
+            </Link>
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <ul className="space-y-1 text-sm">
-            {session.attendances.map((a) => (
-              <li key={a.id}>
-                {a.user
-                  ? `${a.user.name} (CIM ${a.user.cim})`
-                  : `${a.visitorName} — visitante${a.visitorLodge ? ` · ${a.visitorLodge}` : ""}${a.visitorPotencia ? ` / ${a.visitorPotencia}` : ""}`}
-                {a.viaQrCode ? " · via QR" : ""}
-                <span className="text-muted-foreground">
-                  {" "}
-                  às {a.checkedInAt.toLocaleTimeString("pt-BR")}
-                </span>
-                {!a.user && a.visitorEmail && isWriter && (
-                  <span className="ml-2 inline-flex align-middle">
-                    <ActionButton
-                      action={reenviarCertificadoVisita.bind(null, a.id)}
-                      label="Enviar Certificado de Visita"
-                      variant="outline"
-                    />
-                  </span>
-                )}
-              </li>
-            ))}
-            {session.attendances.length === 0 && (
-              <li className="text-muted-foreground">Nenhuma presença registrada.</li>
-            )}
-          </ul>
+        <CardContent className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Irmão</TableHead>
+                <TableHead>Grau</TableHead>
+                <TableHead>Cargo</TableHead>
+                <TableHead>Presença</TableHead>
+                <TableHead>Frequência {ano}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {linhas.map((m) => {
+                const att = session.attendances.find((a) => a.userId === m.id);
+                const sf = situacaoFreq(m);
+                return (
+                  <TableRow key={m.id}>
+                    <TableCell className="font-medium">
+                      {m.name}
+                      <span className="text-muted-foreground"> · CIM {m.cim}</span>
+                    </TableCell>
+                    <TableCell>{degreeLabels[m.degree] ?? m.degree}</TableCell>
+                    <TableCell>{m.cargoRito ?? "—"}</TableCell>
+                    <TableCell>
+                      {att ? (
+                        <Badge variant="success">
+                          Presente
+                          {att.viaQrCode ? " · QR" : ""}
+                          {" às "}
+                          {att.checkedInAt.toLocaleTimeString("pt-BR", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">Ausente</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {sf ? (
+                        sf.tone === "vermelho" ? (
+                          <Badge variant="warning">
+                            {sf.texto} — abaixo do mínimo
+                          </Badge>
+                        ) : sf.tone === "amarelo" ? (
+                          <Badge className="border-amber-200 bg-amber-50 text-amber-700">
+                            {sf.texto} — perto do mínimo
+                          </Badge>
+                        ) : sf.tone === "ok" ? (
+                          <Badge variant="success">{sf.texto}</Badge>
+                        ) : (
+                          <span className="text-sm">{sf.texto}</span>
+                        )
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {linhas.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-muted-foreground">
+                    Nenhum irmão do quadro pode ser computado nesta sessão.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
+
+      {visitantes.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Visitantes ({visitantes.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-1 text-sm">
+              {visitantes.map((a) => (
+                <li key={a.id}>
+                  {a.visitorName} — visitante
+                  {a.visitorLodge ? ` · ${a.visitorLodge}` : ""}
+                  {a.visitorPotencia ? ` / ${a.visitorPotencia}` : ""}
+                  {a.viaQrCode ? " · via QR" : ""}
+                  <span className="text-muted-foreground">
+                    {" "}
+                    às {a.checkedInAt.toLocaleTimeString("pt-BR")}
+                  </span>
+                  {a.visitorEmail && isWriter && (
+                    <span className="ml-2 inline-flex align-middle">
+                      <ActionButton
+                        action={reenviarCertificadoVisita.bind(null, a.id)}
+                        label="Enviar Certificado de Visita"
+                        variant="outline"
+                      />
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

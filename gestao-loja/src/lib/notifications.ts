@@ -184,17 +184,50 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
     });
   }
 
-  // Alertas do Esmoler (Hospitaleiro): contato preventivo com os irmãos
-  const esmoleres = await prisma.user.findMany({
-    where: { lodgeId, currentRole: "ESMOLER", status: "ATIVO" },
-    select: { id: true },
-  });
-  if (esmoleres.length > 0) {
-    const lodge = await prisma.lodge.findUniqueOrThrow({
+  // Frequência anual vs. mínimo da Loja (minFreqProgressao)
+  const [esmoleres, lodge] = await Promise.all([
+    prisma.user.findMany({
+      where: { lodgeId, currentRole: "ESMOLER", status: "ATIVO" },
+      select: { id: true },
+    }),
+    prisma.lodge.findUniqueOrThrow({
       where: { id: lodgeId },
       select: { limiteInadimplencia: true, minFreqProgressao: true },
-    });
+    }),
+  ]);
+  const ano = now.getFullYear();
+  const freq = await frequenciaAnual(lodgeId, ano);
+  const freqBaixa = freq.filter(
+    (f) =>
+      f.sessoesComputadas >= MIN_SESSOES_PARA_ALERTA &&
+      f.percentual !== null &&
+      f.percentual < lodge.minFreqProgressao
+  );
 
+  // Risco legal: Aprendiz/Companheiro abaixo do mínimo atrasa o interstício.
+  // Uma notificação da loja (visível a VM/Secretário) e uma dirigida ao irmão.
+  for (const f of freqBaixa) {
+    if (f.degree === "MESTRE") continue;
+    const resumo = `${f.percentual}% de presença em ${ano} (${f.presencas} de ${f.sessoesComputadas} sessões) — mínimo da Loja: ${lodge.minFreqProgressao}%.`;
+    pending.push({
+      sourceKey: `freq-risco:${f.userId}:${ano}`,
+      type: "DEADLINE_WARNING",
+      title: `Frequência baixa de ${f.name}: risco de atraso no interstício`,
+      description: `${resumo} Abaixo do mínimo, a progressão de grau pode ser adiada.`,
+      link: `/secretaria/membros/${f.userId}`,
+    });
+    pending.push({
+      sourceKey: `freq-risco-self:${f.userId}:${ano}`,
+      type: "DEADLINE_WARNING",
+      userId: f.userId,
+      title: "Sua frequência está abaixo do mínimo da Loja",
+      description: `${resumo} A frequência mínima é requisito legal para a progressão de grau — procure regularizar sua presença nas sessões.`,
+      link: "/dashboard",
+    });
+  }
+
+  // Alertas do Esmoler (Hospitaleiro): contato preventivo com os irmãos
+  if (esmoleres.length > 0) {
     // Inadimplência prestes a atingir o limite (limite - 1 capitações vencidas)
     const overdue = await prisma.invoice.groupBy({
       by: ["userId"],
@@ -229,16 +262,8 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
       }
     }
 
-    // Frequência abaixo do mínimo da Loja (minFreqProgressao)
-    const ano = now.getFullYear();
-    const freq = await frequenciaAnual(lodgeId, ano);
-    for (const f of freq) {
-      if (
-        f.sessoesComputadas < MIN_SESSOES_PARA_ALERTA ||
-        f.percentual === null ||
-        f.percentual >= lodge.minFreqProgressao
-      )
-        continue;
+    // Frequência abaixo do mínimo da Loja (qualquer grau — bem-estar)
+    for (const f of freqBaixa) {
       for (const e of esmoleres) {
         if (e.id === f.userId) continue;
         pending.push({
