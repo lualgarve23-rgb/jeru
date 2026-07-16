@@ -169,28 +169,15 @@ export function HistoricoCargos({
                   defaultValue={r.cargoRito ? `rito:${r.cargoRito}` : r.role}
                   className={selectClass + " w-48"}
                 >
-                  {Object.entries(roleLabels)
-                    .filter(([value]) => value !== "SUPER_ADMIN")
-                    .map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
+                  <option value="MEMBER">Sem cargo</option>
                   {(r.cargoRito && !cargosRito.includes(r.cargoRito)
                     ? [...cargosRito, r.cargoRito]
                     : cargosRito
-                  ).length > 0 && (
-                    <optgroup label="Cargos do rito">
-                      {(r.cargoRito && !cargosRito.includes(r.cargoRito)
-                        ? [...cargosRito, r.cargoRito]
-                        : cargosRito
-                      ).map((nome) => (
-                        <option key={nome} value={`rito:${nome}`}>
-                          {nome}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
+                  ).map((nome) => (
+                    <option key={nome} value={`rito:${nome}`}>
+                      {nome}
+                    </option>
+                  ))}
                 </select>
                 <Input
                   name="startDate"

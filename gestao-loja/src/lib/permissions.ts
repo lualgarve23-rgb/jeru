@@ -1,3 +1,5 @@
+import { cargoCorresponde } from "@/lib/cargos";
+
 // Segregação de funções (loja.md §3):
 // CONSELHO_CONTAS nunca tem escrita em Secretaria ou Tesouraria.
 
@@ -19,17 +21,14 @@ export const INTERSTICE_MONTHS: Record<string, number> = {
 };
 
 // Instruções de grau: Aprendizes com o 2º Vigilante, Companheiros com o
-// 1º Vigilante; VM e Secretário podem registrar ambas.
-export function grausInstrucaoPermitidos(role: string): ("APRENDIZ" | "COMPANHEIRO")[] {
-  switch (role) {
-    case "SEGUNDO_VIGILANTE":
-      return ["APRENDIZ"];
-    case "PRIMEIRO_VIGILANTE":
-      return ["COMPANHEIRO"];
-    case "VENERAVEL_MESTRE":
-    case "SECRETARIO":
-      return ["APRENDIZ", "COMPANHEIRO"];
-    default:
-      return [];
-  }
+// 1º Vigilante (cargos do rito); VM e Secretário podem registrar ambas.
+export function grausInstrucaoPermitidos(
+  role: string,
+  cargoRito?: string | null
+): ("APRENDIZ" | "COMPANHEIRO")[] {
+  if (role === "VENERAVEL_MESTRE" || role === "SECRETARIO")
+    return ["APRENDIZ", "COMPANHEIRO"];
+  if (cargoCorresponde(cargoRito, "2º Vigilante")) return ["APRENDIZ"];
+  if (cargoCorresponde(cargoRito, "1º Vigilante")) return ["COMPANHEIRO"];
+  return [];
 }

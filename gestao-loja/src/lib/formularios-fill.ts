@@ -2,6 +2,7 @@ import { readFile } from "fs/promises";
 import path from "path";
 import JSZip from "jszip";
 import { prisma } from "@/lib/prisma";
+import { cargoCorresponde } from "@/lib/cargos";
 
 // Preenchimento automático dos formulários oficiais do GOB-SP (.docx).
 // Os formulários usam campos legados do Word (FORMTEXT/FORMCHECKBOX); o
@@ -242,11 +243,16 @@ export async function resolverValores(
     prisma.user.findMany({
       where: {
         lodgeId,
-        currentRole: {
-          in: ["VENERAVEL_MESTRE", "SECRETARIO", "ORADOR", "TESOUREIRO"],
-        },
+        OR: [
+          {
+            currentRole: {
+              in: ["VENERAVEL_MESTRE", "SECRETARIO", "TESOUREIRO"],
+            },
+          },
+          { cargoRito: { not: null } },
+        ],
       },
-      select: { name: true, cim: true, currentRole: true },
+      select: { name: true, cim: true, currentRole: true, cargoRito: true },
     }),
     entradas.obreiroId
       ? prisma.user.findFirst({
@@ -259,7 +265,7 @@ export async function resolverValores(
   const cargo = (r: string) => cargos.find((c) => c.currentRole === r);
   const vm = cargo("VENERAVEL_MESTRE");
   const sec = cargo("SECRETARIO");
-  const orador = cargo("ORADOR");
+  const orador = cargos.find((c) => cargoCorresponde(c.cargoRito, "Orador"));
   const tes = cargo("TESOUREIRO");
   const { cidade, uf } = parseOriente(lodge.oriente);
 

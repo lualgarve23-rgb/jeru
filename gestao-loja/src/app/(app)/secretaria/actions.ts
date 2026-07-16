@@ -12,6 +12,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { canWriteSecretaria, INTERSTICE_MONTHS } from "@/lib/permissions";
+import { cargoCorresponde, type CargoPadrao } from "@/lib/cargos";
 import { uploadToLodgeDrive, isDriveAvailable } from "@/lib/google-drive";
 import { sendLodgeEmail, GUARDA_SELOS_EMAIL } from "@/lib/gmail";
 import { gerarTextoAta } from "@/lib/ata-template";
@@ -169,25 +170,25 @@ export async function elevateDegree(
   return { ok: `Grau ${newDegree} registrado.` };
 }
 
-// Resolve o valor do select de cargo: um Role do sistema ou um cargo do
-// rito cadastrado pela Loja ("rito:<nome>", nível de acesso de Obreiro).
+// Resolve o valor do select de cargo do rito ("rito:<nome>" ou "" = sem cargo).
+// Cargos ritualísticos são gerenciados exclusivamente pelo model CargoRito e
+// não interferem no nível de acesso ao sistema (currentRole).
 async function resolveCargo(
   lodgeId: string,
   raw: string
-): Promise<{ role: Role; cargoRito: string | null } | { error: string }> {
-  if (raw.startsWith("rito:")) {
-    const nome = raw.slice(5);
-    const cargo = await prisma.cargoRito.findUnique({
-      where: { lodgeId_nome: { lodgeId, nome } },
-    });
-    if (!cargo) return { error: "Cargo do rito não encontrado." };
-    return { role: "MEMBER" as Role, cargoRito: cargo.nome };
-  }
-  if (!(raw in Role)) return { error: "Cargo inválido." };
-  return { role: raw as Role, cargoRito: null };
+): Promise<{ cargoRito: string | null } | { error: string }> {
+  if (!raw || raw === "MEMBER") return { cargoRito: null };
+  if (!raw.startsWith("rito:")) return { error: "Cargo inválido." };
+  const nome = raw.slice(5);
+  const cargo = await prisma.cargoRito.findUnique({
+    where: { lodgeId_nome: { lodgeId, nome } },
+  });
+  if (!cargo) return { error: "Cargo do rito não encontrado." };
+  return { cargoRito: cargo.nome };
 }
 
-// Nomeação de cargo — encerra o cargo anterior no histórico
+// Nomeação de cargo do rito — encerra o cargo anterior no histórico.
+// Não altera o nível de acesso (currentRole).
 export async function assignRole(
   memberId: string,
   _prev: ActionResult,
@@ -210,18 +211,49 @@ export async function assignRole(
       data: {
         lodgeId: user.lodgeId,
         userId: memberId,
-        role: cargo.role,
+        role: "MEMBER",
         cargoRito: cargo.cargoRito,
         startDate,
       },
     }),
     prisma.user.update({
       where: { id: memberId, lodgeId: user.lodgeId },
-      data: { currentRole: cargo.role, cargoRito: cargo.cargoRito },
+      data: { cargoRito: cargo.cargoRito },
     }),
   ]);
   revalidatePath(`/secretaria/membros/${memberId}`);
   return { ok: "Cargo registrado." };
+}
+
+// Nível de acesso ao sistema (enum Role) — definido por VM/Secretário,
+// independente do cargo ritualístico.
+export async function setAccessRole(
+  memberId: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const raw = String(formData.get("accessRole"));
+  const permitidos: Role[] = [
+    "MEMBER",
+    "VENERAVEL_MESTRE",
+    "SECRETARIO",
+    "TESOUREIRO",
+    "CONSELHO_CONTAS",
+    "ESMOLER",
+  ];
+  if (!permitidos.includes(raw as Role)) {
+    return { error: "Nível de acesso inválido." };
+  }
+  if (memberId === user.id && raw !== user.role) {
+    return { error: "Você não pode alterar o próprio nível de acesso." };
+  }
+  await prisma.user.update({
+    where: { id: memberId, lodgeId: user.lodgeId },
+    data: { currentRole: raw as Role },
+  });
+  revalidatePath(`/secretaria/membros/${memberId}`);
+  return { ok: "Nível de acesso atualizado." };
 }
 
 // ─────────────── Cargos do rito (personalizados por Loja) ───────────────
@@ -286,12 +318,11 @@ async function syncMemberRole(lodgeId: string, userId: string) {
     where: { lodgeId, userId, endDate: null },
     orderBy: { startDate: "desc" },
   });
+  // O histórico rege apenas o cargo do rito; o nível de acesso (currentRole)
+  // é gerido separadamente por setAccessRole.
   await prisma.user.update({
     where: { id: userId, lodgeId },
-    data: {
-      currentRole: open?.role ?? "MEMBER",
-      cargoRito: open?.cargoRito ?? null,
-    },
+    data: { cargoRito: open?.cargoRito ?? null },
   });
 }
 
@@ -354,7 +385,7 @@ export async function updateRoleHistory(
   }
   await prisma.roleHistory.update({
     where: { id: entryId, lodgeId: user.lodgeId },
-    data: { role: cargo.role, cargoRito: cargo.cargoRito, startDate, endDate },
+    data: { role: "MEMBER", cargoRito: cargo.cargoRito, startDate, endDate },
   });
   await syncMemberRole(user.lodgeId, entry.userId);
   revalidatePath(`/secretaria/membros/${entry.userId}`);
@@ -530,6 +561,16 @@ export async function createAta(
   const membros = session.attendances.filter((a) => a.user);
   const byRole = (role: Role) =>
     membros.find((a) => a.user!.currentRole === role)?.user!.name ?? null;
+  const byCargo = (padrao: CargoPadrao) =>
+    membros.find((a) => cargoCorresponde(a.user!.cargoRito, padrao))?.user!
+      .name ?? null;
+  const temCargoDestacado = (a: (typeof membros)[number]) =>
+    ["VENERAVEL_MESTRE", "SECRETARIO", "TESOUREIRO"].includes(
+      a.user!.currentRole
+    ) ||
+    (["1º Vigilante", "2º Vigilante", "Diretor de Cerimônias", "Guarda Interno"] as const).some(
+      (c) => cargoCorresponde(a.user!.cargoRito, c)
+    );
   const content = gerarTextoAta({
     lodgeName: `${session.lodge.name} nº ${session.lodge.number}`,
     address: session.lodge.address,
@@ -539,25 +580,12 @@ export async function createAta(
     masterName: byRole("VENERAVEL_MESTRE"),
     secretaryName: byRole("SECRETARIO"),
     treasurerName: byRole("TESOUREIRO"),
-    primeiroVigilanteName: byRole("PRIMEIRO_VIGILANTE"),
-    segundoVigilanteName: byRole("SEGUNDO_VIGILANTE"),
-    dirCerimoniasName: byRole("DIRETOR_CERIMONIAS"),
-    guardaInternoName: byRole("GUARDA_INTERNO"),
+    primeiroVigilanteName: byCargo("1º Vigilante"),
+    segundoVigilanteName: byCargo("2º Vigilante"),
+    dirCerimoniasName: byCargo("Diretor de Cerimônias"),
+    guardaInternoName: byCargo("Guarda Interno"),
     presentes: membros
-      .filter(
-        (a) =>
-          ![
-            "VENERAVEL_MESTRE",
-            "SECRETARIO",
-            "TESOUREIRO",
-            "PRIMEIRO_VIGILANTE",
-            "SEGUNDO_VIGILANTE",
-            "DIRETOR_CERIMONIAS",
-            "GUARDA_INTERNO",
-          ].includes(
-            a.user!.currentRole
-          )
-      )
+      .filter((a) => !temCargoDestacado(a))
       .map((a) => ({ name: a.user!.name })),
     visitantes: session.attendances
       .filter((a) => !a.user && a.visitorName)

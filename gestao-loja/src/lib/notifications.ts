@@ -2,6 +2,10 @@ import { NotificationType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { INTERSTICE_MONTHS } from "@/lib/permissions";
 import { degreeLabels } from "@/lib/labels";
+import {
+  frequenciaAnual,
+  MIN_SESSOES_PARA_ALERTA,
+} from "@/lib/frequencia";
 
 // Prazo legal de comunicação pós-Sessão Magna (loja.md §3)
 export const COMMUNICATION_DEADLINE_DAYS = 15;
@@ -13,6 +17,8 @@ type Pending = {
   description: string;
   link?: string;
   dueDate?: Date;
+  // Notificação dirigida a um usuário específico (ex.: Esmoler)
+  userId?: string;
 };
 
 function addDays(d: Date, days: number) {
@@ -178,6 +184,75 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
     });
   }
 
+  // Alertas do Esmoler (Hospitaleiro): contato preventivo com os irmãos
+  const esmoleres = await prisma.user.findMany({
+    where: { lodgeId, currentRole: "ESMOLER", status: "ATIVO" },
+    select: { id: true },
+  });
+  if (esmoleres.length > 0) {
+    const lodge = await prisma.lodge.findUniqueOrThrow({
+      where: { id: lodgeId },
+      select: { limiteInadimplencia: true, minFreqProgressao: true },
+    });
+
+    // Inadimplência prestes a atingir o limite (limite - 1 capitações vencidas)
+    const overdue = await prisma.invoice.groupBy({
+      by: ["userId"],
+      where: { lodgeId, status: "VENCIDA" },
+      _count: { _all: true },
+    });
+    const quaseNoLimite = overdue.filter(
+      (o) => o._count._all === lodge.limiteInadimplencia - 1
+    );
+    const nomes = quaseNoLimite.length
+      ? new Map(
+          (
+            await prisma.user.findMany({
+              where: { id: { in: quaseNoLimite.map((o) => o.userId) } },
+              select: { id: true, name: true },
+            })
+          ).map((u) => [u.id, u.name])
+        )
+      : new Map<string, string>();
+    for (const o of quaseNoLimite) {
+      const nome = nomes.get(o.userId);
+      if (!nome) continue;
+      for (const e of esmoleres) {
+        pending.push({
+          sourceKey: `esmoler-fin:${e.id}:${o.userId}`,
+          type: "FINANCIAL_APPROVAL",
+          userId: e.id,
+          title: `Esmoler: ${nome} próximo do limite de inadimplência`,
+          description: `${o._count._all} capitação(ões) vencida(s) — no limite de ${lodge.limiteInadimplencia} o irmão passa a IRREGULAR. Vale um contato preventivo.`,
+          link: "/secretaria/membros",
+        });
+      }
+    }
+
+    // Frequência abaixo do mínimo da Loja (minFreqProgressao)
+    const ano = now.getFullYear();
+    const freq = await frequenciaAnual(lodgeId, ano);
+    for (const f of freq) {
+      if (
+        f.sessoesComputadas < MIN_SESSOES_PARA_ALERTA ||
+        f.percentual === null ||
+        f.percentual >= lodge.minFreqProgressao
+      )
+        continue;
+      for (const e of esmoleres) {
+        if (e.id === f.userId) continue;
+        pending.push({
+          sourceKey: `esmoler-freq:${e.id}:${f.userId}:${ano}`,
+          type: "DEADLINE_WARNING",
+          userId: e.id,
+          title: `Esmoler: frequência baixa de ${f.name}`,
+          description: `${f.percentual}% de presença em ${ano} (${f.presencas} de ${f.sessoesComputadas} sessões) — mínimo da Loja: ${lodge.minFreqProgressao}%. Vale verificar como o irmão está.`,
+          link: "/secretaria/membros",
+        });
+      }
+    }
+  }
+
   return pending;
 }
 
@@ -215,6 +290,7 @@ export async function syncLodgeNotifications(lodgeId: string) {
               sourceKey: p.sourceKey,
               link: p.link ?? null,
               dueDate: p.dueDate ?? null,
+              userId: p.userId ?? null,
             })),
             skipDuplicates: true,
           }),

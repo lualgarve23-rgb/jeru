@@ -24,7 +24,11 @@ export async function registrarInstrucao(
     select: { degree: true, name: true },
   });
   if (!member) return { error: "Obreiro não encontrado." };
-  const permitidos: string[] = grausInstrucaoPermitidos(user.role);
+  const { cargoRito } = await prisma.user.findUniqueOrThrow({
+    where: { id: user.id },
+    select: { cargoRito: true },
+  });
+  const permitidos: string[] = grausInstrucaoPermitidos(user.role, cargoRito);
   if (!permitidos.includes(member.degree)) {
     return {
       error: `Sem permissão para registrar instrução de ${member.degree === "APRENDIZ" ? "Aprendiz (2º Vigilante)" : "Companheiro (1º Vigilante)"}.`,

@@ -23,6 +23,7 @@ export default async function PerfilPage() {
       email: true,
       degree: true,
       currentRole: true,
+      cargoRito: true,
       photoUrl: true,
     },
   });
@@ -34,7 +35,7 @@ export default async function PerfilPage() {
         <p className="text-sm text-muted-foreground">
           {me.name} · CIM {me.cim} ·{" "}
           {degreeLabels[me.degree] ?? me.degree} ·{" "}
-          {roleLabels[me.currentRole] ?? me.currentRole}
+          {me.cargoRito ?? roleLabels[me.currentRole] ?? me.currentRole}
         </p>
       </div>
 

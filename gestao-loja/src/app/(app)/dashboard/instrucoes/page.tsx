@@ -22,7 +22,11 @@ const GRAU_INFO = {
 
 export default async function InstrucoesPage() {
   const user = await requireUser();
-  const graus = grausInstrucaoPermitidos(user.role);
+  const { cargoRito } = await prisma.user.findUniqueOrThrow({
+    where: { id: user.id },
+    select: { cargoRito: true },
+  });
+  const graus = grausInstrucaoPermitidos(user.role, cargoRito);
   if (!graus.length) redirect("/dashboard");
 
   const lodge = await prisma.lodge.findUniqueOrThrow({

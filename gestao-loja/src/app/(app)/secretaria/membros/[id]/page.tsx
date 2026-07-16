@@ -1,7 +1,13 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
-import { updateMember, elevateDegree, assignRole } from "../../actions";
+import {
+  updateMember,
+  elevateDegree,
+  assignRole,
+  setAccessRole,
+} from "../../actions";
+import { cargoCorresponde } from "@/lib/cargos";
 import { ActionForm } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,6 +51,7 @@ export default async function MembroPage({
   const updateAction = updateMember.bind(null, member.id);
   const elevateAction = elevateDegree.bind(null, member.id);
   const roleAction = assignRole.bind(null, member.id);
+  const accessAction = setAccessRole.bind(null, member.id);
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -105,12 +112,15 @@ export default async function MembroPage({
                 </select>
               </div>
             </div>
-            {["VENERAVEL_MESTRE", "SECRETARIO", "ORADOR"].includes(
-              member.currentRole
-            ) && (
+            {(["VENERAVEL_MESTRE", "SECRETARIO"].includes(member.currentRole) ||
+              cargoCorresponde(member.cargoRito, "Orador")) && (
               <div className="space-y-2">
                 <Label htmlFor="signature">
-                  Imagem da assinatura ({roleLabels[member.currentRole]})
+                  Imagem da assinatura (
+                  {["VENERAVEL_MESTRE", "SECRETARIO"].includes(member.currentRole)
+                    ? roleLabels[member.currentRole]
+                    : member.cargoRito}
+                  )
                 </Label>
                 {member.signatureUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -161,7 +171,41 @@ export default async function MembroPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Nomear para cargo</CardTitle>
+          <CardTitle>Nível de acesso ao sistema</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ActionForm action={accessAction} submitLabel="Salvar acesso">
+            <div className="space-y-1">
+              <Label htmlFor="accessRole">Perfil de acesso</Label>
+              <select
+                id="accessRole"
+                name="accessRole"
+                defaultValue={member.currentRole}
+                className="h-9 w-full rounded-md border bg-transparent px-2 text-sm"
+              >
+                <option value="MEMBER">Obreiro (padrão)</option>
+                <option value="VENERAVEL_MESTRE">Venerável Mestre</option>
+                <option value="SECRETARIO">Secretário</option>
+                <option value="TESOUREIRO">Tesoureiro</option>
+                <option value="CONSELHO_CONTAS">
+                  Conselho de Contas (somente leitura)
+                </option>
+                <option value="ESMOLER">
+                  Esmoler / Hospitaleiro (alertas de bem-estar)
+                </option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Define as permissões no sistema (Secretaria, Tesouraria,
+                alertas), independentemente do cargo ritualístico abaixo.
+              </p>
+            </div>
+          </ActionForm>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Nomear para cargo do rito</CardTitle>
         </CardHeader>
         <CardContent>
           <ActionForm action={roleAction} submitLabel="Registrar cargo">
@@ -172,38 +216,19 @@ export default async function MembroPage({
                   id="role"
                   name="role"
                   defaultValue={
-                    member.cargoRito
-                      ? `rito:${member.cargoRito}`
-                      : member.currentRole
+                    member.cargoRito ? `rito:${member.cargoRito}` : "MEMBER"
                   }
                   className="h-9 w-full rounded-md border bg-transparent px-2 text-sm"
                 >
-                  <option value="MEMBER">Obreiro</option>
-                  <option value="VENERAVEL_MESTRE">Venerável Mestre</option>
-                  <option value="SECRETARIO">Secretário</option>
-                  <option value="TESOUREIRO">Tesoureiro</option>
-                  <option value="CONSELHO_CONTAS">Conselho de Contas</option>
-                  <option value="PRIMEIRO_VIGILANTE">1º Vigilante</option>
-                  <option value="SEGUNDO_VIGILANTE">2º Vigilante</option>
-                  <option value="PRIMEIRO_DIACONO">1º Diácono</option>
-                  <option value="SEGUNDO_DIACONO">2º Diácono</option>
-                  <option value="ORADOR">Orador</option>
-                  <option value="GUARDA_INTERNO">Guarda Interno</option>
-                  <option value="GUARDA_EXTERNO">Guarda Externo</option>
-                  <option value="DIRETOR_CERIMONIAS">Diretor de Cerimônias</option>
-                  {cargosRito.length > 0 && (
-                    <optgroup label="Cargos do rito">
-                      {cargosRito.map((c) => (
-                        <option key={c.id} value={`rito:${c.nome}`}>
-                          {c.nome}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
+                  <option value="MEMBER">Sem cargo</option>
+                  {cargosRito.map((c) => (
+                    <option key={c.id} value={`rito:${c.nome}`}>
+                      {c.nome}
+                    </option>
+                  ))}
                 </select>
                 <p className="text-xs text-muted-foreground">
-                  Vigilantes, Diáconos, Orador, Guardas, Dir. de Cerimônias e
-                  cargos do rito têm o mesmo nível de acesso de um Obreiro.{" "}
+                  Cargos do rito não alteram o nível de acesso ao sistema.{" "}
                   <a href="/secretaria/cargos" className="underline">
                     Gerenciar cargos do rito
                   </a>

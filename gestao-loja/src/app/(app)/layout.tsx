@@ -6,8 +6,9 @@ import { AppShell } from "@/components/app-shell";
 import { type NavItem } from "@/components/sidebar-nav";
 import { roleLabels } from "@/lib/labels";
 import { unreadCount } from "@/lib/notifications";
+import { grausInstrucaoPermitidos } from "@/lib/permissions";
 
-function navFor(role: string, unread: number): NavItem[] {
+function navFor(role: string, cargoRito: string | null, unread: number): NavItem[] {
   if (role === "SUPER_ADMIN") {
     return [
       { href: "/admin", label: "Administração", icon: "admin" },
@@ -17,12 +18,9 @@ function navFor(role: string, unread: number): NavItem[] {
   const fiscal = ["SECRETARIO", "VENERAVEL_MESTRE", "CONSELHO_CONTAS"];
   const tesouraria = ["TESOUREIRO", "VENERAVEL_MESTRE", "CONSELHO_CONTAS"];
   const gestaoLoja = ["VENERAVEL_MESTRE", "SECRETARIO"];
-  const instrutores = [
-    "PRIMEIRO_VIGILANTE",
-    "SEGUNDO_VIGILANTE",
-    "VENERAVEL_MESTRE",
-    "SECRETARIO",
-  ];
+  // Instruções: VM/Secretário por acesso; Vigilantes pelo cargo do rito
+  const ehInstrutor =
+    grausInstrucaoPermitidos(role, cargoRito).length > 0;
 
   const items: (NavItem & { roles?: string[] })[] = [
     { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
@@ -35,7 +33,9 @@ function navFor(role: string, unread: number): NavItem[] {
     { href: "/secretaria/documentos", label: "Documentos (Drive)", icon: "documentos", section: "Secretaria", roles: fiscal },
     { href: "/secretaria/admissoes", label: "Admissões", icon: "admissoes", section: "Secretaria", roles: fiscal },
     { href: "/secretaria/progressoes", label: "Progressões", icon: "progressoes", section: "Secretaria", roles: fiscal },
-    { href: "/dashboard/instrucoes", label: "Instruções", icon: "instrucoes", section: "Secretaria", roles: instrutores },
+    ...(ehInstrutor
+      ? [{ href: "/dashboard/instrucoes", label: "Instruções", icon: "instrucoes" as const, section: "Secretaria" }]
+      : []),
     { href: "/secretaria/quitte-placets", label: "Quitte Placets", icon: "quitteplacets", section: "Secretaria", roles: fiscal },
     { href: "/tesouraria/mensalidades", label: "Mensalidades", icon: "mensalidades", section: "Tesouraria", roles: tesouraria },
     { href: "/tesouraria/despesas", label: "Despesas", icon: "despesas", section: "Tesouraria", roles: tesouraria },
@@ -56,9 +56,9 @@ export default async function AppLayout({
   const user = await requireUser();
 
   // Primeiro acesso: bloqueia todo o painel até trocar a senha provisória
-  const { mustChangePassword } = await prisma.user.findUniqueOrThrow({
+  const { mustChangePassword, cargoRito } = await prisma.user.findUniqueOrThrow({
     where: { id: user.id },
-    select: { mustChangePassword: true },
+    select: { mustChangePassword: true, cargoRito: true },
   });
   if (mustChangePassword) redirect("/trocar-senha");
 
@@ -80,9 +80,9 @@ export default async function AppLayout({
       lodge={lodge}
       lodgeNameFallback={user.lodgeName}
       userName={user.name}
-      roleLabel={roleLabels[user.role] ?? user.role}
+      roleLabel={cargoRito ?? roleLabels[user.role] ?? user.role}
       cim={user.cim}
-      navItems={navFor(user.role, unread)}
+      navItems={navFor(user.role, cargoRito, unread)}
       unreadNotifications={unread}
       signOutAction={handleSignOut}
     >

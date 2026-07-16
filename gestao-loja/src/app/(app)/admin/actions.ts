@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
+import { CARGOS_PADRAO } from "@/lib/cargos";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
@@ -92,6 +93,10 @@ export async function createLodge(
           degree: "MESTRE",
           currentRole: "VENERAVEL_MESTRE",
         },
+      },
+      // Cargos ritualísticos padrão — editáveis em /secretaria/cargos
+      cargosRito: {
+        create: CARGOS_PADRAO.map((nome) => ({ nome })),
       },
     },
   });
