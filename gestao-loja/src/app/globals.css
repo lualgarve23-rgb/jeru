@@ -62,3 +62,28 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
 }
+
+/* ───── Acessibilidade (público de faixa etária variada) ───── */
+
+/* Foco visível consistente para navegação por teclado */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Em telas de toque: alvos de clique confortáveis (~44px, diretriz WCAG)
+   e fonte ≥16px nos campos para o iOS não dar zoom automático */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  a.inline-flex,
+  select {
+    min-height: 44px;
+  }
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+    min-height: 44px;
+  }
+}

@@ -1,3 +1,5 @@
+import { InfoDica } from "@/components/info-dica";
+import { AJUDA } from "@/lib/ajuda";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
@@ -38,7 +40,7 @@ export default async function DocumentosPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Documentos — Google Drive da Loja</h1>
+      <h1 className="flex items-center gap-1 text-2xl font-bold">Documentos — Google Drive da Loja<InfoDica titulo="Documentos — Google Drive da Loja" texto={AJUDA.documentos} /></h1>
 
       {canWriteSecretaria(user.role) && (
         <Card className="max-w-xl">

@@ -1,3 +1,5 @@
+import { InfoDica } from "@/components/info-dica";
+import { AJUDA } from "@/lib/ajuda";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
@@ -69,7 +71,7 @@ export default async function MensalidadesPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Mensalidades (Capitações)</h1>
+        <h1 className="flex items-center gap-1 text-2xl font-bold">Mensalidades (Capitações)<InfoDica titulo="Mensalidades (Capitações)" texto={AJUDA.mensalidades} /></h1>
         <a
           className="flex h-9 items-center rounded-md border px-3 text-sm underline-offset-2 hover:underline"
           href="/tesouraria/mensalidades/export"

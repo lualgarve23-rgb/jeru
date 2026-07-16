@@ -1,3 +1,5 @@
+import { InfoDica } from "@/components/info-dica";
+import { AJUDA } from "@/lib/ajuda";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
@@ -30,7 +32,7 @@ export default async function MembrosPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Quadro de Obreiros</h1>
+        <h1 className="flex items-center gap-1 text-2xl font-bold">Quadro de Obreiros<InfoDica titulo="Quadro de Obreiros" texto={AJUDA.membros} /></h1>
         {isSecretaria && (
           <Button asChild>
             <Link href="/secretaria/membros/novo">Novo membro</Link>

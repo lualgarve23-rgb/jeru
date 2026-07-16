@@ -1,3 +1,5 @@
+import { InfoDica } from "@/components/info-dica";
+import { AJUDA } from "@/lib/ajuda";
 import Link from "next/link";
 import { Check, CheckCheck, BellOff } from "lucide-react";
 import { prisma } from "@/lib/prisma";
@@ -107,7 +109,7 @@ export default async function NotificacoesPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">Notificações</h1>
+          <h1 className="flex items-center gap-1 text-2xl font-bold">Notificações<InfoDica titulo="Notificações" texto={AJUDA.notificacoes} /></h1>
           {unread.length > 0 && (
             <Badge variant="warning">{unread.length} não lida(s)</Badge>
           )}

@@ -1,3 +1,5 @@
+import { InfoDica } from "@/components/info-dica";
+import { AJUDA } from "@/lib/ajuda";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
@@ -26,7 +28,7 @@ export default async function AtasPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Livro de Atas (Balaústres)</h1>
+      <h1 className="flex items-center gap-1 text-2xl font-bold">Livro de Atas (Balaústres)<InfoDica titulo="Livro de Atas (Balaústres)" texto={AJUDA.atas} /></h1>
       <p className="text-sm text-muted-foreground">
         Para lavrar uma nova ata, abra a sessão correspondente em “Sessões e
         Presenças”.

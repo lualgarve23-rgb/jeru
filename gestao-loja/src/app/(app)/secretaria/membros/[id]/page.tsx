@@ -8,6 +8,8 @@ import {
   setAccessRole,
 } from "../../actions";
 import { cargoCorresponde } from "@/lib/cargos";
+import { InfoDica } from "@/components/info-dica";
+import { AJUDA } from "@/lib/ajuda";
 import { ActionForm } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -171,7 +173,10 @@ export default async function MembroPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Nível de acesso ao sistema</CardTitle>
+          <CardTitle className="flex items-center gap-1">
+            Nível de acesso ao sistema
+            <InfoDica titulo="Nível de acesso" texto={AJUDA.membroAcesso} />
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <ActionForm action={accessAction} submitLabel="Salvar acesso">
@@ -205,7 +210,10 @@ export default async function MembroPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Nomear para cargo do rito</CardTitle>
+          <CardTitle className="flex items-center gap-1">
+            Nomear para cargo do rito
+            <InfoDica titulo="Cargo do rito" texto={AJUDA.membroCargo} />
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <ActionForm action={roleAction} submitLabel="Registrar cargo">

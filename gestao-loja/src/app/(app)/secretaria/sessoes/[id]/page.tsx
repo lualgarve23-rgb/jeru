@@ -22,6 +22,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { frequenciaAnual, MIN_SESSOES_PARA_ALERTA } from "@/lib/frequencia";
+import { InfoDica } from "@/components/info-dica";
+import { AJUDA } from "@/lib/ajuda";
 import {
   Card,
   CardContent,
@@ -229,8 +231,9 @@ export default async function SessaoPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>
+          <CardTitle className="flex items-center gap-1">
             Livro de Presenças ({presentes.size} de {linhas.length} irmãos)
+            <InfoDica titulo="Frequência" texto={AJUDA.frequencia} />
           </CardTitle>
           <CardDescription>
             Frequência acumulada em {ano} — mínimo da Loja para progressão:{" "}

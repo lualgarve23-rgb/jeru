@@ -1,3 +1,5 @@
+import { InfoDica } from "@/components/info-dica";
+import { AJUDA } from "@/lib/ajuda";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { canWriteSecretaria, INTERSTICE_MONTHS } from "@/lib/permissions";
@@ -103,7 +105,7 @@ export default async function ProgressoesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Progressão de Graus</h1>
+        <h1 className="flex items-center gap-1 text-2xl font-bold">Progressão de Graus<InfoDica titulo="Progressão de Graus" texto={AJUDA.progressoes} /></h1>
         <p className="text-sm text-muted-foreground">
           Elevações e Exaltações — travas de interstício, Placet da Guarda dos
           Selos e comunicação de 15 dias.

@@ -1,3 +1,5 @@
+import { InfoDica } from "@/components/info-dica";
+import { AJUDA } from "@/lib/ajuda";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
@@ -29,7 +31,7 @@ export default async function CargosRitoPage() {
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Cargos do Rito</h1>
+        <h1 className="flex items-center gap-1 text-2xl font-bold">Cargos do Rito<InfoDica titulo="Cargos do Rito" texto={AJUDA.cargos} /></h1>
         <p className="text-sm text-muted-foreground">
           Cadastre os cargos próprios do rito praticado pela Loja (ex.:
           Hospitaleiro, Mestre de Harmonia, Porta-Estandarte). Eles ficam

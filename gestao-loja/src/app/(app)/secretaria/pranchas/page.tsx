@@ -1,3 +1,5 @@
+import { InfoDica } from "@/components/info-dica";
+import { AJUDA } from "@/lib/ajuda";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
@@ -61,7 +63,7 @@ export default async function PranchasPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Expedição de Pranchas</h1>
+      <h1 className="flex items-center gap-1 text-2xl font-bold">Expedição de Pranchas<InfoDica titulo="Expedição de Pranchas" texto={AJUDA.pranchas} /></h1>
 
       <Card className="max-w-xl">
         <CardHeader>

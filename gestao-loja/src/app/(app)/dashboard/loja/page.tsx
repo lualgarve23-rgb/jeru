@@ -1,3 +1,5 @@
+import { InfoDica } from "@/components/info-dica";
+import { AJUDA } from "@/lib/ajuda";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { updateLodgeLogo } from "../../admin/actions";
@@ -49,7 +51,7 @@ export default async function LojaConfigPage({
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Configurações da Loja</h1>
+        <h1 className="flex items-center gap-1 text-2xl font-bold">Configurações da Loja<InfoDica titulo="Configurações da Loja" texto={AJUDA.configloja} /></h1>
         <p className="text-sm text-muted-foreground">
           {lodge.name} nº {lodge.number}
           {lodge.oriente ? ` — Or∴ ${lodge.oriente}` : ""}

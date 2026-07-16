@@ -1,3 +1,5 @@
+import { InfoDica } from "@/components/info-dica";
+import { AJUDA } from "@/lib/ajuda";
 import Link from "next/link";
 import { requireRole } from "@/lib/session";
 import { isGmailConfigured } from "@/lib/gmail";
@@ -27,7 +29,7 @@ export default async function EmailsPage() {
   if (!isGmailConfigured()) {
     return (
       <div className="max-w-3xl space-y-4">
-        <h1 className="text-2xl font-bold">E-mails da Loja</h1>
+        <h1 className="flex items-center gap-1 text-2xl font-bold">E-mails da Loja<InfoDica titulo="E-mails da Loja" texto={AJUDA.emails} /></h1>
         <p className="text-sm text-muted-foreground">
           Gmail da loja não configurado (defina GMAIL_USER e
           GMAIL_APP_PASSWORD no servidor).

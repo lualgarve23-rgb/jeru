@@ -1,3 +1,5 @@
+import { InfoDica } from "@/components/info-dica";
+import { AJUDA } from "@/lib/ajuda";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
@@ -61,7 +63,7 @@ export default async function InstrucoesPage() {
   return (
     <div className="max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Instruções de Grau</h1>
+        <h1 className="flex items-center gap-1 text-2xl font-bold">Instruções de Grau<InfoDica titulo="Instruções de Grau" texto={AJUDA.instrucoes} /></h1>
         <p className="text-sm text-muted-foreground">
           Registro e check-in das instruções ministradas pelos Vigilantes —
           contam para a progressão de grau.

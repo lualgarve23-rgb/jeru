@@ -1,3 +1,5 @@
+import { InfoDica } from "@/components/info-dica";
+import { AJUDA } from "@/lib/ajuda";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
@@ -32,7 +34,7 @@ export default async function AdmissoesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Pipeline de Admissão</h1>
+        <h1 className="flex items-center gap-1 text-2xl font-bold">Pipeline de Admissão<InfoDica titulo="Pipeline de Admissão" texto={AJUDA.admissoes} /></h1>
         <p className="text-sm text-muted-foreground">
           Arraste os cards entre as etapas do processo de iniciação.
         </p>

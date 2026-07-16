@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
+import { InfoDica } from "@/components/info-dica";
+import { AJUDA } from "@/lib/ajuda";
 import { canWriteTesouraria } from "@/lib/permissions";
 import { createReceita, deleteCategoria } from "../actions";
 import { ActionForm, ActionButton } from "@/components/action-form";
@@ -88,8 +90,9 @@ export default async function BalancetePage({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">
+      <h1 className="flex items-center gap-1 text-2xl font-bold">
         Balancete — {String(month).padStart(2, "0")}/{year}
+        <InfoDica titulo="Balancete" texto={AJUDA.balancete} />
       </h1>
 
       <form className="flex flex-wrap items-end gap-3" method="get">

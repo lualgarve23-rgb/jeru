@@ -1,3 +1,5 @@
+import { InfoDica } from "@/components/info-dica";
+import { AJUDA } from "@/lib/ajuda";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { canWriteTesouraria } from "@/lib/permissions";
@@ -56,7 +58,7 @@ export default async function DespesasPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Despesas</h1>
+      <h1 className="flex items-center gap-1 text-2xl font-bold">Despesas<InfoDica titulo="Despesas" texto={AJUDA.despesas} /></h1>
       <p className="text-sm text-neutral-500">
         Trava de governança: toda despesa exige a aprovação do Venerável Mestre
         <strong> e </strong>do Tesoureiro antes do pagamento.

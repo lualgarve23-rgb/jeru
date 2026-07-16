@@ -1,3 +1,5 @@
+import { InfoDica } from "@/components/info-dica";
+import { AJUDA } from "@/lib/ajuda";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
@@ -50,7 +52,7 @@ export default async function QuittePlacetsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Quitte Placets</h1>
+      <h1 className="flex items-center gap-1 text-2xl font-bold">Quitte Placets<InfoDica titulo="Quitte Placets" texto={AJUDA.quitte} /></h1>
 
       {isWriter && (
         <Card className="max-w-xl">

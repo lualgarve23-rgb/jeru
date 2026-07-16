@@ -1,3 +1,5 @@
+import { InfoDica } from "@/components/info-dica";
+import { AJUDA } from "@/lib/ajuda";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -868,7 +870,7 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <h1 className="flex items-center gap-1 text-2xl font-bold">Dashboard<InfoDica titulo="Dashboard" texto={AJUDA.dashboard} /></h1>
         <Badge variant="secondary">{roleLabels[user.role] ?? user.role}</Badge>
       </div>
 
