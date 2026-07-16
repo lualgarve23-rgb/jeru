@@ -87,14 +87,21 @@ export function SidebarNav({ items }: { items: NavItem[] }) {
               className={cn(
                 "flex items-center gap-2.5 rounded-[10px] px-3 py-2 text-sm transition-colors",
                 active
-                  ? "bg-accent font-bold text-accent-foreground"
-                  : "text-foreground hover:bg-secondary"
+                  ? "bg-primary font-bold text-primary-foreground"
+                  : "text-foreground hover:bg-white/70"
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />
               <span className="min-w-0 flex-1 truncate">{item.label}</span>
               {item.badge != null && item.badge > 0 && (
-                <span className="ml-auto flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+                <span
+                  className={cn(
+                    "ml-auto flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-xs font-semibold",
+                    active
+                      ? "bg-white text-primary"
+                      : "bg-primary text-primary-foreground"
+                  )}
+                >
                   {item.badge > 99 ? "99+" : item.badge}
                 </span>
               )}
