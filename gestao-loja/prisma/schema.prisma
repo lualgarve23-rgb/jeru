@@ -164,9 +164,31 @@ model User {
   instrucoesRecebidas   Instrucao[]     @relation("InstrucaoUser")
   instrucoesRegistradas Instrucao[]     @relation("InstrucaoRegistrador")
   processosProgressao   ProcessoProgressao[]
+  familiares            FamilyMember[]
 
   @@index([lodgeId])
   @@map("users")
+}
+
+enum Parentesco {
+  CONJUGE
+  FILHO
+}
+
+// Familiares do obreiro (cônjuge e filhos) — base dos alertas de aniversário.
+// Cadastrado pelo Secretário/VM (ficha do membro) ou pelo próprio irmão (perfil).
+model FamilyMember {
+  id         String     @id @default(cuid())
+  userId     String
+  name       String
+  parentesco Parentesco
+  birthDate  DateTime
+  createdAt  DateTime   @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("family_members")
 }
 
 // Evolução de graus com controle de interstício
@@ -663,6 +685,7 @@ enum NotificationType {
   DEADLINE_WARNING
   MISSING_DATA
   FINANCIAL_APPROVAL
+  BIRTHDAY
 }
 
 // Central de alertas (to-do de assinaturas, prazos de 15 dias, cadastro incompleto)

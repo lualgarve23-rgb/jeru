@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { criarFamiliar } from "@/lib/familiares";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
@@ -29,6 +30,47 @@ export async function updateMyPhoto(
   });
   revalidatePath("/dashboard/perfil");
   return { ok: "Foto atualizada." };
+}
+
+// ───────────── Aniversário e familiares (auto-serviço) ─────────────
+
+export async function updateMyBirthDate(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireUser();
+  const raw = String(formData.get("birthDate") ?? "");
+  const birthDate = new Date(raw);
+  if (!raw || isNaN(birthDate.getTime()) || birthDate > new Date()) {
+    return { error: "Informe uma data de nascimento válida." };
+  }
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { birthDate },
+  });
+  revalidatePath("/dashboard/perfil");
+  return { ok: "Data de nascimento atualizada." };
+}
+
+export async function addMeuFamiliar(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireUser();
+  const result = await criarFamiliar(user.id, formData);
+  revalidatePath("/dashboard/perfil");
+  return result;
+}
+
+export async function removeMeuFamiliar(
+  familiarId: string
+): Promise<ActionResult> {
+  const user = await requireUser();
+  await prisma.familyMember.deleteMany({
+    where: { id: familiarId, userId: user.id },
+  });
+  revalidatePath("/dashboard/perfil");
+  return { ok: "Familiar removido." };
 }
 
 export async function removeMyPhoto(): Promise<ActionResult> {

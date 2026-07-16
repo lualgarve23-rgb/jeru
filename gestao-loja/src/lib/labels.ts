@@ -135,6 +135,7 @@ export const notificationTypeLabels: Record<string, string> = {
   DEADLINE_WARNING: "Prazo",
   MISSING_DATA: "Cadastro incompleto",
   FINANCIAL_APPROVAL: "Trava financeira",
+  BIRTHDAY: "Aniversário",
 };
 
 export type BadgeTone = "default" | "secondary" | "outline" | "success" | "warning";
@@ -143,6 +144,7 @@ export function notificationTypeTone(type: string): BadgeTone {
   if (type === "PENDING_SIGNATURE") return "warning";
   if (type === "DEADLINE_WARNING") return "default";
   if (type === "FINANCIAL_APPROVAL") return "outline";
+  if (type === "BIRTHDAY") return "success";
   return "secondary";
 }
 

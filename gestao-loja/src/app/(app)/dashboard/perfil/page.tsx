@@ -1,6 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import { updateMyPhoto, removeMyPhoto } from "./actions";
+import {
+  updateMyPhoto,
+  removeMyPhoto,
+  updateMyBirthDate,
+  addMeuFamiliar,
+  removeMeuFamiliar,
+} from "./actions";
+import { FamiliaresCard } from "@/components/familiares-card";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +32,8 @@ export default async function PerfilPage() {
       currentRole: true,
       cargoRito: true,
       photoUrl: true,
+      birthDate: true,
+      familiares: { orderBy: { birthDate: "asc" } },
     },
   });
 
@@ -80,6 +89,38 @@ export default async function PerfilPage() {
           </ActionForm>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Aniversário</CardTitle>
+          <CardDescription>
+            Sua data de nascimento alimenta os alertas de aniversariantes da
+            Loja.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ActionForm action={updateMyBirthDate} submitLabel="Salvar data">
+            <div className="max-w-xs space-y-1">
+              <Label htmlFor="birthDate">Data de nascimento</Label>
+              <Input
+                id="birthDate"
+                name="birthDate"
+                type="date"
+                defaultValue={
+                  me.birthDate ? me.birthDate.toISOString().slice(0, 10) : ""
+                }
+                required
+              />
+            </div>
+          </ActionForm>
+        </CardContent>
+      </Card>
+
+      <FamiliaresCard
+        familiares={me.familiares}
+        addAction={addMeuFamiliar}
+        removeAction={removeMeuFamiliar}
+      />
     </div>
   );
 }

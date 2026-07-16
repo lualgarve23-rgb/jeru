@@ -10,6 +10,9 @@ import {
 // Prazo legal de comunicação pós-Sessão Magna (loja.md §3)
 export const COMMUNICATION_DEADLINE_DAYS = 15;
 
+// Antecedência dos alertas de aniversário (obreiro e familiares)
+export const BIRTHDAY_ALERT_DAYS = 3;
+
 type Pending = {
   sourceKey: string;
   type: NotificationType;
@@ -55,6 +58,7 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
         degree: true,
         initiationDate: true,
         phone: true,
+        birthDate: true,
         degreeHistory: { orderBy: { date: "desc" }, take: 1 },
       },
     }),
@@ -278,6 +282,63 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
     }
   }
 
+  // Aniversários (obreiro, cônjuge e filhos): alerta da véspera até o dia,
+  // visível a toda a Loja (VM, Secretário, 2º Vigilante e demais irmãos).
+  const familiares = await prisma.familyMember.findMany({
+    where: { user: { lodgeId, status: "ATIVO" } },
+    include: { user: { select: { name: true } } },
+  });
+  const aniversariantes: {
+    key: string;
+    nome: string;
+    quem: string;
+    birthDate: Date;
+  }[] = [
+    ...members
+      .filter((m) => m.birthDate)
+      .map((m) => ({
+        key: `user:${m.id}`,
+        nome: m.name,
+        quem: `do Ir∴ ${m.name}`,
+        birthDate: m.birthDate as Date,
+      })),
+    ...familiares.map((f) => ({
+      key: `fam:${f.id}`,
+      nome: f.name,
+      quem:
+        f.parentesco === "CONJUGE"
+          ? `de ${f.name}, cônjuge do Ir∴ ${f.user.name}`
+          : `de ${f.name}, filho(a) do Ir∴ ${f.user.name}`,
+      birthDate: f.birthDate,
+    })),
+  ];
+  for (const a of aniversariantes) {
+    // Próxima ocorrência do aniversário (UTC, como as datas são gravadas)
+    const mes = a.birthDate.getUTCMonth();
+    const dia = a.birthDate.getUTCDate();
+    let proximo = new Date(Date.UTC(now.getFullYear(), mes, dia));
+    if (proximo < addDays(now, -1)) {
+      proximo = new Date(Date.UTC(now.getFullYear() + 1, mes, dia));
+    }
+    const diasAte = Math.ceil(
+      (proximo.getTime() - now.getTime()) / 86_400_000
+    );
+    if (diasAte > BIRTHDAY_ALERT_DAYS) continue;
+    const quando =
+      diasAte <= 0
+        ? "é hoje!"
+        : diasAte === 1
+          ? "é amanhã"
+          : `é ${proximo.toLocaleDateString("pt-BR", { timeZone: "UTC" })}`;
+    pending.push({
+      sourceKey: `bday:${a.key}:${proximo.getUTCFullYear()}`,
+      type: "BIRTHDAY",
+      title: `🎂 Aniversário ${a.quem}`,
+      description: `O aniversário ${quando} (${String(dia).padStart(2, "0")}/${String(mes + 1).padStart(2, "0")}). Não deixe de parabenizar!`,
+      dueDate: proximo,
+    });
+  }
+
   return pending;
 }
 
@@ -337,10 +398,18 @@ export function notificationWhere(user: {
   id: string;
   role: string;
 }) {
-  // Obreiro comum só vê notificações endereçadas a ele
+  // Obreiro comum vê as notificações endereçadas a ele e os aniversários
+  // da Loja (obreiros e familiares) — os demais alertas operacionais ficam
+  // restritos a VM/Secretário/Tesoureiro/Conselho.
   return NOTIFICATION_VIEWERS.includes(user.role)
     ? { lodgeId: user.lodgeId, OR: [{ userId: null }, { userId: user.id }] }
-    : { lodgeId: user.lodgeId, userId: user.id };
+    : {
+        lodgeId: user.lodgeId,
+        OR: [
+          { userId: user.id },
+          { userId: null, type: NotificationType.BIRTHDAY },
+        ],
+      };
 }
 
 export async function unreadCount(user: {

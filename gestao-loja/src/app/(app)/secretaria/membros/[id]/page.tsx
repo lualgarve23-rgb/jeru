@@ -6,7 +6,10 @@ import {
   elevateDegree,
   assignRole,
   setAccessRole,
+  addFamiliar,
+  removeFamiliar,
 } from "../../actions";
+import { FamiliaresCard } from "@/components/familiares-card";
 import { cargoCorresponde } from "@/lib/cargos";
 import { InfoDica } from "@/components/info-dica";
 import { AJUDA } from "@/lib/ajuda";
@@ -34,6 +37,7 @@ export default async function MembroPage({
     include: {
       degreeHistory: { orderBy: { date: "desc" } },
       roleHistory: { orderBy: { startDate: "desc" } },
+      familiares: { orderBy: { birthDate: "asc" } },
     },
   });
   if (!member) notFound();
@@ -100,6 +104,19 @@ export default async function MembroPage({
                 />
               </div>
               <div className="space-y-1">
+                <Label htmlFor="birthDate">Data de nascimento</Label>
+                <Input
+                  id="birthDate"
+                  name="birthDate"
+                  type="date"
+                  defaultValue={
+                    member.birthDate
+                      ? member.birthDate.toISOString().slice(0, 10)
+                      : ""
+                  }
+                />
+              </div>
+              <div className="space-y-1">
                 <Label htmlFor="status">Status</Label>
                 <select
                   id="status"
@@ -147,6 +164,12 @@ export default async function MembroPage({
           </ActionForm>
         </CardContent>
       </Card>
+
+      <FamiliaresCard
+        familiares={member.familiares}
+        addAction={addFamiliar.bind(null, member.id)}
+        removeAction={removeFamiliar.bind(null, member.id)}
+      />
 
       {nextDegree && (
         <Card>

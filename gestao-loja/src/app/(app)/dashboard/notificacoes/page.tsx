@@ -100,7 +100,7 @@ export default async function NotificacoesPage() {
   const unread = notifications.filter((n) => !n.isRead);
   const read = notifications.filter((n) => n.isRead);
 
-  const types = ["PENDING_SIGNATURE", "DEADLINE_WARNING", "FINANCIAL_APPROVAL", "MISSING_DATA"];
+  const types = ["BIRTHDAY", "PENDING_SIGNATURE", "DEADLINE_WARNING", "FINANCIAL_APPROVAL", "MISSING_DATA"];
   const grouped = types
     .map((t) => ({ type: t, items: unread.filter((n) => n.type === t) }))
     .filter((g) => g.items.length > 0);
