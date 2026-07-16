@@ -6,27 +6,29 @@
    preto com texto escuro em dispositivos em modo escuro. */
 @custom-variant dark (&:is(.dark *));
 
+/* Paleta "Livro de Atas": creme de fundo, navy institucional e dourado
+   de apoio — espelha o modelo Gestao da Loja - Standalone.html */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #faf8f4;
+  --foreground: #1e2733;
   --card: #ffffff;
-  --card-foreground: #171717;
+  --card-foreground: #1e2733;
   --popover: #ffffff;
-  --popover-foreground: #171717;
-  --primary: #0f172a;
-  --primary-foreground: #f8fafc;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
-  --destructive: #b91c1c;
-  --destructive-foreground: #f8fafc;
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #64748b;
-  --radius: 0.5rem;
+  --popover-foreground: #1e2733;
+  --primary: #1c3a5e;
+  --primary-foreground: #ffffff;
+  --secondary: #f2efe8;
+  --secondary-foreground: #1e2733;
+  --muted: #f2efe8;
+  --muted-foreground: #5b6472;
+  --accent: #eef2f8;
+  --accent-foreground: #1c3a5e;
+  --destructive: #b3261e;
+  --destructive-foreground: #ffffff;
+  --border: #e6e1d6;
+  --input: #e6e1d6;
+  --ring: #1c3a5e;
+  --radius: 0.75rem;
 }
 
 @theme inline {

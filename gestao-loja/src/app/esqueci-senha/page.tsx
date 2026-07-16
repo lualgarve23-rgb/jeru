@@ -33,14 +33,14 @@ export default function EsqueciSenhaPage() {
     "border-white/15 bg-white/10 text-white placeholder:text-slate-500";
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-4">
+    <main className="flex min-h-screen items-center justify-center bg-[#1c3a5e] p-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-amber-400/40 bg-gradient-to-br from-amber-400/25 to-amber-600/10">
-            <ShieldCheck className="h-8 w-8 text-amber-400" />
+          <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#c9973b]">
+            <ShieldCheck className="h-8 w-8 text-[#c9973b]" />
           </span>
           <h1 className="text-2xl font-bold text-white">Recuperar senha</h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-slate-300">
             {step === 1
               ? "Informe seu CIM e CPF para receber o código por e-mail."
               : "Digite o código recebido e a nova senha."}
@@ -86,7 +86,7 @@ export default function EsqueciSenhaPage() {
               <Button
                 type="submit"
                 disabled={requesting}
-                className="w-full bg-amber-500 font-semibold text-slate-950 hover:bg-amber-400"
+                className="w-full bg-[#c9973b] font-semibold text-[#1c3a5e] hover:bg-[#d4a54e]"
               >
                 {requesting ? "Enviando..." : "Enviar código"}
               </Button>
@@ -161,7 +161,7 @@ export default function EsqueciSenhaPage() {
                 <Button
                   type="submit"
                   disabled={resetting}
-                  className="w-full bg-amber-500 font-semibold text-slate-950 hover:bg-amber-400"
+                  className="w-full bg-[#c9973b] font-semibold text-[#1c3a5e] hover:bg-[#d4a54e]"
                 >
                   {resetting ? "Salvando..." : "Redefinir senha"}
                 </Button>
@@ -169,7 +169,7 @@ export default function EsqueciSenhaPage() {
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="w-full text-center text-xs text-slate-400 underline"
+                className="w-full text-center text-xs text-slate-300 underline"
               >
                 Não recebeu? Voltar e reenviar o código
               </button>

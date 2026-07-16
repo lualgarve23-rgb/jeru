@@ -12,14 +12,14 @@ export default function LoginPage() {
   const [error, formAction, pending] = useActionState(loginAction, undefined);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-4">
+    <main className="flex min-h-screen items-center justify-center bg-[#1c3a5e] p-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-amber-400/40 bg-gradient-to-br from-amber-400/25 to-amber-600/10">
-            <Landmark className="h-8 w-8 text-amber-400" />
+          <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#c9973b]">
+            <Landmark className="h-8 w-8 text-[#c9973b]" />
           </span>
           <h1 className="text-2xl font-bold text-white">Gestão da Loja</h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-slate-300">
             Sistema de Secretaria e Tesouraria
           </p>
         </div>
@@ -73,12 +73,12 @@ export default function LoginPage() {
             <Button
               type="submit"
               disabled={pending}
-              className="w-full bg-amber-500 font-semibold text-slate-950 hover:bg-amber-400"
+              className="w-full bg-[#c9973b] font-semibold text-[#1c3a5e] hover:bg-[#d4a54e]"
             >
               {pending ? "Entrando..." : "Entrar"}
             </Button>
             <p className="text-center text-xs">
-              <Link href="/esqueci-senha" className="text-slate-400 underline">
+              <Link href="/esqueci-senha" className="text-slate-300 underline">
                 Esqueci minha senha
               </Link>
             </p>

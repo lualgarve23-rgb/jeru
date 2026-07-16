@@ -18,14 +18,14 @@ export default async function TrocarSenhaPage() {
   if (!dbUser.mustChangePassword) redirect("/dashboard");
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-4">
+    <main className="flex min-h-screen items-center justify-center bg-[#1c3a5e] p-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-amber-400/40 bg-gradient-to-br from-amber-400/25 to-amber-600/10">
-            <KeyRound className="h-8 w-8 text-amber-400" />
+          <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#c9973b]">
+            <KeyRound className="h-8 w-8 text-[#c9973b]" />
           </span>
           <h1 className="text-2xl font-bold text-white">Defina sua senha</h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-slate-300">
             Olá, {user.name}. No primeiro acesso é obrigatório trocar a senha
             provisória antes de entrar no painel.
           </p>
