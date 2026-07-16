@@ -16,7 +16,8 @@ export const authConfig = {
         pathname === "/esqueci-senha" || // recuperação de senha (2FA por e-mail)
         pathname.startsWith("/api/auth") ||
         pathname.startsWith("/checkin/") || // check-in de visitantes via QR
-        pathname.startsWith("/api/webhooks/"); // PSP autentica por segredo próprio
+        pathname.startsWith("/api/webhooks/") || // PSP autentica por segredo próprio
+        pathname.startsWith("/api/cron/"); // cron autentica por x-cron-secret
       if (isPublic) return true;
       return isLoggedIn;
     },
