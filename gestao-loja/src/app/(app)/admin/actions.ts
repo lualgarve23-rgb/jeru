@@ -219,6 +219,7 @@ export async function deleteLodge(
     prisma.transaction.deleteMany({ where }),
     prisma.invoice.deleteMany({ where }),
     prisma.expense.deleteMany({ where }),
+    prisma.categoriaFinanceira.deleteMany({ where }),
     prisma.donation.deleteMany({ where }),
     prisma.charityEvent.deleteMany({ where }),
     prisma.attendance.deleteMany({ where }),
