@@ -96,7 +96,7 @@ export function AppShell({
 
       <aside
         className={
-          "fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r border-border bg-accent text-foreground transition-transform duration-200 ease-out lg:translate-x-0 " +
+          "fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r border-border bg-[#d3deee] text-foreground transition-transform duration-200 ease-out lg:translate-x-0 " +
           (open ? "translate-x-0" : "")
         }
       >
