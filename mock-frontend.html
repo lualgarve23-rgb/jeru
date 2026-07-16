@@ -1,0 +1,851 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gestão da Loja — Mock completo do front-end</title>
+<style>
+/* ───── Design tokens (equivalentes ao tema shadcn/Tailwind atual) ───── */
+:root{
+  --bg:#f8fafc; --fg:#0f172a; --card:#ffffff; --muted:#64748b;
+  --border:#e2e8f0; --primary:#1d4ed8; --primary-fg:#fff;
+  --accent:#eef2ff; --destructive:#dc2626;
+  --green-bg:#f0fdf4; --green-fg:#15803d; --green-bd:#bbf7d0;
+  --red-bg:#fef2f2; --red-fg:#b91c1c; --red-bd:#fecaca;
+  --amber-bg:#fffbeb; --amber-fg:#b45309; --amber-bd:#fde68a;
+  --radius:10px; font-size:15px;
+}
+*{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--fg)}
+a{color:var(--primary);text-decoration:none} a:hover{text-decoration:underline}
+h1{font-size:1.45rem;margin:0 0 4px} h2{font-size:1.05rem;margin:0}
+.muted{color:var(--muted)} .small{font-size:.8rem} .xs{font-size:.72rem}
+
+/* ───── Layout: sidebar + main ───── */
+.shell{display:flex;min-height:100vh}
+.sidebar{width:240px;flex-shrink:0;background:var(--card);border-right:1px solid var(--border);padding:14px;display:flex;flex-direction:column;gap:2px}
+.sidebar .logo{display:flex;align-items:center;gap:10px;padding:8px 6px 16px}
+.sidebar .logo .mark{width:36px;height:36px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
+.sidebar .section{margin:12px 6px 4px;font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;color:var(--fg);font-size:.88rem;cursor:pointer}
+.nav-item:hover{background:var(--bg);text-decoration:none}
+.nav-item.active{background:var(--accent);color:var(--primary);font-weight:600}
+.nav-item .ic{width:17px;text-align:center}
+.nav-item .count{margin-left:auto;background:var(--destructive);color:#fff;border-radius:99px;font-size:.68rem;padding:1px 7px}
+main{flex:1;min-width:0;padding:26px 30px;max-width:1100px}
+.topbar{display:none}
+.userbox{margin-top:auto;border-top:1px solid var(--border);padding-top:12px;font-size:.82rem}
+@media(max-width:820px){
+  .sidebar{position:fixed;inset:0 30% 0 0;z-index:50;transform:translateX(-100%);transition:.2s}
+  .sidebar.open{transform:none}
+  main{padding:16px}
+  .topbar{display:flex;align-items:center;gap:10px;background:var(--card);border-bottom:1px solid var(--border);padding:10px 14px;position:sticky;top:0;z-index:40}
+  .grid2,.grid3,.grid4{grid-template-columns:1fr!important}
+}
+
+/* ───── Componentes ───── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:18px}
+.card h2{margin-bottom:4px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--primary);color:var(--primary-fg);border:none;border-radius:8px;padding:9px 16px;font-size:.85rem;font-weight:500;cursor:pointer}
+.btn.secondary{background:var(--bg);color:var(--fg);border:1px solid var(--border)}
+.btn.outline{background:transparent;color:var(--fg);border:1px solid var(--border)}
+.btn.destructive{background:var(--destructive)}
+.btn.sm{padding:5px 10px;font-size:.78rem}
+.badge{display:inline-block;border-radius:99px;padding:2px 10px;font-size:.72rem;font-weight:500;border:1px solid transparent}
+.badge.default{background:var(--primary);color:#fff}
+.badge.secondary{background:var(--bg);color:var(--muted);border-color:var(--border)}
+.badge.outline{border-color:var(--border);color:var(--fg)}
+.badge.success{background:var(--green-bg);color:var(--green-fg);border-color:var(--green-bd)}
+.badge.warning{background:var(--red-bg);color:var(--red-fg);border-color:var(--red-bd)}
+.badge.amber{background:var(--amber-bg);color:var(--amber-fg);border-color:var(--amber-bd)}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{text-align:left;color:var(--muted);font-weight:500;padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:last-child td{border-bottom:none}
+label{display:block;font-size:.8rem;font-weight:500;margin:10px 0 4px}
+input,select,textarea{width:100%;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:.85rem;background:transparent;font-family:inherit}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+.kanban{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px}
+.kcol{min-width:215px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:10px}
+.kcol h3{font-size:.78rem;margin:2px 4px 10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.kcard{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;font-size:.82rem}
+.kcard .avatar{width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--primary);display:inline-flex;align-items:center;justify-content:center;font-weight:600;font-size:.75rem;margin-right:6px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
+.stat .n{font-size:1.5rem;font-weight:700}
+.stat .l{font-size:.76rem;color:var(--muted)}
+.notif{display:flex;gap:10px;padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--card)}
+.notif.unread{background:var(--accent)}
+.doc-preview{background:#fff;border:1px solid var(--border);padding:34px;font-family:Georgia,serif;font-size:.9rem;line-height:1.65}
+.doc-preview .filete{border-top:3px solid #b91c1c;margin:10px 0 18px}
+.screen{display:none} .screen.active{display:block}
+.crumb{font-size:.78rem;color:var(--muted);margin-bottom:14px}
+.qr{width:150px;height:150px;background:
+ repeating-linear-gradient(0deg,#0f172a 0 8px,transparent 8px 16px),
+ repeating-linear-gradient(90deg,#0f172a 0 8px,#fff 8px 16px);border:6px solid #fff;outline:1px solid var(--border)}
+.progress{height:8px;background:var(--bg);border:1px solid var(--border);border-radius:99px;overflow:hidden}
+.progress>div{height:100%;background:var(--primary)}
+.mock-note{background:var(--amber-bg);border:1px dashed var(--amber-bd);color:var(--amber-fg);border-radius:8px;padding:8px 12px;font-size:.75rem;margin-bottom:16px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <button class="btn secondary sm" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰ Menu</button>
+  <strong>Gestão da Loja</strong>
+</div>
+
+<div class="shell">
+
+<!-- ══════════ SIDEBAR (layout.tsx + app-shell.tsx + sidebar-nav.tsx) ══════════ -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="mark">J</div>
+    <div>
+      <div style="font-weight:700;font-size:.9rem">JERUSALEM nº 3202</div>
+      <div class="xs muted">Or∴ de São Paulo — SP</div>
+    </div>
+  </div>
+
+  <a class="nav-item active" data-s="dashboard" onclick="go('dashboard')"><span class="ic">▦</span> Dashboard</a>
+  <a class="nav-item" data-s="notificacoes" onclick="go('notificacoes')"><span class="ic">🔔</span> Notificações <span class="count">4</span></a>
+
+  <div class="section">Secretaria</div>
+  <a class="nav-item" data-s="membros" onclick="go('membros')"><span class="ic">👥</span> Membros</a>
+  <a class="nav-item" data-s="cargos" onclick="go('cargos')"><span class="ic">✔</span> Cargos do Rito</a>
+  <a class="nav-item" data-s="sessoes" onclick="go('sessoes')"><span class="ic">📅</span> Sessões e Presenças</a>
+  <a class="nav-item" data-s="atas" onclick="go('atas')"><span class="ic">📜</span> Atas</a>
+  <a class="nav-item" data-s="pranchas" onclick="go('pranchas')"><span class="ic">✉</span> Pranchas</a>
+  <a class="nav-item" data-s="emails" onclick="go('emails')"><span class="ic">📧</span> E-mails da Loja</a>
+  <a class="nav-item" data-s="documentos" onclick="go('documentos')"><span class="ic">🗂</span> Documentos (Drive)</a>
+  <a class="nav-item" data-s="admissoes" onclick="go('admissoes')"><span class="ic">🧭</span> Admissões</a>
+  <a class="nav-item" data-s="progressoes" onclick="go('progressoes')"><span class="ic">📈</span> Progressões</a>
+  <a class="nav-item" data-s="instrucoes" onclick="go('instrucoes')"><span class="ic">🎓</span> Instruções</a>
+  <a class="nav-item" data-s="quitte" onclick="go('quitte')"><span class="ic">📋</span> Quitte Placets</a>
+
+  <div class="section">Tesouraria</div>
+  <a class="nav-item" data-s="mensalidades" onclick="go('mensalidades')"><span class="ic">💰</span> Mensalidades</a>
+  <a class="nav-item" data-s="despesas" onclick="go('despesas')"><span class="ic">👛</span> Despesas</a>
+  <a class="nav-item" data-s="balancete" onclick="go('balancete')"><span class="ic">⚖</span> Balancete</a>
+
+  <div class="section">Configurações</div>
+  <a class="nav-item" data-s="configloja" onclick="go('configloja')"><span class="ic">⚙</span> Configurações da Loja</a>
+
+  <div class="section">Minha conta</div>
+  <a class="nav-item" data-s="perfil" onclick="go('perfil')"><span class="ic">👤</span> Meu perfil</a>
+  <a class="nav-item" data-s="privacidade" onclick="go('privacidade')"><span class="ic">🛡</span> Privacidade (LGPD)</a>
+  <a class="nav-item" data-s="senha" onclick="go('senha')"><span class="ic">🔑</span> Alterar senha</a>
+  <a class="nav-item" data-s="login" onclick="go('login')"><span class="ic">🚪</span> (Tela de login)</a>
+  <a class="nav-item" data-s="admin" onclick="go('admin')"><span class="ic">🏛</span> (Admin do SaaS)</a>
+
+  <div class="userbox">
+    <strong>João da Silva Prado</strong><br>
+    <span class="muted xs">Secretário · CIM 123456</span><br>
+    <button class="btn outline sm" style="margin-top:8px">Sair</button>
+  </div>
+</aside>
+
+<main>
+
+<!-- ══════════ DASHBOARD (/dashboard) ══════════ -->
+<section class="screen active" id="s-dashboard">
+  <div class="mock-note">MOCK ESTÁTICO — réplica fiel das telas do app (Next.js + shadcn) com dados fictícios, para remodelagem do front-end.</div>
+  <h1>Dashboard — Gestão à Vista</h1>
+  <p class="muted small" style="margin-top:0">Sessão de hoje: Ordinária, grau Aprendiz · Quarta-feira, 16/07/2026</p>
+
+  <div class="grid4" style="margin:16px 0">
+    <div class="stat"><div class="n">28</div><div class="l">Obreiros ativos</div></div>
+    <div class="stat"><div class="n">3</div><div class="l">Irregulares (inadimplência)</div></div>
+    <div class="stat"><div class="n">R$ 4.230</div><div class="l">Saldo do mês</div></div>
+    <div class="stat"><div class="n">76%</div><div class="l">Frequência média 2026</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>To-Do de Assinaturas</h2>
+      <p class="muted small">Documentos aguardando a dupla assinatura (VM + Secretário).</p>
+      <div class="notif unread">
+        <div>📜</div>
+        <div style="flex:1">
+          <strong class="small">Ata nº 14 aguarda assinatura</strong>
+          <div class="xs muted">Sessão de 09/07/2026 — falta assinar: Venerável.</div>
+        </div>
+        <button class="btn sm">Assinar agora</button>
+      </div>
+      <div class="notif">
+        <div>📋</div>
+        <div style="flex:1">
+          <strong class="small">Quitte Placet de Carlos Andrade</strong>
+          <div class="xs muted">Quitação financeira confirmada — falta a dupla assinatura.</div>
+        </div>
+        <button class="btn sm secondary">Abrir</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Prazos e Alertas</h2>
+      <div class="notif unread">
+        <div>⏰</div>
+        <div style="flex:1">
+          <strong class="small">Prazo de 15 dias: comunicação da Sessão Magna</strong>
+          <div class="xs muted">Envie matéria e fotos ao portal até 24/07/2026.</div>
+        </div>
+        <span class="badge warning">vence em 8 dias</span>
+      </div>
+      <div class="notif">
+        <div>🎓</div>
+        <div style="flex:1">
+          <strong class="small">Pedro Tavares cumpriu o interstício para Companheiro</strong>
+          <div class="xs muted">Apto desde 02/07/2026 (CIM 445566). Verifique frequência e proficiência.</div>
+        </div>
+      </div>
+      <div class="notif">
+        <div>✍</div>
+        <div style="flex:1">
+          <strong class="small">Cadastro incompleto: Rui Barbosa Lima</strong>
+          <div class="xs muted">Falta telefone (CIM 778899).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Aniversariantes de julho</h2>
+    <p class="small" style="margin:8px 0 0">🎂 05/07 — Marcos Vinícius Costa · 🎂 18/07 — Antonio Peres Sobrinho · 🎂 29/07 — Felipe Duarte Ramos</p>
+  </div>
+</section>
+
+<!-- ══════════ NOTIFICAÇÕES (/dashboard/notificacoes) ══════════ -->
+<section class="screen" id="s-notificacoes">
+  <h1>Notificações</h1>
+  <p class="muted small">Agrupadas por tipo · <a>Marcar todas como lidas</a></p>
+
+  <div class="card">
+    <h2>Assinatura pendente</h2>
+    <div class="notif unread"><div>📜</div><div style="flex:1"><strong class="small">Ata nº 14 aguarda assinatura</strong><div class="xs muted">Sessão de 09/07/2026 — falta assinar: Venerável.</div></div><a class="small">Abrir</a></div>
+  </div>
+  <div class="card">
+    <h2>Prazo</h2>
+    <div class="notif unread"><div>⏰</div><div style="flex:1"><strong class="small">Prazo de 15 dias: comunicação da Sessão Magna</strong><div class="xs muted">Até 24/07/2026.</div></div><span class="badge warning">≤ 3 dias</span></div>
+    <div class="notif unread"><div>📉</div><div style="flex:1"><strong class="small">Frequência baixa de Pedro Tavares: risco de atraso no interstício</strong><div class="xs muted">38% de presença em 2026 (5 de 13 sessões) — mínimo da Loja: 50%.</div></div><a class="small">Ver</a></div>
+  </div>
+  <div class="card">
+    <h2>Trava financeira</h2>
+    <div class="notif unread"><div>💰</div><div style="flex:1"><strong class="small">Esmoler: Rui Barbosa Lima próximo do limite de inadimplência</strong><div class="xs muted">2 capitações vencidas — no limite de 3 o irmão passa a IRREGULAR. Vale um contato preventivo.</div></div></div>
+  </div>
+</section>
+
+<!-- ══════════ MEMBROS (/secretaria/membros) ══════════ -->
+<section class="screen" id="s-membros">
+  <h1>Quadro de Obreiros</h1>
+  <p class="muted small">28 ativos · 3 irregulares · 1 licenciado</p>
+  <div class="card">
+    <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <input placeholder="Buscar por nome ou CIM…" style="max-width:280px">
+      <button class="btn">+ Novo membro</button>
+    </div>
+    <div class="table-wrap"><table>
+      <tr><th>Irmão</th><th>CIM</th><th>Grau</th><th>Cargo</th><th>Status</th><th></th></tr>
+      <tr><td><span class="kcard-avatar"></span><strong>Alberto Nogueira Campos</strong></td><td>111111</td><td>Mestre</td><td>Venerável Mestre</td><td><span class="badge success">Ativo</span></td><td><a class="small">Abrir</a></td></tr>
+      <tr><td><strong>João da Silva Prado</strong></td><td>123456</td><td>Mestre</td><td>Secretário</td><td><span class="badge success">Ativo</span></td><td><a class="small">Abrir</a></td></tr>
+      <tr><td><strong>Nelson Duarte Faria</strong></td><td>222333</td><td>Mestre</td><td>1º Vigilante</td><td><span class="badge success">Ativo</span></td><td><a class="small">Abrir</a></td></tr>
+      <tr><td><strong>Pedro Tavares Antunes</strong></td><td>445566</td><td>Aprendiz</td><td>—</td><td><span class="badge success">Ativo</span></td><td><a class="small">Abrir</a></td></tr>
+      <tr><td><strong>Rui Barbosa Lima</strong></td><td>778899</td><td>Companheiro</td><td>—</td><td><span class="badge warning">Irregular</span></td><td><a class="small">Abrir</a></td></tr>
+    </table></div>
+  </div>
+
+  <!-- Detalhe do membro (/secretaria/membros/[id]) -->
+  <div class="crumb">↳ Detalhe do membro (/secretaria/membros/[id])</div>
+  <div class="card">
+    <h2 style="display:flex;align-items:center;gap:10px"><span class="kcard avatar" style="width:42px;height:42px;border-radius:50%;background:var(--accent);display:inline-flex;align-items:center;justify-content:center">PT</span> Pedro Tavares Antunes <span class="badge secondary">Aprendiz</span></h2>
+    <div class="field-row">
+      <div><label>Nome</label><input value="Pedro Tavares Antunes"></div>
+      <div><label>E-mail</label><input value="pedro.tavares@example.com"></div>
+      <div><label>Telefone</label><input value="(11) 98888-7777"></div>
+      <div><label>Status</label><select><option>Ativo</option><option>Irregular</option><option>Licenciado</option><option>Ex-membro</option></select></div>
+    </div>
+    <button class="btn" style="margin-top:14px">Salvar</button>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h2>Nível de acesso ao sistema</h2>
+      <label>Perfil de acesso</label>
+      <select><option>Obreiro (padrão)</option><option>Venerável Mestre</option><option>Secretário</option><option>Tesoureiro</option><option>Conselho de Contas (somente leitura)</option><option>Esmoler / Hospitaleiro (alertas de bem-estar)</option></select>
+      <p class="xs muted">Define as permissões no sistema, independentemente do cargo ritualístico.</p>
+      <button class="btn secondary sm">Salvar acesso</button>
+    </div>
+    <div class="card">
+      <h2>Nomear para cargo do rito</h2>
+      <div class="field-row">
+        <div><label>Cargo</label><select><option>Sem cargo</option><option>1º Vigilante</option><option>2º Vigilante</option><option>Orador</option><option>Diretor de Cerimônias</option></select></div>
+        <div><label>Início</label><input type="date" value="2026-07-01"></div>
+      </div>
+      <p class="xs muted">Cargos do rito não alteram o nível de acesso. <a>Gerenciar cargos do rito</a></p>
+      <button class="btn secondary sm">Registrar cargo</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Elevação ao grau de Companheiro</h2>
+    <div class="field-row"><div><label>Data da cerimônia</label><input type="date"></div></div>
+    <p class="xs muted">O sistema valida o interstício mínimo automaticamente.</p>
+    <button class="btn secondary sm">Registrar grau</button>
+  </div>
+  <div class="card">
+    <h2>Histórico</h2>
+    <div class="grid2">
+      <div><strong class="small">Graus</strong><p class="small">Aprendiz — 15/03/2026 <a class="xs">Editar</a> <a class="xs" style="color:var(--destructive)">Excluir</a></p></div>
+      <div><strong class="small">Cargos</strong><p class="small">Sem registros.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ CARGOS DO RITO (/secretaria/cargos) ══════════ -->
+<section class="screen" id="s-cargos">
+  <h1>Cargos do Rito</h1>
+  <p class="muted small">Cargos conforme o rito da Loja — todos com nível de acesso de Obreiro.</p>
+  <div class="card" style="max-width:520px">
+    <h2>Novo cargo</h2>
+    <label>Nome do cargo</label><input placeholder="ex.: Mestre de Harmonia">
+    <button class="btn" style="margin-top:12px">Cadastrar</button>
+  </div>
+  <div class="card">
+    <div class="table-wrap"><table>
+      <tr><th>Cargo</th><th>Em uso por</th><th></th></tr>
+      <tr><td>1º Vigilante</td><td>Nelson Duarte Faria</td><td><span class="xs muted">em uso — não pode excluir</span></td></tr>
+      <tr><td>2º Vigilante</td><td>Otávio Reis Mendonça</td><td><span class="xs muted">em uso</span></td></tr>
+      <tr><td>Orador</td><td>—</td><td><a class="small" style="color:var(--destructive)">Excluir</a></td></tr>
+      <tr><td>Guarda Interno</td><td>—</td><td><a class="small" style="color:var(--destructive)">Excluir</a></td></tr>
+      <tr><td>Mestre de Harmonia</td><td>—</td><td><a class="small" style="color:var(--destructive)">Excluir</a></td></tr>
+    </table></div>
+  </div>
+</section>
+
+<!-- ══════════ SESSÕES (/secretaria/sessoes + [id]) ══════════ -->
+<section class="screen" id="s-sessoes">
+  <h1>Sessões e Presenças</h1>
+  <div class="card">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <button class="btn">+ Nova sessão</button>
+      <button class="btn outline">Exportar frequência anual (CSV)</button>
+    </div>
+    <div class="table-wrap"><table>
+      <tr><th>Data</th><th>Tipo</th><th>Grau</th><th>Presenças</th><th>Ata</th><th></th></tr>
+      <tr><td>09/07/2026</td><td>Ordinária</td><td>Aprendiz</td><td>19</td><td><span class="badge amber">Aguardando assinaturas</span></td><td><a class="small">Abrir</a></td></tr>
+      <tr><td>25/06/2026</td><td>Magna</td><td>Mestre</td><td>31</td><td><span class="badge success">Assinada</span></td><td><a class="small">Abrir</a></td></tr>
+      <tr><td>11/06/2026</td><td>Ordinária</td><td>Companheiro</td><td>17</td><td><span class="badge success">Assinada</span></td><td><a class="small">Abrir</a></td></tr>
+    </table></div>
+  </div>
+
+  <div class="crumb">↳ Detalhe da sessão (/secretaria/sessoes/[id])</div>
+  <h2 style="margin-bottom:10px">Sessão Ordinária — 09/07/2026 <span class="muted small">(grau Aprendiz)</span></h2>
+  <div class="grid2">
+    <div class="card">
+      <h2>Check-in via QR Code</h2>
+      <p class="xs muted">Membros e visitantes escaneiam para registrar presença.</p>
+      <div class="qr" style="margin:10px 0"></div>
+      <p class="xs muted">https://jeru.olgado.org/checkin/cku7…</p>
+    </div>
+    <div class="card">
+      <h2>Registrar presença manual</h2>
+      <label>Membro</label>
+      <select><option>Felipe Duarte Ramos (CIM 909090)</option><option>Antonio Peres Sobrinho (CIM 121212)</option></select>
+      <button class="btn secondary sm" style="margin-top:10px">Registrar</button>
+      <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
+      <details><summary class="small" style="cursor:pointer;font-weight:600">Lavrar Ata desta sessão</summary>
+        <label>Pauta do dia (lida pelo Secretário)</label><textarea rows="2"></textarea>
+        <label>Primeiro levantamento</label><textarea rows="2"></textarea>
+        <label>Horário de encerramento (por extenso)</label><input placeholder="ex.: vinte e duas horas">
+        <button class="btn secondary sm" style="margin-top:10px">Gerar rascunho da Ata</button>
+      </details>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Livro de Presenças (19 de 27 irmãos)</h2>
+    <p class="xs muted">Frequência acumulada em 2026 — mínimo da Loja para progressão: 50%. O alerta legal vale para Aprendizes e Companheiros. <a>Exportar frequência anual (CSV)</a></p>
+    <div class="table-wrap"><table>
+      <tr><th>Irmão</th><th>Grau</th><th>Cargo</th><th>Presença</th><th>Frequência 2026</th></tr>
+      <tr><td><strong>Alberto Nogueira Campos</strong> <span class="muted">· CIM 111111</span></td><td>Mestre</td><td>Venerável Mestre</td><td><span class="badge success">Presente · QR às 19:32</span></td><td><span class="small">92% (12/13)</span></td></tr>
+      <tr><td><strong>Nelson Duarte Faria</strong> <span class="muted">· CIM 222333</span></td><td>Mestre</td><td>1º Vigilante</td><td><span class="badge success">Presente às 19:40</span></td><td><span class="small">85% (11/13)</span></td></tr>
+      <tr><td><strong>Pedro Tavares Antunes</strong> <span class="muted">· CIM 445566</span></td><td>Aprendiz</td><td>—</td><td><span class="badge secondary">Ausente</span></td><td><span class="badge warning">38% (5/13) — abaixo do mínimo</span></td></tr>
+      <tr><td><strong>Rui Barbosa Lima</strong> <span class="muted">· CIM 778899</span></td><td>Companheiro</td><td>—</td><td><span class="badge success">Presente · QR às 19:55</span></td><td><span class="badge amber">54% (7/13) — perto do mínimo</span></td></tr>
+      <tr><td><strong>Marcos Vinícius Costa</strong> <span class="muted">· CIM 646464</span></td><td>Aprendiz</td><td>—</td><td><span class="badge success">Presente às 20:02</span></td><td><span class="badge success">77% (10/13)</span></td></tr>
+    </table></div>
+  </div>
+
+  <div class="card">
+    <h2>Visitantes (2)</h2>
+    <p class="small">Haroldo Siqueira — visitante · Loja Acácia nº 15 / GOB-RJ · via QR às 19:47 <button class="btn outline sm">Enviar Certificado de Visita</button></p>
+    <p class="small">Gilberto Fontes — visitante · Loja Fraternidade nº 88 / GLESP às 19:51</p>
+  </div>
+</section>
+
+<!-- ══════════ ATAS (/secretaria/atas + [id]) ══════════ -->
+<section class="screen" id="s-atas">
+  <h1>Atas</h1>
+  <div class="card">
+    <div class="table-wrap"><table>
+      <tr><th>Nº</th><th>Sessão</th><th>Status</th><th>Assinaturas</th><th></th></tr>
+      <tr><td>14</td><td>Ordinária · 09/07/2026</td><td><span class="badge amber">Aguardando assinaturas</span></td><td>Secretário ✔ · VM —</td><td><a class="small">Abrir</a></td></tr>
+      <tr><td>13</td><td>Magna · 25/06/2026</td><td><span class="badge success">Assinada</span></td><td>VM ✔ · Secretário ✔ · Drive ✔</td><td><a class="small">Abrir</a></td></tr>
+      <tr><td>12</td><td>Ordinária · 11/06/2026</td><td><span class="badge success">Assinada (gov.br)</span></td><td>gov.br VM ✔ · Sec ✔</td><td><a class="small">Abrir</a></td></tr>
+    </table></div>
+  </div>
+
+  <div class="crumb">↳ Detalhe da ata (/secretaria/atas/[id]) — fluxo: Rascunho → Validação por e-mail → Assinaturas (normal OU gov.br) → Envio ao quadro</div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;align-items:center">
+      <h2>Ata nº 14 — Sessão Ordinária de 09/07/2026</h2>
+      <div>
+        <span class="badge amber">Aguardando assinaturas</span>
+        <button class="btn sm">Assinar como Venerável</button>
+        <button class="btn outline sm">Baixar PDF</button>
+      </div>
+    </div>
+    <p class="xs muted">Minuta enviada aos irmãos em 10/07/2026 · Ajustes da reunião aplicados · Ordem: VM assina primeiro, Secretário na sequência.</p>
+    <div class="doc-preview" style="margin-top:14px">
+      <div style="text-align:center">
+        <strong>A∴R∴L∴S∴ JERUSALEM Nº 3202</strong><br>
+        <span class="small">Or∴ de São Paulo — Grande Oriente do Brasil — SP</span>
+        <div class="filete"></div>
+      </div>
+      <p><strong>ATA DA SESSÃO ORDINÁRIA NO GRAU DE APRENDIZ</strong></p>
+      <p>Aos nove dias do mês de julho do ano de dois mil e vinte e seis, às vinte horas, reuniu-se em seu templo, à Rua das Acácias, 123, a Augusta e Respeitável Loja Simbólica JERUSALEM nº 3202, sob a presidência do Venerável Mestre Alberto Nogueira Campos, secretariada por João da Silva Prado…</p>
+      <p>Pauta do dia: leitura do expediente, discussão do plano beneficente do semestre e escrutínio de candidato…</p>
+      <div style="display:flex;gap:40px;margin-top:34px;flex-wrap:wrap">
+        <div style="text-align:center"><div style="font-family:cursive;font-size:1.2rem">Alberto N. Campos</div><hr style="border:none;border-top:1px solid #333"><span class="xs">Venerável Mestre</span></div>
+        <div style="text-align:center"><div style="font-family:cursive;font-size:1.2rem">João S. Prado</div><hr style="border:none;border-top:1px solid #333"><span class="xs">Secretário — 16/07/2026</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ PRANCHAS (/secretaria/pranchas) ══════════ -->
+<section class="screen" id="s-pranchas">
+  <h1>Expedição de Pranchas</h1>
+  <div class="card" style="max-width:640px">
+    <h2>Formulários obrigatórios do GOB-SP</h2>
+    <p class="xs muted">Baixe o formulário ou use <strong>preencher</strong> para baixá-lo já com os dados da Loja, do Oriente e dos cargos atuais.</p>
+    <p class="small" style="margin:10px 0 2px;font-weight:600">Admissão</p>
+    <p class="small">⬇ <a>Form. 009 — Proposta para Iniciação</a> <span class="muted">— proposta do candidato ao quadro</span> <button class="btn outline sm">Preencher</button></p>
+    <p class="small">⬇ <a>Form. 023 — Sindicância</a> <span class="muted">— relatório da comissão sindicante</span> <button class="btn outline sm">Preencher</button></p>
+    <p class="small" style="margin:10px 0 2px;font-weight:600">Vida do Obreiro</p>
+    <p class="small">⬇ <a>Form. 041 — Proposta de Elevação</a> <span class="muted">— elevação ao grau de Companheiro</span> <button class="btn outline sm">Preencher</button></p>
+  </div>
+  <div class="card" style="max-width:640px">
+    <h2>Nova prancha</h2>
+    <label>Destinatário</label><input value="Guarda dos Selos — GOB-SP">
+    <label>Assunto</label><input placeholder="ex.: Encaminhamento do Form. 041">
+    <label>Conteúdo</label><textarea rows="4"></textarea>
+    <label>Anexo — enviar arquivo do computador</label><input type="file">
+    <p class="xs muted">Pranchas com anexo precisam da assinatura gov.br (assinador.iti.br) antes do envio à Guarda dos Selos.</p>
+    <button class="btn" style="margin-top:10px">Expedir (nº automático)</button>
+  </div>
+  <div class="card">
+    <div class="table-wrap"><table>
+      <tr><th>Nº</th><th>Destinatário</th><th>Assunto</th><th>Anexo</th><th>Status</th><th></th></tr>
+      <tr><td>07/2026</td><td>Guarda dos Selos</td><td>Form. 041 — Elevação P. Tavares</td><td>form-041.pdf</td><td><span class="badge amber">Aguardando assinatura gov.br</span></td><td><button class="btn outline sm">Subir PDF assinado</button></td></tr>
+      <tr><td>06/2026</td><td>Guarda dos Selos</td><td>Comunicação de Sessão Magna</td><td>—</td><td><span class="badge success">Enviada em 26/06</span></td><td></td></tr>
+    </table></div>
+    <p class="xs muted">Envios são feitos pelo Gmail da Loja para gselos@gobsp.org.br. <a onclick="go('emails')">Abrir a caixa de e-mails da Loja</a> para conferir respostas.</p>
+  </div>
+</section>
+
+<!-- ══════════ E-MAILS (/secretaria/emails + [uid]) ══════════ -->
+<section class="screen" id="s-emails">
+  <h1>E-mails da Loja</h1>
+  <div class="card">
+    <h2>Caixa de entrada — loja.jerusalem3202@gmail.com</h2>
+    <p class="xs muted">Últimas 25 mensagens recebidas no Gmail da Loja. Clique para ler e responder.</p>
+    <div class="table-wrap"><table>
+      <tr><th>De</th><th>Assunto</th><th>Data</th><th></th></tr>
+      <tr style="background:var(--accent)"><td><strong>Guarda dos Selos GOB-SP</strong></td><td><strong><a>RE: Form. 041 — Elevação P. Tavares</a></strong> <span class="badge outline">anexo</span> <span class="badge default">novo</span></td><td class="muted">16/07/26 09:14</td><td><a class="small">Abrir</a></td></tr>
+      <tr><td>Secretaria GOB-SP</td><td><a>Circular nº 112 — Recolhimento de taxas</a></td><td class="muted">14/07/26 16:02</td><td><a class="small">Abrir</a></td></tr>
+      <tr><td>Loja Acácia nº 15</td><td><a>Convite: Sessão Magna comemorativa</a></td><td class="muted">12/07/26 11:47</td><td><a class="small">Abrir</a></td></tr>
+    </table></div>
+  </div>
+
+  <div class="crumb">↳ Leitura da mensagem (/secretaria/emails/[uid])</div>
+  <div class="card">
+    <a class="small">← Voltar à caixa de entrada</a>
+    <h2 style="margin-top:6px">RE: Form. 041 — Elevação P. Tavares</h2>
+    <p class="xs muted">De Guarda dos Selos &lt;gselos@gobsp.org.br&gt; · para loja.jerusalem3202@gmail.com · 16/07/2026 09:14</p>
+    <div class="small" style="white-space:pre-wrap;border-top:1px solid var(--border);margin-top:10px;padding-top:12px">Prezado Secretário,
+
+Recebemos a documentação da prancha 07/2026. O Form. 041 foi homologado. Segue em anexo o protocolo.
+
+Fraternalmente,
+Guarda dos Selos — GOB-SP</div>
+    <p class="small" style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px"><strong>Anexos</strong><br>📎 <a>protocolo-2026-0784.pdf</a> <span class="badge outline">182 KB</span></p>
+  </div>
+  <div class="card">
+    <h2>Responder</h2>
+    <p class="xs muted">A resposta será enviada pelo Gmail da Loja para gselos@gobsp.org.br, na mesma conversa.</p>
+    <label>Mensagem</label><textarea rows="5">Prezados, acusamos o recebimento do protocolo. Gratos.</textarea>
+    <button class="btn" style="margin-top:10px">Enviar resposta</button>
+  </div>
+</section>
+
+<!-- ══════════ DOCUMENTOS (/secretaria/documentos) ══════════ -->
+<section class="screen" id="s-documentos">
+  <h1>Documentos (Google Drive)</h1>
+  <div class="card">
+    <p class="small">Conta conectada: <strong>loja.jerusalem3202@gmail.com</strong> <span class="badge success">Drive OK</span> <button class="btn outline sm">Reconectar</button></p>
+  </div>
+  <div class="card" style="max-width:560px">
+    <h2>Enviar documento</h2>
+    <label>Título</label><input placeholder="ex.: Regulamento interno 2026">
+    <div class="field-row">
+      <div><label>Tipo</label><select><option>Ata escaneada</option><option>Histórico</option><option>Regulamento</option><option>Financeiro</option><option>Outro</option></select></div>
+      <div><label>Arquivo</label><input type="file"></div>
+    </div>
+    <button class="btn" style="margin-top:12px">Enviar ao Drive</button>
+  </div>
+  <div class="card">
+    <div class="table-wrap"><table>
+      <tr><th>Título</th><th>Tipo</th><th>Enviado em</th><th></th></tr>
+      <tr><td>Ata nº 13 — assinada</td><td><span class="badge secondary">Ata escaneada</span></td><td>26/06/2026</td><td><a class="small">Abrir no Drive</a></td></tr>
+      <tr><td>Prancha 07/2026 — Form. 041 assinado (gov.br)</td><td><span class="badge secondary">Outro</span></td><td>15/07/2026</td><td><a class="small">Abrir no Drive</a></td></tr>
+      <tr><td>Balancete junho/2026</td><td><span class="badge secondary">Financeiro</span></td><td>01/07/2026</td><td><a class="small">Abrir no Drive</a></td></tr>
+    </table></div>
+  </div>
+</section>
+
+<!-- ══════════ ADMISSÕES — KANBAN (/secretaria/admissoes) ══════════ -->
+<section class="screen" id="s-admissoes">
+  <h1>Pipeline de Admissão (Iniciação)</h1>
+  <p class="muted small">Arraste os cards entre as etapas · <button class="btn sm">+ Novo candidato</button></p>
+  <div class="kanban" style="margin-top:14px">
+    <div class="kcol"><h3>Pré-cadastro</h3>
+      <div class="kcard"><span class="avatar">RS</span><strong>Ricardo Salles Moura</strong><div class="xs muted">Indicado por A. Campos · docs 3/5</div></div>
+    </div>
+    <div class="kcol"><h3>Edital publicado</h3>
+      <div class="kcard"><span class="avatar">FB</span><strong>Fábio Bittencourt</strong><div class="xs muted">Edital em 30/06 · prazo 30 dias</div><span class="badge amber">aguardando prazo</span></div>
+    </div>
+    <div class="kcol"><h3>Sindicância</h3>
+      <div class="kcard"><span class="avatar">GM</span><strong>Gustavo Molina Freitas</strong><div class="xs muted">Comissão: 2 de 3 relatórios entregues</div></div>
+    </div>
+    <div class="kcol"><h3>Escrutínio</h3></div>
+    <div class="kcol"><h3>Aguardando Placet</h3>
+      <div class="kcard"><span class="avatar">DV</span><strong>Diego Vasconcelos</strong><div class="xs muted">Escrutínio favorável em 09/07</div><span class="badge warning">trava financeira: taxa pendente</span></div>
+    </div>
+    <div class="kcol"><h3>Iniciado</h3>
+      <div class="kcard"><span class="avatar">MC</span><strong>Marcos Vinícius Costa</strong><div class="xs muted">Iniciado em 15/03/2026</div><span class="badge success">concluído</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ PROGRESSÕES — KANBAN (/secretaria/progressoes) ══════════ -->
+<section class="screen" id="s-progressoes">
+  <h1>Progressão de Graus (Elevação e Exaltação)</h1>
+  <div class="kanban" style="margin-top:14px">
+    <div class="kcol"><h3>Interstício</h3>
+      <div class="kcard"><span class="avatar">MC</span><strong>Marcos V. Costa</strong> <span class="xs muted">→ Companheiro</span>
+        <div class="xs muted" style="margin:6px 0 4px">12 meses: 4/12</div><div class="progress"><div style="width:33%"></div></div></div>
+    </div>
+    <div class="kcol"><h3>Instrução e frequência</h3>
+      <div class="kcard"><span class="avatar">PT</span><strong>Pedro T. Antunes</strong> <span class="xs muted">→ Companheiro</span>
+        <div class="xs muted" style="margin:6px 0 4px">Instruções 5/7 · Frequência 38%</div><div class="progress"><div style="width:71%"></div></div>
+        <span class="badge warning">frequência abaixo do mínimo</span></div>
+    </div>
+    <div class="kcol"><h3>Exame de proficiência</h3></div>
+    <div class="kcol"><h3>Escrutínio</h3>
+      <div class="kcard"><span class="avatar">RB</span><strong>Rui B. Lima</strong> <span class="xs muted">→ Mestre</span><span class="badge warning">trava: 2 capitações vencidas</span></div>
+    </div>
+    <div class="kcol"><h3>Aguardando Placet</h3></div>
+    <div class="kcol"><h3>Aguardando cerimônia</h3></div>
+    <div class="kcol"><h3>Comunicação pós-cerimônia</h3>
+      <div class="kcard"><span class="avatar">OF</span><strong>Osmar Figueiredo</strong><div class="xs muted">Exaltado em 25/06 · comunicar até 10/07</div><span class="badge warning">prazo de 15 dias vencido</span></div>
+    </div>
+    <div class="kcol"><h3>Grau concedido</h3></div>
+  </div>
+</section>
+
+<!-- ══════════ INSTRUÇÕES (/dashboard/instrucoes) ══════════ -->
+<section class="screen" id="s-instrucoes">
+  <h1>Instruções de Grau</h1>
+  <p class="muted small">Aprendizes com o 2º Vigilante, Companheiros com o 1º Vigilante.</p>
+  <div class="grid2">
+    <div class="card">
+      <h2>Aprendizes <span class="badge secondary">meta da Loja: 7 instruções</span></h2>
+      <div class="table-wrap"><table>
+        <tr><th>Irmão</th><th>Instruções</th><th></th></tr>
+        <tr><td>Pedro Tavares Antunes</td><td>5 de 7 <div class="progress" style="margin-top:4px"><div style="width:71%"></div></div></td><td><button class="btn outline sm">Registrar</button></td></tr>
+        <tr><td>Marcos Vinícius Costa</td><td>2 de 7 <div class="progress" style="margin-top:4px"><div style="width:29%"></div></div></td><td><button class="btn outline sm">Registrar</button></td></tr>
+      </table></div>
+    </div>
+    <div class="card">
+      <h2>Companheiros <span class="badge secondary">meta: 5 instruções</span></h2>
+      <div class="table-wrap"><table>
+        <tr><th>Irmão</th><th>Instruções</th><th></th></tr>
+        <tr><td>Rui Barbosa Lima</td><td>4 de 5 <div class="progress" style="margin-top:4px"><div style="width:80%"></div></div></td><td><button class="btn outline sm">Registrar</button></td></tr>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ QUITTE PLACETS (/secretaria/quitte-placets) ══════════ -->
+<section class="screen" id="s-quitte">
+  <h1>Quitte Placets e Filiação</h1>
+  <div class="card" style="max-width:560px">
+    <h2>Novo Quitte Placet</h2>
+    <div class="field-row">
+      <div><label>Obreiro</label><select><option>Carlos Andrade Neto (CIM 353535)</option></select></div>
+      <div><label>Motivo</label><select><option>Mudança de Oriente</option><option>Filiação a outra Loja</option><option>Desligamento</option></select></div>
+    </div>
+    <button class="btn" style="margin-top:12px">Abrir processo</button>
+  </div>
+  <div class="card">
+    <div class="table-wrap"><table>
+      <tr><th>Obreiro</th><th>Status</th><th>Quitação financeira</th><th>Assinaturas</th><th></th></tr>
+      <tr><td>Carlos Andrade Neto</td><td><span class="badge amber">Em análise</span></td><td><span class="badge success">Nada Consta ✔</span></td><td>VM — · Sec —</td><td><button class="btn sm">Assinar</button></td></tr>
+      <tr><td>Henrique Sampaio</td><td><span class="badge secondary">Pendente</span></td><td><span class="badge warning">Travado — 1 capitação em aberto</span></td><td>—</td><td><span class="xs muted">emissão bloqueada</span></td></tr>
+    </table></div>
+  </div>
+</section>
+
+<!-- ══════════ MENSALIDADES (/tesouraria/mensalidades) ══════════ -->
+<section class="screen" id="s-mensalidades">
+  <h1>Mensalidades (Capitações)</h1>
+  <div class="grid3" style="margin-bottom:16px">
+    <div class="stat"><div class="n">R$ 5.600</div><div class="l">Recebido em julho</div></div>
+    <div class="stat"><div class="n">R$ 840</div><div class="l">Em aberto</div></div>
+    <div class="stat"><div class="n">3</div><div class="l">Irmãos com vencidas</div></div>
+  </div>
+  <div class="card">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <button class="btn">Gerar capitações do mês</button>
+      <button class="btn outline">Exportar situação (CSV)</button>
+      <span class="badge success">Gateway Asaas conectado</span>
+    </div>
+    <div class="table-wrap"><table>
+      <tr><th>Irmão</th><th>Competência</th><th>Valor</th><th>Vencimento</th><th>Status</th><th></th></tr>
+      <tr><td>Alberto Nogueira Campos</td><td>07/2026</td><td>R$ 140,00</td><td>10/07</td><td><span class="badge success">Paga · cartão</span></td><td></td></tr>
+      <tr><td>Pedro Tavares Antunes</td><td>07/2026</td><td>R$ 140,00</td><td>10/07</td><td><span class="badge secondary">Pendente</span></td><td><button class="btn outline sm">Link de cobrança</button></td></tr>
+      <tr><td>Rui Barbosa Lima</td><td>05 e 06/2026</td><td>R$ 280,00</td><td>vencidas</td><td><span class="badge warning">Vencida ×2</span></td><td><button class="btn outline sm">Baixa manual</button></td></tr>
+    </table></div>
+  </div>
+</section>
+
+<!-- ══════════ DESPESAS (/tesouraria/despesas) ══════════ -->
+<section class="screen" id="s-despesas">
+  <h1>Despesas</h1>
+  <p class="muted small">Trava de conformidade: toda despesa exige aprovação dupla (VM + Tesoureiro).</p>
+  <div class="card" style="max-width:560px">
+    <h2>Nova despesa</h2>
+    <label>Descrição</label><input placeholder="ex.: Aluguel do templo — julho">
+    <div class="field-row">
+      <div><label>Fornecedor</label><input></div>
+      <div><label>Valor (R$)</label><input value="0,00"></div>
+    </div>
+    <button class="btn" style="margin-top:12px">Lançar (aguardará aprovação)</button>
+  </div>
+  <div class="card">
+    <div class="table-wrap"><table>
+      <tr><th>Descrição</th><th>Valor</th><th>Status</th><th>Aprovações</th><th></th></tr>
+      <tr><td>Aluguel do templo — julho</td><td>R$ 1.800,00</td><td><span class="badge amber">Aguardando aprovação</span></td><td>Tesoureiro ✔ · VM —</td><td><button class="btn sm">Aprovar (VM)</button></td></tr>
+      <tr><td>Coffee da Sessão Magna</td><td>R$ 420,00</td><td><span class="badge success">Paga</span></td><td>VM ✔ · Tesoureiro ✔</td><td></td></tr>
+      <tr><td>Reforma do painel do 1º Vig.</td><td>R$ 950,00</td><td><span class="badge warning">Rejeitada</span></td><td>—</td><td></td></tr>
+    </table></div>
+  </div>
+</section>
+
+<!-- ══════════ BALANCETE (/tesouraria/balancete) ══════════ -->
+<section class="screen" id="s-balancete">
+  <h1>Balancete Mensal</h1>
+  <div class="card">
+    <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+      <div><label>Competência</label><select style="width:160px"><option>Julho/2026</option><option>Junho/2026</option></select></div>
+      <button class="btn secondary">Gerar</button>
+      <button class="btn outline">Exportar CSV</button>
+    </div>
+  </div>
+  <div class="grid3" style="margin-bottom:16px">
+    <div class="stat"><div class="n" style="color:var(--green-fg)">R$ 6.020</div><div class="l">Receitas</div></div>
+    <div class="stat"><div class="n" style="color:var(--red-fg)">R$ 2.640</div><div class="l">Despesas</div></div>
+    <div class="stat"><div class="n">R$ 3.380</div><div class="l">Resultado do mês</div></div>
+  </div>
+  <div class="card">
+    <h2>Lançamentos</h2>
+    <div class="table-wrap"><table>
+      <tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th><th style="text-align:right">Valor</th></tr>
+      <tr><td>10/07</td><td>Capitação 07/2026 — 24 irmãos (Asaas)</td><td>Capitação</td><td><span class="badge success">Receita</span></td><td style="text-align:right">R$ 3.360,00</td></tr>
+      <tr><td>09/07</td><td>Tronco de solidariedade — sessão 09/07</td><td>Tronco</td><td><span class="badge success">Receita</span></td><td style="text-align:right">R$ 380,00</td></tr>
+      <tr><td>05/07</td><td>Aluguel do templo — julho</td><td>Aluguel</td><td><span class="badge warning">Despesa</span></td><td style="text-align:right">R$ 1.800,00</td></tr>
+      <tr><td>02/07</td><td>Coffee da Sessão Magna</td><td>Eventos</td><td><span class="badge warning">Despesa</span></td><td style="text-align:right">R$ 420,00</td></tr>
+    </table></div>
+  </div>
+  <div class="card">
+    <h2>Consolidado por categoria <span class="badge outline">módulo 3 — planejado</span></h2>
+    <div class="table-wrap"><table>
+      <tr><th>Categoria</th><th>Tipo</th><th style="text-align:right">Total</th></tr>
+      <tr><td>Capitação</td><td>Receita</td><td style="text-align:right">R$ 5.240,00</td></tr>
+      <tr><td>Tronco</td><td>Receita</td><td style="text-align:right">R$ 780,00</td></tr>
+      <tr><td>Aluguel</td><td>Despesa</td><td style="text-align:right">R$ 1.800,00</td></tr>
+      <tr><td>Eventos</td><td>Despesa</td><td style="text-align:right">R$ 840,00</td></tr>
+      <tr><td><strong>Resultado</strong></td><td></td><td style="text-align:right"><strong>R$ 3.380,00</strong></td></tr>
+    </table></div>
+  </div>
+</section>
+
+<!-- ══════════ CONFIG DA LOJA (/dashboard/loja) ══════════ -->
+<section class="screen" id="s-configloja">
+  <h1>Configurações da Loja</h1>
+  <div class="grid2">
+    <div class="card">
+      <h2>Dados da Loja</h2>
+      <label>Nome</label><input value="JERUSALEM">
+      <div class="field-row">
+        <div><label>Número</label><input value="3202"></div>
+        <div><label>Potência</label><input value="GOB-SP"></div>
+      </div>
+      <label>Oriente</label><input value="São Paulo — SP">
+      <label>Endereço da sede (citado na ata)</label><input value="Rua das Acácias, 123 — São Paulo/SP">
+      <button class="btn" style="margin-top:12px">Salvar</button>
+    </div>
+    <div class="card">
+      <h2>Parâmetros de conformidade</h2>
+      <div class="field-row">
+        <div><label>Frequência mínima p/ progressão (%)</label><input value="50"></div>
+        <div><label>Limite de inadimplência (meses)</label><input value="3"></div>
+      </div>
+      <div class="field-row">
+        <div><label>Instruções — Aprendiz</label><input value="7"></div>
+        <div><label>Instruções — Companheiro</label><input value="5"></div>
+      </div>
+      <button class="btn" style="margin-top:12px">Salvar</button>
+    </div>
+    <div class="card">
+      <h2>Gateway Asaas</h2>
+      <p class="small"><span class="badge success">Conectado (sandbox)</span></p>
+      <label>API Key</label><input type="password" value="••••••••••••">
+      <label>Valor da capitação (R$)</label><input value="140,00">
+      <button class="btn secondary sm" style="margin-top:10px">Salvar</button>
+    </div>
+    <div class="card">
+      <h2>Google Drive & Gmail</h2>
+      <p class="small">Drive: <span class="badge success">conectado</span> · Gmail: <span class="badge success">ativo</span></p>
+      <button class="btn outline sm">Reconectar Google</button>
+    </div>
+    <div class="card">
+      <h2>Cabeçalho institucional da ata</h2>
+      <label>Logo / cabeçalho (imagem)</label><input type="file">
+      <label>Divisa do rodapé</label><input value="Liberdade · Igualdade · Fraternidade">
+      <button class="btn secondary sm" style="margin-top:10px">Salvar</button>
+    </div>
+    <div class="card">
+      <h2>Certificado de Visita</h2>
+      <p class="xs muted">Template PPTX com marcadores {{nome}}, {{loja}}, {{data}}.</p>
+      <label>Template (PPTX)</label><input type="file">
+      <button class="btn secondary sm" style="margin-top:10px">Enviar</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ PERFIL (/dashboard/perfil) ══════════ -->
+<section class="screen" id="s-perfil">
+  <h1>Meu perfil</h1>
+  <p class="muted small">João da Silva Prado · CIM 123456 · Mestre · Secretário</p>
+  <div class="grid2">
+    <div class="card">
+      <h2>Foto</h2>
+      <div style="width:84px;height:84px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.4rem;color:var(--primary);margin:10px 0">JP</div>
+      <input type="file">
+      <p class="xs muted">Exibida no seu cadastro e na lista de membros. Até 500 KB.</p>
+    </div>
+    <div class="card">
+      <h2>Dados de contato</h2>
+      <label>Telefone</label><input value="(11) 97777-1234">
+      <label>Endereço</label><input value="Av. Paulista, 1000 — São Paulo/SP">
+      <label>Profissão</label><input value="Engenheiro civil">
+      <button class="btn" style="margin-top:12px">Salvar</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ PRIVACIDADE (/dashboard/privacidade) ══════════ -->
+<section class="screen" id="s-privacidade">
+  <h1>Painel de Privacidade (LGPD)</h1>
+  <div class="card" style="max-width:560px">
+    <h2>Visibilidade dos meus dados aos demais irmãos</h2>
+    <p class="small" style="margin:12px 0 4px"><input type="checkbox" checked style="width:auto"> Tornar meus dados de contato visíveis ao quadro</p>
+    <p class="small" style="margin:4px 0"><input type="checkbox" checked style="width:auto"> E-mail</p>
+    <p class="small" style="margin:4px 0"><input type="checkbox" checked style="width:auto"> Telefone</p>
+    <p class="small" style="margin:4px 0"><input type="checkbox" style="width:auto"> Endereço</p>
+    <p class="small" style="margin:4px 0"><input type="checkbox" style="width:auto"> Data de nascimento</p>
+    <button class="btn" style="margin-top:12px">Salvar preferências</button>
+  </div>
+</section>
+
+<!-- ══════════ SENHA (/dashboard/senha) ══════════ -->
+<section class="screen" id="s-senha">
+  <h1>Alterar senha</h1>
+  <div class="card" style="max-width:440px">
+    <label>Senha atual</label><input type="password">
+    <label>Nova senha</label><input type="password">
+    <label>Confirmar nova senha</label><input type="password">
+    <p class="xs muted">Mínimo 8 caracteres, ao menos 1 número e 1 letra.</p>
+    <button class="btn" style="margin-top:12px">Alterar</button>
+  </div>
+</section>
+
+<!-- ══════════ LOGIN (/login) ══════════ -->
+<section class="screen" id="s-login">
+  <div style="max-width:400px;margin:8vh auto">
+    <div style="text-align:center;margin-bottom:20px">
+      <div class="mark" style="width:56px;height:56px;border-radius:50%;background:var(--primary);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:1.4rem">G</div>
+      <h1 style="margin-top:10px">Gestão da Loja</h1>
+      <p class="muted small">Sistema de gestão para Lojas Maçônicas</p>
+    </div>
+    <div class="card">
+      <label>CIM</label><input placeholder="Cadastro de Identificação Maçônica">
+      <label>Senha</label><input type="password">
+      <button class="btn" style="width:100%;margin-top:14px">Entrar</button>
+      <p class="small" style="text-align:center;margin-top:12px"><a>Esqueci minha senha</a></p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ ADMIN DO SAAS (/admin) ══════════ -->
+<section class="screen" id="s-admin">
+  <h1>Administração do SaaS</h1>
+  <p class="muted small">Visão do Super Admin — criação e gestão das lojas (tenants).</p>
+  <div class="card">
+    <div class="table-wrap"><table>
+      <tr><th>Loja</th><th>Potência</th><th>Membros</th><th>Licença</th><th></th></tr>
+      <tr><td><strong>JERUSALEM nº 3202</strong></td><td>GOB-SP</td><td>32</td><td><span class="badge success">Paga até 12/2026</span></td><td><a class="small">Gerenciar</a></td></tr>
+      <tr><td><strong>ESTRELA DO ORIENTE nº 118</strong></td><td>GOB-SP</td><td>21</td><td><span class="badge amber">Boleto em aberto</span></td><td><a class="small">Gerenciar</a></td></tr>
+    </table></div>
+  </div>
+  <div class="card" style="max-width:560px">
+    <h2>Criar loja</h2>
+    <div class="field-row">
+      <div><label>Nome</label><input></div>
+      <div><label>Número</label><input></div>
+    </div>
+    <div class="field-row">
+      <div><label>Potência</label><input value="GOB-SP"></div>
+      <div><label>Oriente</label><input></div>
+    </div>
+    <label>Venerável Mestre — nome / CIM / CPF / e-mail</label><input placeholder="dados do VM (primeiro acesso com senha provisória)">
+    <p class="small" style="margin-top:8px"><input type="checkbox" style="width:auto"> Cobrar licença (boleto/Pix via Asaas)</p>
+    <button class="btn" style="margin-top:10px">Criar loja</button>
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+function go(s){
+  document.querySelectorAll('.screen').forEach(e=>e.classList.remove('active'));
+  document.getElementById('s-'+s).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(e=>e.classList.toggle('active', e.dataset.s===s));
+  document.querySelector('.sidebar').classList.remove('open');
+  window.scrollTo(0,0);
+}
+</script>
+</body>
+</html>
