@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
-import { updateLodge, deleteLodge } from "./actions";
+import { Pencil, Trash2, CircleDollarSign } from "lucide-react";
+import { updateLodge, deleteLodge, gerarCobrancaLicenca } from "./actions";
 import { ActionForm } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,15 +23,49 @@ type LodgeData = {
   potencia: string | null;
   oriente: string | null;
   address: string | null;
+  licencaValor: number | null;
 };
 
 // Botões Editar/Excluir de cada linha da tabela de lojas do /admin
 export function LodgeActions({ lodge }: { lodge: LodgeData }) {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [licencaOpen, setLicencaOpen] = useState(false);
 
   return (
     <div className="flex justify-end gap-1">
+      <Dialog open={licencaOpen} onOpenChange={setLicencaOpen}>
+        <DialogTrigger asChild>
+          <Button variant="ghost" size="icon" title="Cobrar licença">
+            <CircleDollarSign className="h-4 w-4" />
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cobrança de licença</DialogTitle>
+            <DialogDescription>
+              Gera uma nova cobrança boleto/Pix (Asaas da plataforma) em nome
+              do VM de {lodge.name} nº {lodge.number}, com vencimento em 7
+              dias. Substitui a cobrança pendente anterior, se houver.
+            </DialogDescription>
+          </DialogHeader>
+          <ActionForm action={gerarCobrancaLicenca} submitLabel="Gerar cobrança">
+            <input type="hidden" name="lodgeId" value={lodge.id} />
+            <div className="space-y-1">
+              <Label htmlFor={`licvalor-${lodge.id}`}>Valor (R$)</Label>
+              <Input
+                id={`licvalor-${lodge.id}`}
+                name="licencaValor"
+                type="number"
+                step="0.01"
+                min="0"
+                defaultValue={lodge.licencaValor ?? ""}
+                required
+              />
+            </div>
+          </ActionForm>
+        </DialogContent>
+      </Dialog>
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogTrigger asChild>
           <Button variant="ghost" size="icon" title="Editar loja">

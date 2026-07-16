@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { syncLodgeNotifications } from "@/lib/notifications";
+import { enviarLembretesEmail } from "@/lib/lembretes-email";
 
 // Varredura diária da central de notificações (cron do servidor).
 // Garante que alertas por data — aniversários, prazos de 15 dias,
@@ -13,8 +14,11 @@ export async function POST(request: Request) {
   }
 
   const lodges = await prisma.lodge.findMany({ select: { id: true } });
+  let emails = 0;
   for (const lodge of lodges) {
     await syncLodgeNotifications(lodge.id);
+    const r = await enviarLembretesEmail(lodge.id);
+    emails += r.sent;
   }
-  return Response.json({ ok: true, lodges: lodges.length });
+  return Response.json({ ok: true, lodges: lodges.length, emails });
 }

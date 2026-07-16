@@ -132,6 +132,9 @@ export async function createLodge(
           licencaValor,
           licencaChargeId: payment.id,
           licencaInvoiceUrl: payment.invoiceUrl,
+          licencaStatus: "PENDENTE",
+          licencaVencimento: due,
+          licencaPagaEm: null,
         },
       });
       licencaMsg = ` Licença de R$ ${licencaValor.toFixed(2)} gerada — link de pagamento (boleto/Pix) disponível na lista de lojas.`;
@@ -250,4 +253,79 @@ export async function updateLodgeLogo(
   });
   revalidatePath("/", "layout");
   return { ok: "Logo da loja atualizado." };
+}
+
+// Gera (ou renova) a cobrança da licença de uma loja existente — SUPER_ADMIN.
+// Boleto/Pix pela conta Asaas da plataforma, em nome do VM, vencimento em 7 dias.
+export async function gerarCobrancaLicenca(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  await requireRole("SUPER_ADMIN");
+
+  const lodgeId = String(formData.get("lodgeId") ?? "");
+  const valor = Number(
+    String(formData.get("licencaValor") ?? "").replace(",", ".")
+  );
+  if (!Number.isFinite(valor) || valor <= 0) {
+    return { error: "Informe um valor de licença válido." };
+  }
+  if (!process.env.ASAAS_PLATFORM_API_KEY) {
+    return {
+      error:
+        "ASAAS_PLATFORM_API_KEY não configurada no servidor — não é possível gerar a cobrança da licença.",
+    };
+  }
+
+  const lodge = await prisma.lodge.findUnique({ where: { id: lodgeId } });
+  if (!lodge || lodge.number === "0000") {
+    return { error: "Loja não encontrada." };
+  }
+  const vm = await prisma.user.findFirst({
+    where: { lodgeId, currentRole: "VENERAVEL_MESTRE", status: "ATIVO" },
+    select: { name: true, cpf: true, email: true, asaasCustomerId: true },
+  });
+  if (!vm?.cpf) {
+    return { error: "A loja não tem VM ativo com CPF cadastrado (pagador da cobrança)." };
+  }
+
+  try {
+    const { ensureCustomer, createPayment } = await import("@/lib/asaas");
+    const apiKey = process.env.ASAAS_PLATFORM_API_KEY;
+    const customerId = await ensureCustomer(apiKey, {
+      name: vm.name,
+      cpf: vm.cpf,
+      email: vm.email,
+      asaasCustomerId: vm.asaasCustomerId,
+    });
+    const due = new Date();
+    due.setDate(due.getDate() + 7);
+    const payment = await createPayment(apiKey, {
+      customerId,
+      amountCents: Math.round(valor * 100),
+      dueDate: due,
+      description: `Licença do sistema — ${lodge.name} nº ${lodge.number}`,
+      externalReference: `licenca:${lodge.id}`,
+    });
+    await prisma.lodge.update({
+      where: { id: lodge.id },
+      data: {
+        licencaValor: valor,
+        licencaChargeId: payment.id,
+        licencaInvoiceUrl: payment.invoiceUrl,
+        licencaStatus: "PENDENTE",
+        licencaVencimento: due,
+        licencaPagaEm: null,
+      },
+    });
+  } catch (e) {
+    return {
+      error: `Falha ao gerar a cobrança (${e instanceof Error ? e.message : "erro Asaas"}).`,
+    };
+  }
+
+  revalidatePath("/admin");
+  return {
+    ok: `Cobrança de R$ ${valor.toFixed(2).replace(".", ",")} gerada para ${lodge.name} — link disponível na tabela.`,
+  };
 }

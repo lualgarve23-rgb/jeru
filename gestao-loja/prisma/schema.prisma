@@ -38,6 +38,10 @@ model Lodge {
   licencaValor      Decimal? @db.Decimal(10, 2)
   licencaChargeId   String?
   licencaInvoiceUrl String?
+  // Acompanhamento do pagamento (webhook Asaas da plataforma)
+  licencaStatus     LicencaStatus?
+  licencaVencimento DateTime?
+  licencaPagaEm     DateTime?
   // Instruções exigidas para progressão de grau (0 = sem exigência):
   // Aprendizes instruídos pelo 2º Vigilante, Companheiros pelo 1º Vigilante
   instrucoesAprendiz    Int @default(0)
@@ -168,6 +172,13 @@ model User {
 
   @@index([lodgeId])
   @@map("users")
+}
+
+// Situação da licença do sistema cobrada da loja (conta Asaas da plataforma)
+enum LicencaStatus {
+  PENDENTE
+  PAGA
+  VENCIDA
 }
 
 enum Parentesco {
@@ -703,6 +714,8 @@ model Notification {
   sourceKey   String?
   // Rota interna do recurso relacionado (ex.: "/secretaria/atas/<id>")
   link        String?
+  // Momento em que o lembrete por e-mail foi enviado (null = ainda não)
+  emailedAt   DateTime?
 
   lodge Lodge @relation(fields: [lodgeId], references: [id])
   user  User? @relation(fields: [userId], references: [id])

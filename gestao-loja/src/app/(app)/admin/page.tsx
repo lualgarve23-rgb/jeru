@@ -22,6 +22,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+const licencaStatusLabels: Record<string, string> = {
+  PENDENTE: "Pendente",
+  PAGA: "Paga",
+  VENCIDA: "Vencida",
+};
+
 export default async function AdminPage() {
   await requireRole("SUPER_ADMIN");
 
@@ -58,6 +64,7 @@ export default async function AdminPage() {
                     <TableHead>Potência</TableHead>
                     <TableHead>Oriente</TableHead>
                     <TableHead>Membros</TableHead>
+                    <TableHead>Licença</TableHead>
                     <TableHead>Criada em</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -84,18 +91,49 @@ export default async function AdminPage() {
                         <Badge variant="secondary">{l._count.users}</Badge>
                       </TableCell>
                       <TableCell>
-                        {l.createdAt.toLocaleDateString("pt-BR")}
-                        {l.licencaInvoiceUrl && (
-                          <a
-                            href={l.licencaInvoiceUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="block text-xs text-primary underline"
-                          >
-                            Licença R${" "}
-                            {Number(l.licencaValor).toFixed(2).replace(".", ",")}
-                          </a>
+                        {l.licencaStatus ? (
+                          <div className="space-y-0.5">
+                            <Badge
+                              variant={
+                                l.licencaStatus === "PAGA"
+                                  ? "success"
+                                  : l.licencaStatus === "VENCIDA"
+                                    ? "warning"
+                                    : "secondary"
+                              }
+                            >
+                              {licencaStatusLabels[l.licencaStatus]}
+                            </Badge>
+                            <p className="text-xs text-muted-foreground">
+                              R${" "}
+                              {Number(l.licencaValor ?? 0)
+                                .toFixed(2)
+                                .replace(".", ",")}
+                              {l.licencaStatus === "PAGA" && l.licencaPagaEm
+                                ? ` · paga em ${l.licencaPagaEm.toLocaleDateString("pt-BR")}`
+                                : l.licencaVencimento
+                                  ? ` · vence ${l.licencaVencimento.toLocaleDateString("pt-BR")}`
+                                  : ""}
+                            </p>
+                            {l.licencaInvoiceUrl && (
+                              <a
+                                href={l.licencaInvoiceUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="block text-xs text-primary underline"
+                              >
+                                Link de pagamento
+                              </a>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">
+                            Sem cobrança
+                          </span>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        {l.createdAt.toLocaleDateString("pt-BR")}
                       </TableCell>
                       <TableCell>
                         <LodgeActions
@@ -106,6 +144,9 @@ export default async function AdminPage() {
                             potencia: l.potencia,
                             oriente: l.oriente,
                             address: l.address,
+                            licencaValor: l.licencaValor
+                              ? Number(l.licencaValor)
+                              : null,
                           }}
                         />
                       </TableCell>
