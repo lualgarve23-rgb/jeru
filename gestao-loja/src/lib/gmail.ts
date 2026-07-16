@@ -16,6 +16,9 @@ export async function sendLodgeEmail(opts: {
   subject: string;
   text: string;
   attachments?: { filename: string; content: Buffer | string }[];
+  // Encadeamento de resposta (Re: na mesma conversa)
+  inReplyTo?: string;
+  references?: string[];
 }) {
   if (!isGmailConfigured()) {
     throw new Error(

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
@@ -302,7 +303,11 @@ export default async function PranchasPage() {
         </TableBody>
       </Table>
       <p className="text-xs text-muted-foreground">
-        Envios são feitos pelo Gmail da Loja para {GUARDA_SELOS_EMAIL}.
+        Envios são feitos pelo Gmail da Loja para {GUARDA_SELOS_EMAIL}.{" "}
+        <Link href="/secretaria/emails" className="text-primary underline">
+          Abrir a caixa de e-mails da Loja
+        </Link>{" "}
+        para conferir respostas.
       </p>
     </div>
   );

@@ -30,6 +30,7 @@ function navFor(role: string, cargoRito: string | null, unread: number): NavItem
     { href: "/secretaria/sessoes", label: "Sessões e Presenças", icon: "sessoes", section: "Secretaria" },
     { href: "/secretaria/atas", label: "Atas", icon: "atas", section: "Secretaria" },
     { href: "/secretaria/pranchas", label: "Pranchas", icon: "pranchas", section: "Secretaria", roles: fiscal },
+    { href: "/secretaria/emails", label: "E-mails da Loja", icon: "emails", section: "Secretaria", roles: gestaoLoja },
     { href: "/secretaria/documentos", label: "Documentos (Drive)", icon: "documentos", section: "Secretaria", roles: fiscal },
     { href: "/secretaria/admissoes", label: "Admissões", icon: "admissoes", section: "Secretaria", roles: fiscal },
     { href: "/secretaria/progressoes", label: "Progressões", icon: "progressoes", section: "Secretaria", roles: fiscal },

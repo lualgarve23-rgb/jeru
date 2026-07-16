@@ -23,6 +23,7 @@ import {
   GraduationCap,
   CircleUserRound,
   BadgeCheck,
+  Mail,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -48,6 +49,7 @@ const icons: Record<string, LucideIcon> = {
   instrucoes: GraduationCap,
   perfil: CircleUserRound,
   cargos: BadgeCheck,
+  emails: Mail,
 };
 
 export type NavItem = {
