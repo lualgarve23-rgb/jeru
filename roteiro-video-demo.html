@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Roteiro — Vídeo de Demonstração · Gestão da Loja</title>
+<style>
+  @page {
+    size: A4;
+    margin: 2cm 1.8cm;
+    @bottom-center { content: "Gestão da Loja — Roteiro do vídeo de demonstração · pág. " counter(page); font-size: 8pt; color: #8a8577; font-family: Georgia, serif; }
+  }
+  body { font-family: Georgia, "Times New Roman", serif; color: #22303f; font-size: 10.5pt; line-height: 1.5; }
+  h1 { font-size: 20pt; color: #1c3a5e; margin: 0 0 2pt; }
+  .subtitulo { color: #c9973b; font-weight: bold; font-size: 11pt; letter-spacing: 1px; text-transform: uppercase; }
+  h2 { font-size: 13pt; color: #1c3a5e; border-bottom: 2px solid #c9973b; padding-bottom: 3pt; margin: 18pt 0 8pt; page-break-after: avoid; }
+  h3 { font-size: 11pt; color: #1c3a5e; margin: 12pt 0 4pt; page-break-after: avoid; }
+  .capa { background: #f6f1e4; border: 1px solid #e2d9c3; border-radius: 8pt; padding: 14pt 16pt; margin-bottom: 14pt; }
+  .capa p { margin: 3pt 0; }
+  table { border-collapse: collapse; width: 100%; margin: 6pt 0 10pt; font-size: 9.5pt; }
+  th { background: #1c3a5e; color: #fff; text-align: left; padding: 4pt 6pt; }
+  td { border: 1px solid #d8d2c0; padding: 4pt 6pt; vertical-align: top; }
+  tr:nth-child(even) td { background: #faf7ee; }
+  .cena { border: 1px solid #e2d9c3; border-left: 4px solid #c9973b; border-radius: 4pt; padding: 8pt 10pt; margin: 8pt 0; page-break-inside: avoid; background: #fffdf7; }
+  .cena h3 { margin-top: 0; }
+  .hashtag { font-family: "Courier New", monospace; font-size: 9pt; color: #fff; background: #c9973b; border-radius: 3pt; padding: 1pt 5pt; margin-right: 6pt; }
+  .prints { font-size: 9pt; color: #1c3a5e; margin: 4pt 0 0; }
+  .prints code { background: #eef2f8; }
+  .meta { font-size: 9pt; color: #6d6a5e; margin-bottom: 4pt; }
+  .rotulo { display: inline-block; font-size: 8pt; font-weight: bold; color: #fff; background: #1c3a5e; border-radius: 6pt; padding: 1pt 6pt; margin-right: 4pt; }
+  .rotulo.dourado { background: #c9973b; }
+  .narracao { background: #eef2f8; border-radius: 4pt; padding: 6pt 8pt; margin: 4pt 0; font-style: italic; }
+  .narracao::before { content: "🎙 Narração: "; font-style: normal; font-weight: bold; color: #1c3a5e; }
+  .acao { margin: 4pt 0; }
+  .acao::before { content: "🖱 Na tela: "; font-weight: bold; color: #1c3a5e; }
+  .dica { font-size: 9pt; color: #6d6a5e; margin-top: 4pt; }
+  .dica::before { content: "💡 "; }
+  code { font-family: "Courier New", monospace; background: #f0ead8; padding: 0 3pt; border-radius: 2pt; font-size: 9.5pt; }
+  ul { margin: 4pt 0 8pt; padding-left: 16pt; }
+  li { margin: 2pt 0; }
+</style>
+</head>
+<body>
+
+<p class="subtitulo">Gestão da Loja · Sistema de Secretaria e Tesouraria</p>
+<h1>Roteiro do Vídeo de Demonstração</h1>
+<p class="meta">Loja de Demonstração Acácia do Oriente nº 9999 · https://jeru.olgado.org · Duração-alvo: 8 a 10 minutos</p>
+
+<div class="capa">
+<p><strong>Objetivo do vídeo:</strong> apresentar o sistema a Veneráveis, Secretários e Tesoureiros de outras Lojas, mostrando os fluxos do dia a dia (sessões, atas, finanças e alertas) em um ambiente 100% fictício — sem expor nenhum dado real.</p>
+<p><strong>Formato sugerido:</strong> gravação de tela (1080p) com narração; uma cena por módulo. Grave cada cena separadamente — facilita regravar só o que errar.</p>
+</div>
+
+<h2>Antes de gravar (checklist)</h2>
+<ul>
+  <li>Entrar como super admin em <code>/admin</code> e clicar em <strong>"Criar / recriar loja demo"</strong> — isso zera o ambiente e garante os dados no estado previsto pelo roteiro.</li>
+  <li>Navegador em janela maximizada (1920×1080), zoom 100%, sem abas ou favoritos pessoais visíveis. Usar janela anônima.</li>
+  <li>Fechar notificações do sistema operacional (modo "não perturbe").</li>
+  <li>Software de gravação: OBS Studio (gratuito) ou o gravador do próprio Windows/Mac. Microfone testado, ambiente silencioso.</li>
+  <li>Ensaiar uma vez a navegação de cada cena antes de gravar com voz.</li>
+</ul>
+
+<h3>Acessos usados no vídeo (senha <code>demo123</code> para todos)</h3>
+<table>
+  <tr><th>CIM</th><th>Perfil</th><th>Papel no vídeo</th></tr>
+  <tr><td><code>demo-vm</code></td><td>Venerável Mestre (Antônio)</td><td>Cenas 2 a 7 — visão geral, Secretaria e aprovações</td></tr>
+  <tr><td><code>demo-tes</code></td><td>Tesoureiro (João)</td><td>Cena 8 — Tesouraria e balancete</td></tr>
+  <tr><td><code>demo-esm</code></td><td>Esmoler (Francisco)</td><td>Cena 9 — alertas de bem-estar</td></tr>
+</table>
+<p class="dica">Personagens de apoio já semeados: <code>demo-m2</code> (Sérgio) está <strong>inadimplente</strong> com 3 capitações vencidas e <code>demo-a2</code> (Rafael) é o Aprendiz <strong>faltoso</strong> com frequência abaixo do mínimo — eles alimentam os alertas das cenas 6 e 9.</p>
+
+<p class="dica">Cada cena tem uma <strong>hashtag</strong> (ex.: <code>#C04-PRESENCAS</code>) e cada captura de tela um código (ex.: <code>#C04b</code>). Use esses códigos para nomear os arquivos de gravação e dos prints — na edição, basta casar o código do arquivo com o do roteiro.</p>
+<h2>Roteiro cena a cena</h2>
+
+<div class="cena">
+<h3><span class="hashtag">#C01-LOGIN</span> Cena 1 — Abertura <span class="rotulo dourado">±30 s</span></h3>
+<p class="acao">Tela de login em <code>https://jeru.olgado.org</code>, parada, com o brasão e o fundo azul.</p>
+<p class="narracao">Administrar uma Loja exige rigor: atas, presenças, capitações, balancetes e prazos ritualísticos. O Gestão da Loja reúne tudo isso em um único sistema, feito sob medida para a Secretaria e a Tesouraria. Nos próximos minutos, vou mostrar o sistema funcionando em uma loja de demonstração, com dados totalmente fictícios.</p>
+<p class="prints"><strong>Prints de referência:</strong> <code>#C01a</code> tela de login parada</p>
+</div>
+
+<div class="cena">
+<h3><span class="hashtag">#C02-DASHBOARD</span> Cena 2 — Login e Dashboard <span class="rotulo dourado">±60 s</span> <span class="rotulo">demo-vm</span></h3>
+<p class="acao">Digitar CIM <code>demo-vm</code> e a senha, entrar. Percorrer o Dashboard devagar: cards de estatísticas, sino de notificações (abrir e mostrar os alertas), e clicar em um ícone <strong>(i)</strong> para exibir a explicação da tela.</p>
+<p class="narracao">O acesso é simples: cada irmão entra com o seu CIM e a sua senha. Este é o painel do Venerável Mestre: membros ativos, sessões do mês, situação financeira e a central de notificações — que avisa sobre assinaturas pendentes, prazos e aniversários dos familiares dos irmãos. E repare: todas as telas têm este ícone de informação, que explica em linguagem simples o que cada função faz. Ninguém precisa de manual.</p>
+<p class="prints"><strong>Prints de referência:</strong> <code>#C02a</code> login preenchido (demo-vm) · <code>#C02b</code> dashboard completo · <code>#C02c</code> sino de notificações aberto · <code>#C02d</code> popover do ícone (i)</p>
+</div>
+
+<div class="cena">
+<h3><span class="hashtag">#C03-MEMBROS</span> Cena 3 — Quadro de Obreiros <span class="rotulo dourado">±60 s</span> <span class="rotulo">demo-vm</span></h3>
+<p class="acao">Abrir Secretaria → Membros. Mostrar a lista (graus, cargos, status — apontar o badge IRREGULAR do Sérgio). Abrir a ficha de um membro: dados, familiares cadastrados, histórico de graus.</p>
+<p class="narracao">No quadro de obreiros, a Secretaria vê grau, cargo do rito e a situação de cada irmão — inclusive quem está irregular com a Tesouraria, marcado automaticamente. Na ficha completa ficam os dados pessoais, protegidos conforme a LGPD, e também os familiares — cônjuge e filhos — cujos aniversários geram lembretes para toda a Loja.</p>
+<p class="prints"><strong>Prints de referência:</strong> <code>#C03a</code> lista de membros (badge IRREGULAR visível) · <code>#C03b</code> ficha do membro · <code>#C03c</code> familiares na ficha</p>
+</div>
+
+<div class="cena">
+<h3><span class="hashtag">#C04-PRESENCAS</span> Cena 4 — Sessões e Presenças <span class="rotulo dourado">±75 s</span> <span class="rotulo">demo-vm</span></h3>
+<p class="acao">Abrir Secretaria → Sessões. Mostrar o histórico das 8 sessões. Entrar em uma sessão: tabela de presenças com os badges de frequência (apontar o vermelho do Rafael, Aprendiz faltoso), presença de visitante, botão de exportar CSV e o QR Code de check-in.</p>
+<p class="narracao">Cada sessão tem seu livro de presenças digital. O check-in pode ser feito pelo QR Code exibido na entrada do templo — o irmão aponta a câmera e pronto. O sistema calcula a frequência de cada obreiro e destaca em vermelho quem está abaixo do mínimo regulamentar — atenção especial para Aprendizes e Companheiros, por causa do interstício. Visitantes também são registrados e podem receber o certificado de visita por e-mail, em PDF.</p>
+<p class="prints"><strong>Prints de referência:</strong> <code>#C04a</code> histórico de sessões · <code>#C04b</code> tabela de presenças com badges de frequência · <code>#C04c</code> QR Code de check-in · <code>#C04d</code> linha do visitante</p>
+</div>
+
+<div class="cena">
+<h3><span class="hashtag">#C05-ATAS</span> Cena 5 — Atas (Balaústres) <span class="rotulo dourado">±75 s</span> <span class="rotulo">demo-vm</span></h3>
+<p class="acao">Abrir Secretaria → Atas. Mostrar a ata nº 1 <strong>assinada</strong> (selo, PDF) e a ata nº 2 em <strong>rascunho</strong>. Abrir o rascunho e mostrar o fluxo: edição → validação pelos irmãos → assinaturas. Mencionar (sem executar) a opção gov.br.</p>
+<p class="narracao">As atas seguem o rito completo: o Secretário redige, envia aos irmãos para validação, e depois libera para as assinaturas do Venerável e do Secretário. A Loja pode assinar dentro do sistema ou com o certificado digital gov.br de cada assinante. Uma vez assinada, a ata é selada — imutável — e arquivada automaticamente no Google Drive da Loja.</p>
+<p class="prints"><strong>Prints de referência:</strong> <code>#C05a</code> lista de atas (assinada + rascunho) · <code>#C05b</code> ata assinada/selada · <code>#C05c</code> rascunho em edição · <code>#C05d</code> opção de assinatura gov.br</p>
+</div>
+
+<div class="cena">
+<h3><span class="hashtag">#C06-KANBAN</span> Cena 6 — Kanban de Admissão e Progressão <span class="rotulo dourado">±60 s</span> <span class="rotulo">demo-vm</span></h3>
+<p class="acao">Abrir os quadros Kanban: mostrar o candidato fictício em Sindicância e as duas progressões em andamento (Lucas para Companheiro, Marcos para Mestre). Arrastar um card de coluna, se quiser mostrar a interação.</p>
+<p class="narracao">Os processos que mais dão trabalho à Secretaria viram quadros visuais. Aqui, um candidato em fase de sindicância; ali, dois irmãos em progressão de grau. O sistema controla as travas automaticamente: interstício, frequência mínima, instruções recebidas e o placet — nada avança fora do regulamento.</p>
+<p class="prints"><strong>Prints de referência:</strong> <code>#C06a</code> Kanban de admissão (Sindicância) · <code>#C06b</code> Kanban de progressão (2 cards)</p>
+</div>
+
+<div class="cena">
+<h3><span class="hashtag">#C07-DESPESA</span> Cena 7 — Aprovação de despesa <span class="rotulo dourado">±40 s</span> <span class="rotulo">demo-vm</span></h3>
+<p class="acao">Abrir Tesouraria → Despesas. Mostrar a despesa "Reforma da secretaria" pendente e aprová-la como Venerável (fica aguardando o Tesoureiro).</p>
+<p class="narracao">Nenhuma despesa sai sem controle: é preciso a aprovação conjunta do Venerável e do Tesoureiro. Eu aprovo como Venerável — e a despesa fica aguardando a segunda assinatura. Transparência total para o Conselho de Contas.</p>
+<p class="prints"><strong>Prints de referência:</strong> <code>#C07a</code> despesa pendente de aprovação · <code>#C07b</code> despesa aprovada pelo VM (aguardando Tesoureiro)</p>
+</div>
+
+<div class="cena">
+<h3><span class="hashtag">#C08-TESOURARIA</span> Cena 8 — Tesouraria e Balancete <span class="rotulo dourado">±90 s</span> <span class="rotulo">demo-tes</span></h3>
+<p class="acao">Sair e entrar como <code>demo-tes</code>. Mostrar: Mensalidades (capitações pagas, pendentes e as 3 vencidas do Sérgio), a cobrança automática via Pix/boleto/cartão (Asaas), lançamento de receita manual com categoria, e o Balancete mensal com a tabela consolidada por categoria (Capitação, Tronco, Aluguel...). Exportar o CSV.</p>
+<p class="narracao">Agora, a visão do Tesoureiro. As capitações são geradas todo mês e podem ser cobradas automaticamente por Pix, boleto ou cartão — o irmão recebe o link e o sistema baixa o pagamento sozinho, pelo gateway Asaas. O Tronco de Solidariedade e outras receitas entram com poucos cliques, categorizadas. E no fim do mês, o balancete sai pronto: livro-caixa completo e o resumo por categoria, com exportação para a prestação de contas.</p>
+<p class="prints"><strong>Prints de referência:</strong> <code>#C08a</code> mensalidades (pagas/pendentes/vencidas) · <code>#C08b</code> link de cobrança Asaas · <code>#C08c</code> lançamento de receita manual · <code>#C08d</code> balancete consolidado por categoria · <code>#C08e</code> exportação CSV</p>
+</div>
+
+<div class="cena">
+<h3><span class="hashtag">#C09-ESMOLER</span> Cena 9 — O Esmoler e os alertas de bem-estar <span class="rotulo dourado">±50 s</span> <span class="rotulo">demo-esm</span></h3>
+<p class="acao">Sair e entrar como <code>demo-esm</code>. Abrir as notificações: alerta de inadimplência preventiva do Sérgio e alerta de baixa frequência do Rafael.</p>
+<p class="narracao">Este é um cuidado que só quem é da Ordem entende: o perfil do Esmoler. Antes de um irmão se tornar irregular, o sistema avisa o Hospitaleiro — duas capitações vencidas, ou frequência caindo — para que ele procure o irmão e entenda se está tudo bem. A tecnologia a serviço da fraternidade.</p>
+<p class="prints"><strong>Prints de referência:</strong> <code>#C09a</code> notificações do Esmoler (inadimplência + frequência)</p>
+</div>
+
+<div class="cena">
+<h3><span class="hashtag">#C10-FECHO</span> Cena 10 — Encerramento <span class="rotulo dourado">±30 s</span></h3>
+<p class="acao">Voltar ao Dashboard do Venerável (ou tela de login). Encerrar com o brasão em tela.</p>
+<p class="narracao">Multi-loja, seguro, com controle de acesso por cargo e tudo em conformidade com a LGPD. O Gestão da Loja cuida da burocracia para que a Loja cuide do que importa. Peça uma demonstração e experimente com a sua administração — a loja de testes que você acabou de ver fica à disposição.</p>
+<p class="prints"><strong>Prints de referência:</strong> <code>#C10a</code> tela final com o brasão</p>
+</div>
+
+<h2>Dicas de produção</h2>
+<ul>
+  <li><strong>Ritmo:</strong> narração calma (±140 palavras/min). Os tempos por cena somam ±9 minutos.</li>
+  <li><strong>Mouse:</strong> movimentos lentos e diretos; pause 1 segundo sobre o elemento antes de clicar.</li>
+  <li><strong>Cortes:</strong> grave cada cena como um arquivo; monte na ordem com cortes secos ou fusão rápida.</li>
+  <li><strong>Trilha:</strong> instrumental discreta a −20 dB abaixo da voz; sem trilha durante a cena 9 (tom mais humano).</li>
+  <li><strong>Legendas:</strong> gere legendas automáticas e revise — muitos assistem sem áudio.</li>
+  <li><strong>Depois de gravar:</strong> recrie a loja demo em <code>/admin</code> para desfazer as ações feitas durante a gravação.</li>
+</ul>
+
+</body>
+</html>
