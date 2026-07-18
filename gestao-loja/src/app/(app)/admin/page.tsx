@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
-import { createLodge, updatePlatformAsaas } from "./actions";
+import { createLodge, updatePlatformAsaas, criarLojaDemo } from "./actions";
 import { LodgeActions } from "./lodge-actions";
 import { ActionForm } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
@@ -292,6 +292,33 @@ export default async function AdminPage() {
                   servidor (.env).
                 </p>
               </div>
+            </ActionForm>
+          </CardContent>
+        </Card>
+
+        <Card className="h-fit">
+          <CardHeader>
+            <CardTitle>Loja de demonstração</CardTitle>
+            <CardDescription>
+              Cria (ou recria do zero) a loja nº 9999 com membros, sessões,
+              presenças, atas, finanças e processos fictícios — para os
+              usuários testarem o sistema sem usar dados reais. Recriar apaga
+              tudo o que foi feito nela.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ActionForm
+              action={criarLojaDemo}
+              submitLabel="Criar / recriar loja demo"
+            >
+              <p className="text-xs text-muted-foreground">
+                Acessos: CIM <code>demo-vm</code> (Venerável),{" "}
+                <code>demo-sec</code> (Secretário), <code>demo-tes</code>{" "}
+                (Tesoureiro), <code>demo-esm</code> (Esmoler),{" "}
+                <code>demo-cc</code> (Conselho), <code>demo-m1</code> a{" "}
+                <code>demo-a2</code> (obreiros) — senha <code>demo123</code>{" "}
+                para todos.
+              </p>
             </ActionForm>
           </CardContent>
         </Card>

@@ -174,6 +174,25 @@ export async function updatePlatformAsaas(
   return { ok: "Conta Asaas da plataforma atualizada." };
 }
 
+// Cria (ou recria do zero) a Loja de Demonstração nº 9999 com dados
+// fictícios — ambiente de testes dos usuários, sem tocar em dados reais.
+export async function criarLojaDemo(
+  _prev: ActionResult,
+  _formData: FormData
+): Promise<ActionResult> {
+  await requireRole("SUPER_ADMIN");
+  try {
+    const { recreateDemoLodge } = await import("@/lib/demo-lodge");
+    const { logins } = await recreateDemoLodge();
+    revalidatePath("/admin");
+    return { ok: `Loja de demonstração recriada. ${logins}` };
+  } catch (e) {
+    return {
+      error: `Falha ao criar a loja demo (${e instanceof Error ? e.message : "erro"}).`,
+    };
+  }
+}
+
 // Atualiza dados cadastrais de uma loja (SUPER_ADMIN)
 export async function updateLodge(
   _prev: ActionResult,
