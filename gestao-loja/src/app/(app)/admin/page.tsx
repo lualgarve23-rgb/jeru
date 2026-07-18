@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
-import { createLodge } from "./actions";
+import { createLodge, updatePlatformAsaas } from "./actions";
 import { LodgeActions } from "./lodge-actions";
 import { ActionForm } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
@@ -31,11 +31,17 @@ const licencaStatusLabels: Record<string, string> = {
 export default async function AdminPage() {
   await requireRole("SUPER_ADMIN");
 
-  const lodges = await prisma.lodge.findMany({
-    where: { number: { not: "0000" } },
-    orderBy: { createdAt: "asc" },
-    include: { _count: { select: { users: true } } },
-  });
+  const [lodges, platformConfig] = await Promise.all([
+    prisma.lodge.findMany({
+      where: { number: { not: "0000" } },
+      orderBy: { createdAt: "asc" },
+      include: { _count: { select: { users: true } } },
+    }),
+    prisma.platformConfig.findUnique({ where: { id: "platform" } }),
+  ]);
+  const asaasConfigurada = Boolean(
+    platformConfig?.asaasApiKey || process.env.ASAAS_PLATFORM_API_KEY
+  );
 
   return (
     <div className="space-y-6">
@@ -158,6 +164,7 @@ export default async function AdminPage() {
           </CardContent>
         </Card>
 
+        <div className="space-y-6">
         <Card className="h-fit">
           <CardHeader>
             <CardTitle>Nova loja</CardTitle>
@@ -241,6 +248,54 @@ export default async function AdminPage() {
             </ActionForm>
           </CardContent>
         </Card>
+
+        <Card className="h-fit">
+          <CardHeader>
+            <CardTitle>Conta Asaas da plataforma</CardTitle>
+            <CardDescription>
+              Conta usada para cobrar as licenças das lojas.{" "}
+              {asaasConfigurada ? (
+                <Badge variant="success">Configurada</Badge>
+              ) : (
+                <Badge variant="warning">Não configurada</Badge>
+              )}{" "}
+              Cada loja configura a própria conta Asaas (para cobrar os
+              irmãos) em Tesouraria.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ActionForm action={updatePlatformAsaas} submitLabel="Salvar">
+              <div className="space-y-1">
+                <Label htmlFor="asaasApiKey">API key</Label>
+                <Input
+                  id="asaasApiKey"
+                  name="asaasApiKey"
+                  type="password"
+                  defaultValue={platformConfig?.asaasApiKey ?? ""}
+                  placeholder="$aact_..."
+                  autoComplete="off"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="asaasWebhookToken">Token do webhook</Label>
+                <Input
+                  id="asaasWebhookToken"
+                  name="asaasWebhookToken"
+                  type="password"
+                  defaultValue={platformConfig?.asaasWebhookToken ?? ""}
+                  autoComplete="off"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Configure na conta Asaas um webhook apontando para
+                  /api/webhooks/asaas-plataforma com este token de
+                  autenticação. Campos vazios voltam a valer o que estiver no
+                  servidor (.env).
+                </p>
+              </div>
+            </ActionForm>
+          </CardContent>
+        </Card>
+        </div>
       </div>
     </div>
   );

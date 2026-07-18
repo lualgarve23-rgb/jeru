@@ -1,14 +1,16 @@
 import { prisma } from "@/lib/prisma";
+import { getPlatformAsaas } from "@/lib/platform-config";
 
 // Webhook do Asaas da PLATAFORMA (licenças do SaaS) — configurar na conta
 // Asaas da plataforma apontando para /api/webhooks/asaas-plataforma com o
-// token de autenticação igual a ASAAS_PLATFORM_WEBHOOK_TOKEN (.env).
+// token de autenticação igual ao gravado em /admin (fallback:
+// ASAAS_PLATFORM_WEBHOOK_TOKEN no .env).
 //
 // A cobrança da licença carrega externalReference "licenca:<lodgeId>";
 // como redundância, o payment.id também é comparado a licencaChargeId.
 
 export async function POST(request: Request) {
-  const secret = process.env.ASAAS_PLATFORM_WEBHOOK_TOKEN;
+  const { webhookToken: secret } = await getPlatformAsaas();
   if (!secret || request.headers.get("asaas-access-token") !== secret) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }

@@ -13,6 +13,19 @@ datasource db {
 
 // ─────────────────────────── Tenant ───────────────────────────
 
+// Configuração global do SaaS (linha única) — editável pelo SUPER_ADMIN em
+// /admin. A conta Asaas da plataforma cobra as licenças das lojas; cada loja
+// tem a própria conta (Lodge.asaasApiKey) para cobrar os irmãos.
+// Fallback: variáveis ASAAS_PLATFORM_API_KEY / ASAAS_PLATFORM_WEBHOOK_TOKEN.
+model PlatformConfig {
+  id                String   @id @default("platform")
+  asaasApiKey       String?
+  asaasWebhookToken String? // conferido no header asaas-access-token do webhook
+  updatedAt         DateTime @updatedAt
+
+  @@map("platform_config")
+}
+
 model Lodge {
   id                 String   @id @default(cuid())
   name               String

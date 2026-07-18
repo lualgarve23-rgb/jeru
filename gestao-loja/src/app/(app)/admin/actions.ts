@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { CARGOS_PADRAO } from "@/lib/cargos";
+import { getPlatformAsaas } from "@/lib/platform-config";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
@@ -50,14 +51,16 @@ export async function createLodge(
   const licencaValor = Number(
     String(formData.get("licencaValor") ?? "").replace(",", ".")
   );
+  let platformApiKey: string | null = null;
   if (cobrarLicenca) {
     if (!Number.isFinite(licencaValor) || licencaValor <= 0) {
       return { error: "Informe o valor da licença (em reais)." };
     }
-    if (!process.env.ASAAS_PLATFORM_API_KEY) {
+    platformApiKey = (await getPlatformAsaas()).apiKey;
+    if (!platformApiKey) {
       return {
         error:
-          "ASAAS_PLATFORM_API_KEY não configurada no servidor — não é possível gerar a cobrança da licença.",
+          "Conta Asaas da plataforma não configurada — informe a API key na seção 'Conta Asaas da plataforma' desta página.",
       };
     }
   }
@@ -106,7 +109,7 @@ export async function createLodge(
   if (cobrarLicenca) {
     try {
       const { ensureCustomer, createPayment } = await import("@/lib/asaas");
-      const apiKey = process.env.ASAAS_PLATFORM_API_KEY!;
+      const apiKey = platformApiKey!;
       const lodge = await prisma.lodge.findUniqueOrThrow({
         where: { number },
         select: { id: true },
@@ -147,6 +150,28 @@ export async function createLodge(
   return {
     ok: `Loja "${name}" criada. VM ${vmName} acessa com CIM ${vmCim} e senha inicial igual ao CPF (somente dígitos).${licencaMsg}`,
   };
+}
+
+// Salva as credenciais Asaas da PLATAFORMA (licenças) — SUPER_ADMIN.
+// Campo vazio limpa o valor gravado (volta a valer o .env, se houver).
+export async function updatePlatformAsaas(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  await requireRole("SUPER_ADMIN");
+
+  const asaasApiKey = String(formData.get("asaasApiKey") ?? "").trim() || null;
+  const asaasWebhookToken =
+    String(formData.get("asaasWebhookToken") ?? "").trim() || null;
+
+  await prisma.platformConfig.upsert({
+    where: { id: "platform" },
+    create: { id: "platform", asaasApiKey, asaasWebhookToken },
+    update: { asaasApiKey, asaasWebhookToken },
+  });
+
+  revalidatePath("/admin");
+  return { ok: "Conta Asaas da plataforma atualizada." };
 }
 
 // Atualiza dados cadastrais de uma loja (SUPER_ADMIN)
@@ -271,10 +296,11 @@ export async function gerarCobrancaLicenca(
   if (!Number.isFinite(valor) || valor <= 0) {
     return { error: "Informe um valor de licença válido." };
   }
-  if (!process.env.ASAAS_PLATFORM_API_KEY) {
+  const { apiKey: platformApiKey } = await getPlatformAsaas();
+  if (!platformApiKey) {
     return {
       error:
-        "ASAAS_PLATFORM_API_KEY não configurada no servidor — não é possível gerar a cobrança da licença.",
+        "Conta Asaas da plataforma não configurada — informe a API key na seção 'Conta Asaas da plataforma' desta página.",
     };
   }
 
@@ -292,8 +318,7 @@ export async function gerarCobrancaLicenca(
 
   try {
     const { ensureCustomer, createPayment } = await import("@/lib/asaas");
-    const apiKey = process.env.ASAAS_PLATFORM_API_KEY;
-    const customerId = await ensureCustomer(apiKey, {
+    const customerId = await ensureCustomer(platformApiKey, {
       name: vm.name,
       cpf: vm.cpf,
       email: vm.email,
@@ -301,7 +326,7 @@ export async function gerarCobrancaLicenca(
     });
     const due = new Date();
     due.setDate(due.getDate() + 7);
-    const payment = await createPayment(apiKey, {
+    const payment = await createPayment(platformApiKey, {
       customerId,
       amountCents: Math.round(valor * 100),
       dueDate: due,
