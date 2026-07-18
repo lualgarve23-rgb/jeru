@@ -39,18 +39,6 @@ export default function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cpf" className="text-slate-200">
-                CPF
-              </Label>
-              <Input
-                id="cpf"
-                name="cpf"
-                placeholder="000.000.000-00"
-                required
-                className="border-white/15 bg-white/10 text-white placeholder:text-slate-500"
-              />
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="password" className="text-slate-200">
                 Senha
               </Label>

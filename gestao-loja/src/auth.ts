@@ -10,10 +10,6 @@ const credentialsSchema = z.object({
     .string()
     .transform((v) => v.trim())
     .pipe(z.string().min(1)),
-  cpf: z
-    .string()
-    .min(1)
-    .transform((v) => v.replace(/\D/g, "")), // aceita com ou sem máscara
   password: z.string().min(1),
 });
 
@@ -21,16 +17,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   providers: [
     Credentials({
-      name: "CIM + CPF + Senha",
+      name: "CIM + Senha",
       credentials: {
         cim: { label: "CIM", type: "text" },
-        cpf: { label: "CPF", type: "text" },
         password: { label: "Senha", type: "password" },
       },
       async authorize(credentials) {
         const parsed = credentialsSchema.safeParse(credentials);
         if (!parsed.success) return null;
-        const { cim, cpf, password } = parsed.data;
+        const { cim, password } = parsed.data;
 
         // O CIM é único globalmente e mapeia o usuário à sua Loja (tenant).
         const user = await prisma.user.findUnique({
@@ -38,7 +33,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           include: { lodge: { select: { id: true, name: true } } },
         });
         if (!user || user.status === "EX_MEMBRO") return null;
-        if (user.cpf.replace(/\D/g, "") !== cpf) return null;
 
         // Aceita a senha como digitada e, como fallback, só os dígitos —
         // a senha inicial é o CPF, que muitos digitam com máscara (000.000.000-00)

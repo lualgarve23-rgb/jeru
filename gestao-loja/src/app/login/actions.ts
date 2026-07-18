@@ -10,13 +10,12 @@ export async function loginAction(
   try {
     await signIn("credentials", {
       cim: formData.get("cim"),
-      cpf: formData.get("cpf"),
       password: formData.get("password"),
       redirectTo: "/dashboard",
     });
   } catch (error) {
     if (error instanceof AuthError) {
-      return "CIM, CPF ou senha inválidos.";
+      return "CIM ou senha inválidos.";
     }
     throw error; // inclui o redirect do Next.js
   }
