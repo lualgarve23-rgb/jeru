@@ -91,6 +91,7 @@ model Lodge {
   quittePlacets       QuittePlacet[]
   notifications       Notification[]
   cargosRito          CargoRito[]
+  bibliotecaItens     BibliotecaItem[]
 
   @@map("lodges")
 }
@@ -152,6 +153,9 @@ model User {
   photoUrl       String?
   status         MemberStatus @default(ATIVO)
   initiationDate DateTime? // data de iniciação (base do interstício)
+  // Carteirinha digital: token opaco do QR Code de verificação pública
+  // (/verificar/<token>) — regenerável para revogar carteirinhas antigas
+  cardToken      String       @unique @default(cuid())
 
   // Painel de Privacidade (LGPD): visibilidade de contatos aos demais membros
   isDataPublic  Boolean @default(false)
@@ -182,6 +186,7 @@ model User {
   instrucoesRegistradas Instrucao[]     @relation("InstrucaoRegistrador")
   processosProgressao   ProcessoProgressao[]
   familiares            FamilyMember[]
+  bibliotecaItens       BibliotecaItem[]
 
   @@index([lodgeId])
   @@map("users")
@@ -427,6 +432,41 @@ model Document {
 
   @@index([lodgeId])
   @@map("documents")
+}
+
+// ─────────────── Biblioteca Digital ───────────────
+
+enum BibliotecaCategoria {
+  LIVRO
+  RITUAL
+  DECRETO
+  REGULAMENTO
+  ATA_HISTORICA
+  PRANCHA
+  OUTRO
+}
+
+// Acervo digital da Loja (livros, rituais, decretos, regulamentos) —
+// leitura por todos os obreiros; upload/remoção pela Secretaria/VM.
+// Arquivo guardado no banco (independe do Google Drive conectado).
+model BibliotecaItem {
+  id           String              @id @default(cuid())
+  lodgeId      String
+  uploadedById String
+  titulo       String
+  autor        String?
+  categoria    BibliotecaCategoria @default(OUTRO)
+  descricao    String?
+  arquivo      Bytes
+  mimeType     String
+  sizeBytes    Int
+  createdAt    DateTime            @default(now())
+
+  lodge      Lodge @relation(fields: [lodgeId], references: [id])
+  uploadedBy User  @relation(fields: [uploadedById], references: [id])
+
+  @@index([lodgeId])
+  @@map("biblioteca_itens")
 }
 
 // ─────────────── Tesouraria ───────────────

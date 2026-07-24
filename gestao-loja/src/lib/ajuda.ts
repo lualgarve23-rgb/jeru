@@ -27,6 +27,10 @@ export const AJUDA = {
     "Caixa de entrada do Gmail da Loja, sem sair do sistema: veja as respostas da Guarda dos Selos e de outras Lojas, baixe anexos e responda na mesma conversa.",
   documentos:
     "Arquivo digital da Loja no Google Drive: atas assinadas, regulamentos e documentos históricos. O que é enviado aqui fica guardado no Drive conectado da Loja.",
+  biblioteca:
+    "Acervo digital da Loja: livros, rituais, decretos e regulamentos disponíveis a todos os irmãos para consulta e download. O envio e a remoção de arquivos são feitos pela Secretaria.",
+  carteirinha:
+    "Sua identificação maçônica digital, com QR Code de verificação. Apresente na tela do celular ao visitar outra Loja — quem escanear o código vê a confirmação de que você é membro regular. Use o botão de imprimir para levar em papel.",
   admissoes:
     "Acompanhamento do candidato à Iniciação, etapa por etapa: pré-cadastro, edital, sindicância (comissão), escrutínio (votação) e Placet — a autorização final da Potência. Arraste o cartão quando a etapa concluir.",
   progressoes:

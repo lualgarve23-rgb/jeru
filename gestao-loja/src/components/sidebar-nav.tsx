@@ -24,6 +24,8 @@ import {
   CircleUserRound,
   BadgeCheck,
   Mail,
+  BookOpen,
+  CreditCard,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -50,6 +52,8 @@ const icons: Record<string, LucideIcon> = {
   perfil: CircleUserRound,
   cargos: BadgeCheck,
   emails: Mail,
+  biblioteca: BookOpen,
+  carteirinha: CreditCard,
 };
 
 export type NavItem = {

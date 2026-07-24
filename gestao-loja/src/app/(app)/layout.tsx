@@ -25,6 +25,8 @@ function navFor(role: string, cargoRito: string | null, unread: number): NavItem
   const items: (NavItem & { roles?: string[] })[] = [
     { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
     { href: "/dashboard/notificacoes", label: "Notificações", icon: "notificacoes", badge: unread },
+    { href: "/dashboard/carteirinha", label: "Carteirinha Digital", icon: "carteirinha" },
+    { href: "/dashboard/biblioteca", label: "Biblioteca Digital", icon: "biblioteca" },
     { href: "/secretaria/membros", label: "Membros", icon: "membros", section: "Secretaria" },
     { href: "/secretaria/cargos", label: "Cargos do Rito", icon: "cargos", section: "Secretaria", roles: fiscal },
     { href: "/secretaria/sessoes", label: "Sessões e Presenças", icon: "sessoes", section: "Secretaria" },

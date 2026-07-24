@@ -43,6 +43,16 @@ export const documentTypeLabels: Record<string, string> = {
   OUTRO: "Outro",
 };
 
+export const bibliotecaCategoriaLabels: Record<string, string> = {
+  LIVRO: "Livro",
+  RITUAL: "Ritual",
+  DECRETO: "Decreto",
+  REGULAMENTO: "Regulamento",
+  ATA_HISTORICA: "Ata histórica",
+  PRANCHA: "Prancha",
+  OUTRO: "Outro",
+};
+
 export const invoiceStatusLabels: Record<string, string> = {
   PENDENTE: "Pendente",
   PAGA: "Paga",

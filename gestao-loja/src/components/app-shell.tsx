@@ -52,7 +52,7 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen bg-background">
-      <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-card px-4 text-foreground lg:hidden">
+      <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-card px-4 text-foreground print:hidden lg:hidden">
         <div className="flex min-w-0 items-center gap-2.5">
           <LodgeMark lodge={lodge} size="sm" />
           <p className="truncate text-sm font-semibold">{lodgeName}</p>
@@ -96,7 +96,7 @@ export function AppShell({
 
       <aside
         className={
-          "fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r border-border bg-[#d3deee] text-foreground transition-transform duration-200 ease-out lg:translate-x-0 " +
+          "fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r border-border bg-[#d3deee] text-foreground transition-transform duration-200 ease-out print:hidden lg:translate-x-0 " +
           (open ? "translate-x-0" : "")
         }
       >
@@ -125,7 +125,7 @@ export function AppShell({
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 p-4 pt-20 lg:ml-64 lg:p-8 lg:pt-8">{children}</main>
+      <main className="min-w-0 flex-1 p-4 pt-20 print:ml-0 print:p-0 lg:ml-64 lg:p-8 lg:pt-8">{children}</main>
     </div>
   );
 }
