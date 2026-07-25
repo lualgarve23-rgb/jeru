@@ -33,8 +33,8 @@ export function ImportMetaForm() {
       <form action={formAction} className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1">
-            <Label htmlFor="metaCim">CIM de acesso ao Meta</Label>
-            <Input id="metaCim" name="metaCim" required placeholder="somente números" />
+            <Label htmlFor="metaCpf">CPF de acesso ao Meta</Label>
+            <Input id="metaCpf" name="metaCpf" required placeholder="somente números" />
           </div>
           <div className="space-y-1">
             <Label htmlFor="metaSenha">Senha do Meta</Label>

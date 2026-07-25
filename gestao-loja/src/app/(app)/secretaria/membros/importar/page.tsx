@@ -27,7 +27,7 @@ export default async function ImportarMembrosPage() {
         <CardHeader>
           <CardTitle>Acesso ao Meta</CardTitle>
           <CardDescription>
-            Use o CIM e a senha de um irmão com acesso ao quadro no Meta
+            Use o CPF e a senha de um irmão com acesso ao quadro no Meta
             (Secretário ou Venerável). As credenciais servem apenas para esta
             consulta e <strong>não são armazenadas</strong>. Novos membros
             entram com senha provisória igual ao CPF (troca obrigatória no

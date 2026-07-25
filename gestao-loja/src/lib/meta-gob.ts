@@ -1,5 +1,5 @@
 // Cliente do METAGOB (meta.gob.org.br) — importação do quadro de obreiros.
-// A loja informa as credenciais de um usuário com acesso ao Meta (CIM + senha);
+// A loja informa as credenciais de um usuário com acesso ao Meta (CPF + senha);
 // o sistema autentica na API do portal e lê a listagem de membros da loja.
 // As credenciais são usadas apenas durante a importação e não são armazenadas.
 
@@ -50,19 +50,19 @@ async function metaFetch(path: string, init?: RequestInit) {
     } catch {}
     throw new Error(
       res.status === 401 || res.status === 403
-        ? `Meta recusou o acesso (${res.status}). Confira CIM e senha.${detalhe ? ` ${detalhe}` : ""}`
+        ? `Meta recusou o acesso (${res.status}). Confira CPF e senha.${detalhe ? ` ${detalhe}` : ""}`
         : `Meta respondeu ${res.status} em ${path}.${detalhe ? ` ${detalhe}` : ""}`
     );
   }
   return res.json();
 }
 
-// Login no Meta: username = CIM (somente dígitos), como o portal faz
-async function metaLogin(cim: string, senha: string): Promise<MetaLoginResponse> {
+// Login no Meta: username = CPF (somente dígitos), como o portal faz
+async function metaLogin(cpf: string, senha: string): Promise<MetaLoginResponse> {
   return metaFetch("auth/login", {
     method: "POST",
     body: JSON.stringify({
-      username: cim.replace(/\D/g, ""),
+      username: cpf.replace(/\D/g, ""),
       password: senha,
       user_type: "MEMBER",
     }),
@@ -88,10 +88,10 @@ function mapMember(m: any): MetaMember {
 // Se o usuário tiver mais de um contexto de loja, usa o marcado como
 // primário (ou o primeiro) — o Meta já filtra a listagem pelo contexto.
 export async function buscarMembrosMeta(
-  cim: string,
+  cpf: string,
   senha: string
 ): Promise<{ membros: MetaMember[]; contexto: string }> {
-  const login = await metaLogin(cim, senha);
+  const login = await metaLogin(cpf, senha);
   let token = login.access_token;
   if (!token) throw new Error("O Meta não devolveu o token de acesso.");
 

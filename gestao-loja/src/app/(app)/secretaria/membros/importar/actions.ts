@@ -33,16 +33,16 @@ export async function importarMembrosMeta(
   formData: FormData
 ): Promise<ImportResult> {
   const user = await requireRole("VENERAVEL_MESTRE", "SECRETARIO");
-  const cim = String(formData.get("metaCim") ?? "").trim();
+  const cpf = String(formData.get("metaCpf") ?? "").trim();
   const senha = String(formData.get("metaSenha") ?? "");
   const simulacao = formData.get("simulacao") === "on";
-  if (!cim || !senha) {
-    return { error: "Informe o CIM e a senha de acesso ao Meta." };
+  if (!cpf || !senha) {
+    return { error: "Informe o CPF e a senha de acesso ao Meta." };
   }
 
   let membros, contexto;
   try {
-    ({ membros, contexto } = await buscarMembrosMeta(cim, senha));
+    ({ membros, contexto } = await buscarMembrosMeta(cpf, senha));
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Falha ao acessar o Meta." };
   }
