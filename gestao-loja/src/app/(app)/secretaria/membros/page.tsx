@@ -34,9 +34,14 @@ export default async function MembrosPage() {
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-1 text-2xl font-bold">Quadro de Obreiros<InfoDica titulo="Quadro de Obreiros" texto={AJUDA.membros} /></h1>
         {isSecretaria && (
-          <Button asChild>
-            <Link href="/secretaria/membros/novo">Novo membro</Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button asChild variant="outline">
+              <Link href="/secretaria/membros/importar">Importar do Meta</Link>
+            </Button>
+            <Button asChild>
+              <Link href="/secretaria/membros/novo">Novo membro</Link>
+            </Button>
+          </div>
         )}
       </div>
       <Table>
