@@ -37,6 +37,14 @@ export type MetaMember = {
   iniciacao: string | null; // ISO
   elevacao: string | null;
   exaltacao: string | null;
+  rg: string | null;
+  naturalidade: string | null;
+  estadoCivil: string | null;
+  conjuge: string | null;
+  nomePai: string | null;
+  nomeMae: string | null;
+  tipoSanguineo: string | null;
+  foto: string | null; // data URI
 };
 
 async function metaFetch(path: string, init?: RequestInit) {
@@ -108,7 +116,67 @@ function mapMember(m: any): MetaMember {
     iniciacao: m.initiation_date ?? null,
     elevacao: m.elevation_date ?? null,
     exaltacao: m.raising_date ?? null,
+    rg: m.rg_number
+      ? [m.rg_number, m.rg_issuer, m.rg_state].filter(Boolean).join(" ")
+      : null,
+    naturalidade: m.birthplace || null,
+    estadoCivil: m.marital_status || null,
+    conjuge: m.spouse_name || null,
+    nomePai: m.father_name || null,
+    nomeMae: m.mother_name || null,
+    tipoSanguineo: m.blood_type || null,
+    foto: null, // preenchida depois, baixando members/{id}/photo
   };
+}
+
+// Mescla a ficha completa sobre a linha da listagem: só substitui um campo
+// quando o detalhe realmente trouxe valor (evita apagar dados bons quando a
+// resposta do detalhe vem em outro formato ou incompleta)
+function mergeMember(base: MetaMember, detalhe: MetaMember): MetaMember {
+  const out = { ...base };
+  for (const k of Object.keys(detalhe) as (keyof MetaMember)[]) {
+    const v = detalhe[k];
+    if (v !== null && v !== "") (out as Record<string, unknown>)[k] = v;
+  }
+  return out;
+}
+
+// Foto do membro (members/{id}/photo) como data URI — até 500 KB
+async function baixarFoto(
+  metaId: string,
+  auth: Record<string, string>
+): Promise<string | null> {
+  try {
+    const res = await fetch(`${META_API}/members/${metaId}/photo`, {
+      headers: auth,
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const tipo = res.headers.get("content-type") ?? "";
+    if (tipo.startsWith("image/")) {
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length === 0 || buf.length > 500_000) return null;
+      return `data:${tipo};base64,${buf.toString("base64")}`;
+    }
+    // Alguns backends devolvem JSON com a URL da imagem
+    if (tipo.includes("json")) {
+      const body = (await res.json()) as { url?: string; photo_url?: string };
+      const url = body.url || body.photo_url;
+      if (!url) return null;
+      const img = await fetch(url.startsWith("http") ? url : `https://meta.gob.org.br${url}`, {
+        headers: auth,
+        cache: "no-store",
+      });
+      const t2 = img.headers.get("content-type") ?? "";
+      if (!img.ok || !t2.startsWith("image/")) return null;
+      const buf = Buffer.from(await img.arrayBuffer());
+      if (buf.length === 0 || buf.length > 500_000) return null;
+      return `data:${t2};base64,${buf.toString("base64")}`;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 // Lê todos os membros visíveis no contexto de loja do usuário do Meta.
@@ -170,11 +238,16 @@ export async function buscarMembrosMeta(
       validos.slice(i, i + LOTE).map(async (m, k) => {
         if (!m.metaId) return;
         try {
-          const detalhe = await metaFetch(`members/${m.metaId}`, { headers: auth });
-          validos[i + k] = mapMember(detalhe);
+          const resposta = (await metaFetch(`members/${m.metaId}`, {
+            headers: auth,
+          })) as { data?: unknown } & Record<string, unknown>;
+          // A ficha pode vir direta ou embrulhada em { data: {...} }
+          const bruto = (resposta.data ?? resposta) as Record<string, unknown>;
+          validos[i + k] = mergeMember(m, mapMember(bruto));
         } catch {
           // mantém os dados resumidos da listagem
         }
+        validos[i + k].foto = await baixarFoto(m.metaId, auth);
       })
     );
   }

@@ -136,6 +136,14 @@ model User {
   address        String?
   birthDate      DateTime?
   profession     String?
+  // Ficha civil complementar (importada do METAGOB ou preenchida à mão)
+  rg             String? // número, órgão emissor e UF em uma linha
+  naturalidade   String?
+  estadoCivil    String?
+  conjuge        String?
+  nomePai        String?
+  nomeMae        String?
+  tipoSanguineo  String?
   passwordHash   String
   // Força troca de senha no primeiro acesso (senha provisória = CPF)
   mustChangePassword Boolean  @default(false)

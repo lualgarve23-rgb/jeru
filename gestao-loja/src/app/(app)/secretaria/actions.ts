@@ -120,6 +120,14 @@ export async function updateMember(
       birthDate: formData.get("birthDate")
         ? new Date(String(formData.get("birthDate")))
         : null,
+      address: (formData.get("address") as string) || null,
+      rg: (formData.get("rg") as string) || null,
+      naturalidade: (formData.get("naturalidade") as string) || null,
+      estadoCivil: (formData.get("estadoCivil") as string) || null,
+      conjuge: (formData.get("conjuge") as string) || null,
+      nomePai: (formData.get("nomePai") as string) || null,
+      nomeMae: (formData.get("nomeMae") as string) || null,
+      tipoSanguineo: (formData.get("tipoSanguineo") as string) || null,
       status: formData.get("status") as never,
       ...(signatureUrl ? { signatureUrl } : {}),
     },

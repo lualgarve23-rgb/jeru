@@ -116,6 +116,50 @@ export default async function MembroPage({
                   }
                 />
               </div>
+              <div className="space-y-1 sm:col-span-2">
+                <Label htmlFor="address">Endereço</Label>
+                <Input id="address" name="address" defaultValue={member.address ?? ""} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="rg">RG (nº, órgão e UF)</Label>
+                <Input id="rg" name="rg" defaultValue={member.rg ?? ""} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="naturalidade">Naturalidade</Label>
+                <Input
+                  id="naturalidade"
+                  name="naturalidade"
+                  defaultValue={member.naturalidade ?? ""}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="estadoCivil">Estado civil</Label>
+                <Input
+                  id="estadoCivil"
+                  name="estadoCivil"
+                  defaultValue={member.estadoCivil ?? ""}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="conjuge">Cônjuge</Label>
+                <Input id="conjuge" name="conjuge" defaultValue={member.conjuge ?? ""} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="nomePai">Nome do pai</Label>
+                <Input id="nomePai" name="nomePai" defaultValue={member.nomePai ?? ""} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="nomeMae">Nome da mãe</Label>
+                <Input id="nomeMae" name="nomeMae" defaultValue={member.nomeMae ?? ""} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="tipoSanguineo">Tipo sanguíneo</Label>
+                <Input
+                  id="tipoSanguineo"
+                  name="tipoSanguineo"
+                  defaultValue={member.tipoSanguineo ?? ""}
+                />
+              </div>
               <div className="space-y-1">
                 <Label htmlFor="status">Status</Label>
                 <select

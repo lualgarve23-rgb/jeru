@@ -31,10 +31,11 @@ export default async function ImportarMembrosPage() {
             (Secretário ou Venerável). As credenciais servem apenas para esta
             consulta e <strong>não são armazenadas</strong>. Novos membros
             entram com senha provisória igual ao CPF (troca obrigatória no
-            primeiro acesso); membros já cadastrados têm nome, grau, status,
-            telefone, nascimento, endereço, profissão e datas de
-            iniciação/elevação/exaltação atualizados — nível de acesso e cargo
-            de rito não mudam.
+            primeiro acesso); membros já cadastrados têm a ficha atualizada
+            (nome, grau, status, telefone, nascimento, endereço, profissão,
+            RG, filiação, naturalidade, estado civil, cônjuge, tipo sanguíneo,
+            foto e datas de iniciação/elevação/exaltação) — nível de acesso e
+            cargo de rito não mudam.
           </CardDescription>
         </CardHeader>
         <CardContent>
