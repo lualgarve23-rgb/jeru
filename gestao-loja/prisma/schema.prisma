@@ -68,6 +68,10 @@ model Lodge {
   asaasWebhookToken  String? // token conferido no header asaas-access-token do webhook
   googleRefreshToken String? // OAuth do Google da Loja (conexão ao Drive)
   googleEmail        String? // conta Google conectada
+  // Gmail da Loja (envio SMTP e leitura IMAP com senha de app);
+  // se vazio, vale o fallback global GMAIL_USER/GMAIL_APP_PASSWORD do .env
+  gmailUser          String?
+  gmailAppPassword   String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

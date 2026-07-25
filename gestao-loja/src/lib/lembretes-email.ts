@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { sendLodgeEmail, isGmailConfigured } from "@/lib/gmail";
+import { sendLodgeEmail, getGmailAuth } from "@/lib/gmail";
 import { notificationTypeLabels } from "@/lib/labels";
 
 // Lembretes diários por e-mail (disparados pelo cron junto com a varredura):
@@ -28,7 +28,8 @@ function corpo(intro: string, itens: Notif[]) {
 }
 
 export async function enviarLembretesEmail(lodgeId: string) {
-  if (!isGmailConfigured()) return { sent: 0, skipped: "gmail" as const };
+  const auth = await getGmailAuth(lodgeId);
+  if (!auth) return { sent: 0, skipped: "gmail" as const };
 
   const pendentes = await prisma.notification.findMany({
     where: { lodgeId, isRead: false, emailedAt: null },
@@ -64,6 +65,7 @@ export async function enviarLembretesEmail(lodgeId: string) {
   for (const g of porUsuario.values()) {
     try {
       await sendLodgeEmail({
+        lodgeId,
         to: g.email,
         subject: `${assuntoBase} — você tem ${g.itens.length} aviso(s)`,
         text: corpo("Irmão, há avisos dirigidos a você no sistema da Loja:", g.itens),
@@ -84,7 +86,8 @@ export async function enviarLembretesEmail(lodgeId: string) {
     });
     try {
       await sendLodgeEmail({
-        to: process.env.GMAIL_USER!,
+        lodgeId,
+        to: auth.user,
         bcc: membros.map((m) => m.email),
         subject: `${assuntoBase} — aniversariantes 🎂`,
         text: corpo("Irmãos, temos aniversariantes na família da Loja:", aniversarios),
@@ -111,7 +114,8 @@ export async function enviarLembretesEmail(lodgeId: string) {
     if (gestores.length > 0) {
       try {
         await sendLodgeEmail({
-          to: process.env.GMAIL_USER!,
+          lodgeId,
+          to: auth.user,
           bcc: gestores.map((g) => g.email),
           subject: `${assuntoBase} — ${operacionais.length} pendência(s) da Secretaria`,
           text: corpo(

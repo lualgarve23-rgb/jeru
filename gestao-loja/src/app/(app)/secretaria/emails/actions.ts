@@ -18,7 +18,7 @@ export async function responderEmail(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  await requireRole("SECRETARIO", "VENERAVEL_MESTRE");
+  const user = await requireRole("SECRETARIO", "VENERAVEL_MESTRE");
   const texto = String(formData.get("texto") ?? "").trim();
   if (!texto) return { error: "Escreva a resposta antes de enviar." };
   if (!dados.to) return { error: "Remetente sem endereço de resposta." };
@@ -28,6 +28,7 @@ export async function responderEmail(
     : `Re: ${dados.subject}`;
   try {
     await sendLodgeEmail({
+      lodgeId: user.lodgeId,
       to: dados.to,
       subject,
       text: texto,

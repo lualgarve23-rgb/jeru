@@ -151,3 +151,44 @@ export async function updateLimiteInadimplencia(
   revalidatePath("/tesouraria/mensalidades");
   return { ok: `Membros ficam irregulares com ${value} capitação(ões) vencida(s).` };
 }
+
+// Gmail da Loja: e-mail + senha de app usados no envio (SMTP) e na caixa de
+// entrada (IMAP). Campos vazios removem a configuração (volta ao padrão do
+// servidor, se existir).
+export async function updateGmailLoja(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireRole("VENERAVEL_MESTRE", "SECRETARIO");
+  const gmailUser = String(formData.get("gmailUser") ?? "").trim() || null;
+  // Google exibe a senha de app com espaços ("xxxx xxxx xxxx xxxx") — aceita ambos
+  let gmailAppPassword =
+    String(formData.get("gmailAppPassword") ?? "").replace(/\s+/g, "") || null;
+
+  if (gmailUser && !gmailUser.includes("@")) {
+    return { error: "Informe um endereço de e-mail válido." };
+  }
+  if (gmailUser && !gmailAppPassword) {
+    // Senha em branco com e-mail preenchido: mantém a senha já salva
+    const atual = await prisma.lodge.findUniqueOrThrow({
+      where: { id: user.lodgeId },
+      select: { gmailAppPassword: true },
+    });
+    gmailAppPassword = atual.gmailAppPassword;
+    if (!gmailAppPassword) {
+      return { error: "Informe a senha de app da conta." };
+    }
+  }
+  if (!gmailUser) gmailAppPassword = null;
+  await prisma.lodge.update({
+    where: { id: user.lodgeId },
+    data: { gmailUser, gmailAppPassword },
+  });
+  revalidatePath("/dashboard/loja");
+  revalidatePath("/secretaria/emails");
+  return {
+    ok: gmailUser
+      ? `E-mails da loja serão enviados e lidos por ${gmailUser}.`
+      : "Configuração de e-mail da loja removida.",
+  };
+}

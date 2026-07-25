@@ -234,7 +234,7 @@ export async function enviarCertificadoVisita(attendanceId: string) {
   if (!att.visitorName || !att.visitorEmail) {
     throw new Error("Presença sem nome ou e-mail de visitante.");
   }
-  if (!isGmailConfigured()) {
+  if (!(await isGmailConfigured(att.lodgeId))) {
     throw new Error("Gmail da loja não configurado.");
   }
 
@@ -256,6 +256,7 @@ export async function enviarCertificadoVisita(attendanceId: string) {
   );
 
   await sendLodgeEmail({
+    lodgeId: att.lodgeId,
     to: att.visitorEmail,
     subject: `Certificado de Visita — ${att.lodge.name}`,
     text:

@@ -11,6 +11,7 @@ import {
   removeCertTemplate,
   updateInstrucoesNecessarias,
   updateAtaCabecalho,
+  updateGmailLoja,
 } from "./actions";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
@@ -286,6 +287,58 @@ export default async function LojaConfigPage({
                 className="max-w-32"
               />
             </div>
+          </ActionForm>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Gmail da Loja</CardTitle>
+          <CardDescription>
+            Conta de e-mail usada para enviar atas, pranchas, certificados e
+            lembretes, e para ler a caixa de entrada em Secretaria → E-mails.
+            Use uma <em>senha de app</em> do Google (myaccount.google.com →
+            Segurança → Verificação em duas etapas → Senhas de app), não a
+            senha normal da conta.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {lodge.gmailUser ? (
+            <p className="text-sm">
+              Conta configurada:{" "}
+              <Badge variant="secondary">{lodge.gmailUser}</Badge>
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Nenhuma conta configurada para esta loja
+              {process.env.GMAIL_USER
+                ? ` — usando o padrão do servidor (${process.env.GMAIL_USER}).`
+                : "."}
+            </p>
+          )}
+          <ActionForm action={updateGmailLoja} submitLabel="Salvar">
+            <div className="space-y-1">
+              <Label htmlFor="gmailUser">E-mail da loja (Gmail)</Label>
+              <Input
+                id="gmailUser"
+                name="gmailUser"
+                type="email"
+                placeholder="loja@gmail.com"
+                defaultValue={lodge.gmailUser ?? ""}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="gmailAppPassword">Senha de app</Label>
+              <Input
+                id="gmailAppPassword"
+                name="gmailAppPassword"
+                type="password"
+                placeholder={lodge.gmailAppPassword ? "••••••••••••••••" : "xxxx xxxx xxxx xxxx"}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Para remover a configuração, salve com os dois campos vazios.
+            </p>
           </ActionForm>
         </CardContent>
       </Card>

@@ -2,7 +2,7 @@ import { InfoDica } from "@/components/info-dica";
 import { AJUDA } from "@/lib/ajuda";
 import Link from "next/link";
 import { requireRole } from "@/lib/session";
-import { isGmailConfigured } from "@/lib/gmail";
+import { getGmailAuth } from "@/lib/gmail";
 import { listarInbox } from "@/lib/gmail-inbox";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -24,15 +24,16 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function EmailsPage() {
-  await requireRole("SECRETARIO", "VENERAVEL_MESTRE");
+  const user = await requireRole("SECRETARIO", "VENERAVEL_MESTRE");
 
-  if (!isGmailConfigured()) {
+  const auth = await getGmailAuth(user.lodgeId);
+  if (!auth) {
     return (
       <div className="max-w-3xl space-y-4">
         <h1 className="flex items-center gap-1 text-2xl font-bold">E-mails da Loja<InfoDica titulo="E-mails da Loja" texto={AJUDA.emails} /></h1>
         <p className="text-sm text-muted-foreground">
-          Gmail da loja não configurado (defina GMAIL_USER e
-          GMAIL_APP_PASSWORD no servidor).
+          Gmail da loja não configurado — informe o e-mail e a senha de app
+          em Configurações da Loja.
         </p>
       </div>
     );
@@ -41,7 +42,7 @@ export default async function EmailsPage() {
   let mensagens: Awaited<ReturnType<typeof listarInbox>> = [];
   let erro: string | null = null;
   try {
-    mensagens = await listarInbox(25);
+    mensagens = await listarInbox(user.lodgeId, 25);
   } catch (e) {
     erro = e instanceof Error ? e.message : "Falha ao acessar a caixa.";
   }
@@ -51,7 +52,7 @@ export default async function EmailsPage() {
       <h1 className="text-2xl font-bold">E-mails da Loja</h1>
       <Card>
         <CardHeader>
-          <CardTitle>Caixa de entrada — {process.env.GMAIL_USER}</CardTitle>
+          <CardTitle>Caixa de entrada — {auth.user}</CardTitle>
           <CardDescription>
             Últimas {mensagens.length} mensagens recebidas no Gmail da Loja.
             Clique para ler e responder.

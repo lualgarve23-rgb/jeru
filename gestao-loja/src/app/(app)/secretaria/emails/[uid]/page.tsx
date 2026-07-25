@@ -21,12 +21,12 @@ export default async function EmailPage({
 }: {
   params: Promise<{ uid: string }>;
 }) {
-  await requireRole("SECRETARIO", "VENERAVEL_MESTRE");
+  const user = await requireRole("SECRETARIO", "VENERAVEL_MESTRE");
   const { uid: uidRaw } = await params;
   const uid = Number(uidRaw);
   if (!Number.isInteger(uid) || uid <= 0) notFound();
 
-  const msg = await lerMensagem(uid);
+  const msg = await lerMensagem(user.lodgeId, uid);
   if (!msg) notFound();
 
   const responder = responderEmail.bind(null, {

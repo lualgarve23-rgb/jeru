@@ -36,15 +36,15 @@ export async function requestPasswordReset(
   const cpf = String(formData.get("cpf") ?? "");
   if (!cim || !cpf) return { error: "Informe CIM e CPF." };
 
-  if (!isGmailConfigured()) {
+  const user = await findByCimCpf(cim, cpf);
+  if (!user) return { ok: GENERIC_OK }; // resposta idêntica ao sucesso
+
+  if (!(await isGmailConfigured(user.lodgeId))) {
     return {
       error:
         "Envio de e-mail não configurado nesta instalação. Procure a Secretaria para redefinir sua senha.",
     };
   }
-
-  const user = await findByCimCpf(cim, cpf);
-  if (!user) return { ok: GENERIC_OK }; // resposta idêntica ao sucesso
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   await prisma.user.update({
@@ -56,6 +56,7 @@ export async function requestPasswordReset(
     },
   });
   await sendLodgeEmail({
+    lodgeId: user.lodgeId,
     to: user.email,
     subject: "Código de recuperação de senha — Gestão da Loja",
     text:

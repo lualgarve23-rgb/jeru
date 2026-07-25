@@ -1,9 +1,9 @@
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
-import { isGmailConfigured } from "@/lib/gmail";
+import { getGmailAuth } from "@/lib/gmail";
 
 // Leitura da caixa de entrada do Gmail da Loja via IMAP, com a mesma
-// App Password usada no envio (GMAIL_USER / GMAIL_APP_PASSWORD) —
+// App Password usada no envio (credenciais da Loja, com fallback ao .env) —
 // não depende da publicação do app OAuth do Google.
 
 export type EmailResumo = {
@@ -25,27 +25,25 @@ export type EmailDetalhe = EmailResumo & {
   attachments: { index: number; filename: string; size: number; contentType: string }[];
 };
 
-function connect() {
-  if (!isGmailConfigured()) {
+async function connect(lodgeId: string) {
+  const auth = await getGmailAuth(lodgeId);
+  if (!auth) {
     throw new Error(
-      "Gmail da loja não configurado (defina GMAIL_USER e GMAIL_APP_PASSWORD no .env)."
+      "Gmail da loja não configurado (informe o e-mail e a senha de app em Configurações da Loja)."
     );
   }
   return new ImapFlow({
     host: "imap.gmail.com",
     port: 993,
     secure: true,
-    auth: {
-      user: process.env.GMAIL_USER!,
-      pass: process.env.GMAIL_APP_PASSWORD!,
-    },
+    auth,
     logger: false,
   });
 }
 
 // Últimas mensagens da caixa de entrada (mais recentes primeiro)
-export async function listarInbox(limit = 25): Promise<EmailResumo[]> {
-  const client = connect();
+export async function listarInbox(lodgeId: string, limit = 25): Promise<EmailResumo[]> {
+  const client = await connect(lodgeId);
   await client.connect();
   try {
     const lock = await client.getMailboxLock("INBOX");
@@ -86,8 +84,8 @@ export async function listarInbox(limit = 25): Promise<EmailResumo[]> {
 }
 
 // Mensagem completa (marca como lida ao abrir)
-export async function lerMensagem(uid: number): Promise<EmailDetalhe | null> {
-  const client = connect();
+export async function lerMensagem(lodgeId: string, uid: number): Promise<EmailDetalhe | null> {
+  const client = await connect(lodgeId);
   await client.connect();
   try {
     const lock = await client.getMailboxLock("INBOX");
@@ -141,10 +139,11 @@ export async function lerMensagem(uid: number): Promise<EmailDetalhe | null> {
 
 // Conteúdo de um anexo da mensagem
 export async function baixarAnexo(
+  lodgeId: string,
   uid: number,
   index: number
 ): Promise<{ filename: string; contentType: string; content: Buffer } | null> {
-  const client = connect();
+  const client = await connect(lodgeId);
   await client.connect();
   try {
     const lock = await client.getMailboxLock("INBOX");

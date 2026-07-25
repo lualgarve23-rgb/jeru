@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     return new NextResponse("Parâmetros inválidos.", { status: 400 });
   }
 
-  const anexo = await baixarAnexo(uid, idx);
+  const anexo = await baixarAnexo(session.user.lodgeId, uid, idx);
   if (!anexo) return new NextResponse("Anexo não encontrado.", { status: 404 });
 
   return new NextResponse(new Uint8Array(anexo.content), {

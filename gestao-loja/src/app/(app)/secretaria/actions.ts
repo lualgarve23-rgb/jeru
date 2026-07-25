@@ -15,7 +15,7 @@ import { canWriteSecretaria, INTERSTICE_MONTHS } from "@/lib/permissions";
 import { cargoCorresponde, type CargoPadrao } from "@/lib/cargos";
 import { criarFamiliar } from "@/lib/familiares";
 import { uploadToLodgeDrive, isDriveAvailable } from "@/lib/google-drive";
-import { sendLodgeEmail, GUARDA_SELOS_EMAIL } from "@/lib/gmail";
+import { sendLodgeEmail, getGmailAuth, GUARDA_SELOS_EMAIL } from "@/lib/gmail";
 import { gerarTextoAta } from "@/lib/ata-template";
 import { gerarAtaPdf } from "@/lib/ata-pdf";
 import { gerarPdfAtaAssinada } from "@/lib/ata-final";
@@ -737,8 +737,11 @@ export async function sendAtaForReview(ataId: string): Promise<ActionResult> {
       address: ata.lodge.address,
       divisa: ata.lodge.ataDivisa,
     });
+    const remetente = (await getGmailAuth(user.lodgeId))?.user;
+    if (!remetente) return { error: "Gmail da loja não configurado." };
     await sendLodgeEmail({
-      to: process.env.GMAIL_USER!,
+      lodgeId: user.lodgeId,
+      to: remetente,
       bcc: emails,
       subject: `[Para validação] Ata nº ${ata.number} — ${ata.lodge.name}`,
       text:
@@ -1148,6 +1151,7 @@ export async function sendPranchaToGSelos(
   }
   try {
     await sendLodgeEmail({
+      lodgeId: user.lodgeId,
       to: GUARDA_SELOS_EMAIL,
       subject: `Prancha nº ${prancha.number}/${prancha.year} — ${prancha.lodge.name}`,
       text:
@@ -1211,8 +1215,11 @@ export async function sendAtaToMembers(ataId: string): Promise<ActionResult> {
         // o envio aos irmãos segue mesmo se o Drive falhar
       }
     }
+    const remetente = (await getGmailAuth(user.lodgeId))?.user;
+    if (!remetente) return { error: "Gmail da loja não configurado." };
     await sendLodgeEmail({
-      to: process.env.GMAIL_USER!,
+      lodgeId: user.lodgeId,
+      to: remetente,
       bcc: emails,
       subject: `Ata nº ${ata.number} — ${ata.lodge.name}`,
       text: `Ir∴, segue em anexo a Ata nº ${ata.number}, da sessão de ${ata.session.date.toLocaleDateString("pt-BR")}, assinada pelo Venerável Mestre e pelo Secretário.`,
