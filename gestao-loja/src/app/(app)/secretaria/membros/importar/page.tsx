@@ -32,8 +32,9 @@ export default async function ImportarMembrosPage() {
             consulta e <strong>não são armazenadas</strong>. Novos membros
             entram com senha provisória igual ao CPF (troca obrigatória no
             primeiro acesso); membros já cadastrados têm nome, grau, status,
-            telefone e nascimento atualizados — nível de acesso e cargo de rito
-            não mudam.
+            telefone, nascimento, endereço, profissão e datas de
+            iniciação/elevação/exaltação atualizados — nível de acesso e cargo
+            de rito não mudam.
           </CardDescription>
         </CardHeader>
         <CardContent>

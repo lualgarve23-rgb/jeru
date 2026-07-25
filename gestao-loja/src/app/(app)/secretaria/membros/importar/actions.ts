@@ -3,7 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
-import { buscarMembrosMeta, mapGrau, mapStatus } from "@/lib/meta-gob";
+import { buscarMembrosMeta, mapGrau, mapStatus, type MetaMember } from "@/lib/meta-gob";
+
+// Histórico de graus a partir das datas do Meta (iniciação/elevação/exaltação)
+function graus(m: MetaMember): { degree: "APRENDIZ" | "COMPANHEIRO" | "MESTRE"; date: Date }[] {
+  return [
+    m.iniciacao ? { degree: "APRENDIZ" as const, date: new Date(m.iniciacao) } : null,
+    m.elevacao ? { degree: "COMPANHEIRO" as const, date: new Date(m.elevacao) } : null,
+    m.exaltacao ? { degree: "MESTRE" as const, date: new Date(m.exaltacao) } : null,
+  ].filter((g) => g !== null);
+}
 
 export type LinhaImportacao = {
   cim: string;
@@ -88,9 +97,29 @@ export async function importarMembrosMeta(
             status,
             phone: m.telefone ?? undefined,
             birthDate: m.nascimento ? new Date(m.nascimento) : undefined,
+            address: m.endereco ?? undefined,
+            profession: m.profissao ?? undefined,
+            initiationDate: m.iniciacao ? new Date(m.iniciacao) : undefined,
             ...(emailLivre ? { email: m.email! } : {}),
           },
         });
+        // Completa o histórico de graus com as datas do Meta (sem duplicar)
+        const jaTem = await prisma.degreeHistory.findMany({
+          where: { userId: existente.id },
+          select: { degree: true },
+        });
+        const degreesTem = new Set(jaTem.map((h) => h.degree));
+        const faltantes = graus(m).filter((g) => !degreesTem.has(g.degree));
+        if (faltantes.length) {
+          await prisma.degreeHistory.createMany({
+            data: faltantes.map((g) => ({
+              lodgeId: user.lodgeId,
+              userId: existente.id,
+              degree: g.degree,
+              date: g.date,
+            })),
+          });
+        }
         atualizados++;
       }
       continue;
@@ -104,7 +133,7 @@ export async function importarMembrosMeta(
     linhas.push({ ...base, acao: "criar" });
     if (!simulacao) {
       try {
-        await prisma.user.create({
+        const criado = await prisma.user.create({
           data: {
             lodgeId: user.lodgeId,
             cim: m.cim,
@@ -113,12 +142,26 @@ export async function importarMembrosMeta(
             email,
             phone: m.telefone,
             birthDate: m.nascimento ? new Date(m.nascimento) : null,
+            address: m.endereco,
+            profession: m.profissao,
+            initiationDate: m.iniciacao ? new Date(m.iniciacao) : null,
             degree: grau,
             status,
             passwordHash: await bcrypt.hash(m.cpf, 10),
             mustChangePassword: true,
           },
         });
+        const historico = graus(m);
+        if (historico.length) {
+          await prisma.degreeHistory.createMany({
+            data: historico.map((g) => ({
+              lodgeId: user.lodgeId,
+              userId: criado.id,
+              degree: g.degree,
+              date: g.date,
+            })),
+          });
+        }
         criados++;
       } catch {
         const l = linhas[linhas.length - 1];

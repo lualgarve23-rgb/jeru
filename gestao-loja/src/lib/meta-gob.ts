@@ -21,6 +21,7 @@ type MetaLoginResponse = {
 };
 
 export type MetaMember = {
+  metaId: string;
   cim: string;
   cpf: string;
   nome: string;
@@ -30,6 +31,12 @@ export type MetaMember = {
   grau: string | null;
   status: string | null;
   lodgeName: string | null;
+  // Campos do detalhe (members/{id})
+  endereco: string | null;
+  profissao: string | null;
+  iniciacao: string | null; // ISO
+  elevacao: string | null;
+  exaltacao: string | null;
 };
 
 async function metaFetch(path: string, init?: RequestInit) {
@@ -71,7 +78,22 @@ async function metaLogin(cpf: string, senha: string): Promise<MetaLoginResponse>
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function mapMember(m: any): MetaMember {
+  // Endereço completo em uma linha (o cadastro local usa um campo único)
+  const endereco = m.address_street
+    ? [
+        `${m.address_street}${m.address_number ? `, ${m.address_number}` : ""}`,
+        m.address_complement,
+        m.address_neighborhood,
+        m.address_city && m.address_state
+          ? `${m.address_city}/${m.address_state}`
+          : m.address_city || m.address_state,
+        m.address_zip_code ? `CEP ${m.address_zip_code}` : null,
+      ]
+        .filter(Boolean)
+        .join(" — ")
+    : null;
   return {
+    metaId: String(m.id ?? ""),
     cim: String(m.identification_card ?? "").trim(),
     cpf: String(m.cpf ?? "").replace(/\D/g, ""),
     nome: String(m.full_name ?? "").trim(),
@@ -81,6 +103,11 @@ function mapMember(m: any): MetaMember {
     grau: m.degree ?? null,
     status: m.status ?? null,
     lodgeName: m.default_lodge_name ?? null,
+    endereco,
+    profissao: m.profession || null,
+    iniciacao: m.initiation_date ?? null,
+    elevacao: m.elevation_date ?? null,
+    exaltacao: m.raising_date ?? null,
   };
 }
 
@@ -133,8 +160,27 @@ export async function buscarMembrosMeta(
     if (page >= totalPages || itens.length === 0) break;
   }
 
+  const validos = membros.filter((m) => m.cim && m.nome);
+
+  // A listagem é resumida — busca a ficha completa de cada membro
+  // (endereço, profissão, datas de grau), em lotes para não sobrecarregar
+  const LOTE = 5;
+  for (let i = 0; i < validos.length; i += LOTE) {
+    await Promise.all(
+      validos.slice(i, i + LOTE).map(async (m, k) => {
+        if (!m.metaId) return;
+        try {
+          const detalhe = await metaFetch(`members/${m.metaId}`, { headers: auth });
+          validos[i + k] = mapMember(detalhe);
+        } catch {
+          // mantém os dados resumidos da listagem
+        }
+      })
+    );
+  }
+
   return {
-    membros: membros.filter((m) => m.cim && m.nome),
+    membros: validos,
     contexto: contexto?.display_name ?? "conta Meta",
   };
 }
