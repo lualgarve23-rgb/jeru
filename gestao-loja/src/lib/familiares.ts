@@ -29,3 +29,31 @@ export async function criarFamiliar(
   });
   return { ok: "Familiar cadastrado." };
 }
+
+// Valida e atualiza um familiar (mesmas regras do cadastro); o chamador já
+// garantiu que o familiar pertence a um usuário sob sua alçada
+export async function atualizarFamiliar(
+  familiarId: string,
+  userId: string,
+  formData: FormData
+): Promise<ActionResult> {
+  const name = String(formData.get("name") ?? "").trim();
+  const parentesco = String(formData.get("parentesco") ?? "");
+  const birthRaw = String(formData.get("birthDate") ?? "");
+  if (!name) return { error: "Informe o nome do familiar." };
+  if (!["CONJUGE", "FILHO", "DEPENDENTE"].includes(parentesco)) {
+    return { error: "Parentesco inválido." };
+  }
+  let birthDate: Date | null = null;
+  if (birthRaw) {
+    birthDate = new Date(birthRaw);
+    if (isNaN(birthDate.getTime()) || birthDate > new Date()) {
+      return { error: "Informe uma data de nascimento válida." };
+    }
+  }
+  const { count } = await prisma.familyMember.updateMany({
+    where: { id: familiarId, userId },
+    data: { name, parentesco: parentesco as Parentesco, birthDate },
+  });
+  return count ? { ok: "Familiar atualizado." } : { error: "Familiar não encontrado." };
+}

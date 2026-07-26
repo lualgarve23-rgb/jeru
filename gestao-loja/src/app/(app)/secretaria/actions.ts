@@ -13,7 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { canWriteSecretaria, INTERSTICE_MONTHS } from "@/lib/permissions";
 import { cargoCorresponde, type CargoPadrao } from "@/lib/cargos";
-import { criarFamiliar } from "@/lib/familiares";
+import { criarFamiliar, atualizarFamiliar } from "@/lib/familiares";
 import { uploadToLodgeDrive, isDriveAvailable } from "@/lib/google-drive";
 import { sendLodgeEmail, getGmailAuth, GUARDA_SELOS_EMAIL } from "@/lib/gmail";
 import { gerarTextoAta } from "@/lib/ata-template";
@@ -1792,6 +1792,23 @@ export async function addFamiliar(
   });
   if (!member) return { error: "Membro não encontrado." };
   const result = await criarFamiliar(memberId, formData);
+  revalidatePath(`/secretaria/membros/${memberId}`);
+  return result;
+}
+
+export async function updateFamiliar(
+  memberId: string,
+  familiarId: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const member = await prisma.user.findUnique({
+    where: { id: memberId, lodgeId: user.lodgeId },
+    select: { id: true },
+  });
+  if (!member) return { error: "Membro não encontrado." };
+  const result = await atualizarFamiliar(familiarId, memberId, formData);
   revalidatePath(`/secretaria/membros/${memberId}`);
   return result;
 }

@@ -22,10 +22,21 @@ async function importarDependentes(userId: string, m: MetaMember) {
   if (m.dependentes.length === 0) return;
   const jaTem = await prisma.familyMember.findMany({
     where: { userId },
-    select: { name: true },
+    select: { id: true, name: true, parentesco: true },
   });
-  const nomes = new Set(jaTem.map((f) => f.name.trim().toUpperCase()));
-  const novos = m.dependentes.filter((d) => !nomes.has(d.nome.trim().toUpperCase()));
+  const porNome = new Map(jaTem.map((f) => [f.name.trim().toUpperCase(), f]));
+  // Reclassifica os que ficaram como DEPENDENTE em importações anteriores,
+  // agora que a classificação (cônjuge/filho) melhorou
+  for (const d of m.dependentes) {
+    const existente = porNome.get(d.nome.trim().toUpperCase());
+    if (existente && existente.parentesco === "DEPENDENTE" && d.parentesco) {
+      await prisma.familyMember.update({
+        where: { id: existente.id },
+        data: { parentesco: d.parentesco },
+      });
+    }
+  }
+  const novos = m.dependentes.filter((d) => !porNome.has(d.nome.trim().toUpperCase()));
   if (novos.length) {
     await prisma.familyMember.createMany({
       data: novos.map((d) => {

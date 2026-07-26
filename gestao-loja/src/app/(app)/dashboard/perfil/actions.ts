@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import { criarFamiliar } from "@/lib/familiares";
+import { criarFamiliar, atualizarFamiliar } from "@/lib/familiares";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
@@ -58,6 +58,17 @@ export async function addMeuFamiliar(
 ): Promise<ActionResult> {
   const user = await requireUser();
   const result = await criarFamiliar(user.id, formData);
+  revalidatePath("/dashboard/perfil");
+  return result;
+}
+
+export async function updateMeuFamiliar(
+  familiarId: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireUser();
+  const result = await atualizarFamiliar(familiarId, user.id, formData);
   revalidatePath("/dashboard/perfil");
   return result;
 }

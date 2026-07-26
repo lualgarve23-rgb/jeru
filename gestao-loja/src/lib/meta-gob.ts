@@ -482,11 +482,20 @@ export async function buscarMembrosMeta(
           baixarDependentes(m.metaId, auth, tiposParentesco),
           baixarRegistros(m.metaId, auth),
         ]);
-        // O Meta registra o cônjuge como dependente; se a ficha civil não
-        // trouxe o nome, aproveita o do dependente. Muitos cadastros vêm com
-        // o parentesco em branco (o portal mostra "-"): quando houver um único
-        // dependente sem parentesco, tratamos como cônjuge — filhos costumam
-        // vir classificados.
+        // Muitos cadastros do Meta vêm com o parentesco em branco (o portal
+        // mostra "-"). Classificação por idade: menor de 21 anos = filho;
+        // sobrando um único adulto sem parentesco, é o cônjuge.
+        const idade = (iso: string | null) => {
+          if (!iso) return null;
+          const n = new Date(iso);
+          return isNaN(n.getTime())
+            ? null
+            : (Date.now() - n.getTime()) / (365.25 * 24 * 3600 * 1000);
+        };
+        for (const d of atual.dependentes) {
+          const a = idade(d.nascimento);
+          if (!d.parentesco && a !== null && a < 21) d.parentesco = "FILHO";
+        }
         if (!atual.dependentes.some((d) => d.parentesco === "CONJUGE")) {
           const semParentesco = atual.dependentes.filter((d) => !d.parentesco);
           if (semParentesco.length === 1) semParentesco[0].parentesco = "CONJUGE";

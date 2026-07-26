@@ -7,6 +7,7 @@ import {
   assignRole,
   setAccessRole,
   addFamiliar,
+  updateFamiliar,
   removeFamiliar,
 } from "../../actions";
 import { FamiliaresCard } from "@/components/familiares-card";
@@ -213,6 +214,7 @@ export default async function MembroPage({
       <FamiliaresCard
         familiares={member.familiares}
         addAction={addFamiliar.bind(null, member.id)}
+        editAction={(familiarId) => updateFamiliar.bind(null, member.id, familiarId)}
         removeAction={removeFamiliar.bind(null, member.id)}
       />
 

@@ -5,6 +5,7 @@ import {
   removeMyPhoto,
   updateMyBirthDate,
   addMeuFamiliar,
+  updateMeuFamiliar,
   removeMeuFamiliar,
 } from "./actions";
 import { FamiliaresCard } from "@/components/familiares-card";
@@ -119,6 +120,7 @@ export default async function PerfilPage() {
       <FamiliaresCard
         familiares={me.familiares}
         addAction={addMeuFamiliar}
+        editAction={(familiarId) => updateMeuFamiliar.bind(null, familiarId)}
         removeAction={removeMeuFamiliar}
       />
     </div>
