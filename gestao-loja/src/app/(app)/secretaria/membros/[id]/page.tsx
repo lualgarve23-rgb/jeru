@@ -38,6 +38,7 @@ export default async function MembroPage({
       degreeHistory: { orderBy: { date: "desc" } },
       roleHistory: { orderBy: { startDate: "desc" } },
       familiares: { orderBy: { birthDate: "asc" } },
+      metaRegistros: { orderBy: [{ data: "desc" }, { createdAt: "asc" }] },
     },
   });
   if (!member) notFound();
@@ -342,6 +343,63 @@ export default async function MembroPage({
           />
         </CardContent>
       </Card>
+
+      {member.metaRegistros.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Registros do Meta (GOB)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6 text-sm">
+            {member.installationDate && (
+              <p>
+                <span className="font-medium">Instalação (Mestre Instalado):</span>{" "}
+                {member.installationDate.toLocaleDateString("pt-BR")}
+              </p>
+            )}
+            {(
+              [
+                ["LOJA", "Lojas do quadro"],
+                ["TITULO", "Títulos e comendas"],
+                ["CARGO", "Cargos por período"],
+                ["EVENTO", "Linha do tempo"],
+              ] as const
+            ).map(([tipo, rotulo]) => {
+              const itens = member.metaRegistros.filter((r) => r.tipo === tipo);
+              if (itens.length === 0) return null;
+              return (
+                <div key={tipo}>
+                  <h3 className="mb-2 font-medium">{rotulo}</h3>
+                  <ul className="space-y-2 border-l pl-4">
+                    {itens.map((r) => (
+                      <li key={r.id}>
+                        <p>
+                          <span className="font-medium">{r.titulo}</span>
+                          {(r.data || r.dataFim) && (
+                            <span className="text-muted-foreground">
+                              {" "}
+                              — {r.data ? r.data.toLocaleDateString("pt-BR") : ""}
+                              {r.dataFim
+                                ? ` a ${r.dataFim.toLocaleDateString("pt-BR")}`
+                                : ""}
+                            </span>
+                          )}
+                        </p>
+                        {r.detalhe && (
+                          <p className="text-xs text-muted-foreground">{r.detalhe}</p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+            <p className="text-xs text-muted-foreground">
+              Espelho da ficha no METAGOB, atualizado a cada importação — não é
+              editável aqui.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

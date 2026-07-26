@@ -34,9 +34,12 @@ export default async function ImportarMembrosPage() {
             primeiro acesso); membros já cadastrados têm a ficha atualizada
             (nome, grau, status, telefone, nascimento, endereço, profissão,
             RG, filiação, naturalidade, estado civil, cônjuge, tipo sanguíneo,
-            foto e datas de iniciação/elevação/exaltação), e os dependentes do
-            Meta (cônjuge e filhos com data de nascimento) entram como
-            familiares — nível de acesso e cargo de rito não mudam.
+            foto e datas de iniciação/elevação/exaltação/instalação). Os
+            dependentes do Meta (cônjuge e filhos com data de nascimento)
+            entram como familiares, e a linha do tempo, cargos por período,
+            lojas do quadro e títulos aparecem na ficha do membro como
+            &quot;Registros do Meta&quot; — nível de acesso e cargo de rito não
+            mudam.
           </CardDescription>
         </CardHeader>
         <CardContent>

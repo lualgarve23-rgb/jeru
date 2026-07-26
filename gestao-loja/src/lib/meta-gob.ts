@@ -27,6 +27,16 @@ export type MetaDependente = {
   nascimento: string | null; // ISO
 };
 
+// Registro genérico das demais abas do Meta (linha do tempo, cargos por
+// período, lojas do quadro e títulos/comendas) — vira MetaRegistro local
+export type MetaRegistroItem = {
+  tipo: "EVENTO" | "CARGO" | "LOJA" | "TITULO";
+  titulo: string;
+  detalhe: string | null;
+  data: string | null; // ISO
+  dataFim: string | null;
+};
+
 export type MetaMember = {
   metaId: string;
   cim: string;
@@ -51,8 +61,10 @@ export type MetaMember = {
   nomePai: string | null;
   nomeMae: string | null;
   tipoSanguineo: string | null;
+  instalacao: string | null; // ISO — data de instalação (Mestre Instalado)
   foto: string | null; // data URI
   dependentes: MetaDependente[];
+  registros: MetaRegistroItem[];
 };
 
 async function metaFetch(path: string, init?: RequestInit) {
@@ -133,9 +145,133 @@ function mapMember(m: any): MetaMember {
     nomePai: m.father_name || null,
     nomeMae: m.mother_name || null,
     tipoSanguineo: m.blood_type || null,
+    instalacao: m.installation_date ?? null,
     foto: null, // preenchida depois, baixando members/{id}/photo
     dependentes: [], // preenchidos depois, via members/{id}/dependents
+    registros: [], // preenchidos depois (history/positions/lodges/titles)
   };
+}
+
+// Tipos de evento da linha do tempo do Meta → rótulo em português
+const EVENTOS_PT: Record<string, string> = {
+  INITIATION: "Iniciação",
+  ELEVATION: "Elevação",
+  RAISING: "Exaltação",
+  EXALTATION: "Exaltação",
+  INSTALLATION: "Instalação",
+  AFFILIATION: "Filiação",
+  FILIATION: "Filiação",
+  REGULARIZATION: "Regularização",
+  POSITION_START: "Início de Cargo",
+  POSITION_END: "Fim de Cargo",
+  APPOINTMENT: "Nomeação",
+  SUSPENSION: "Suspensão",
+  WITHDRAWAL: "Desligamento",
+  LEAVE: "Licença",
+  REINSTATEMENT: "Reintegração",
+  ETERNAL_ORIENT: "Oriente Eterno",
+};
+
+function rotuloEvento(tipo: unknown): string {
+  const t = String(tipo ?? "").toUpperCase();
+  if (!t) return "Evento";
+  if (EVENTOS_PT[t]) return EVENTOS_PT[t];
+  // "SOME_EVENT_TYPE" → "Some Event Type"
+  return t
+    .split("_")
+    .map((p) => p.charAt(0) + p.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function itensDe(resposta: unknown): any[] {
+  if (Array.isArray(resposta)) return resposta;
+  const r = resposta as { items?: any[]; data?: any[] };
+  const d = r?.items ?? r?.data;
+  return Array.isArray(d) ? d : [];
+}
+
+// Varre as demais abas da ficha do Meta (linha do tempo, cargos, lojas do
+// quadro e títulos) — cada aba é opcional; falha em uma não derruba as outras
+async function baixarRegistros(
+  metaId: string,
+  auth: Record<string, string>
+): Promise<MetaRegistroItem[]> {
+  const registros: MetaRegistroItem[] = [];
+  const pega = async (path: string) => {
+    try {
+      return itensDe(await metaFetch(path, { headers: auth }));
+    } catch {
+      return [];
+    }
+  };
+  const [eventos, cargos, lojas, titulos] = await Promise.all([
+    pega(`members/${metaId}/history?limit=200`),
+    pega(`members/${metaId}/positions`),
+    pega(`members/${metaId}/lodges`),
+    pega(`members/${metaId}/commendation-titles`),
+  ]);
+
+  for (const e of eventos) {
+    registros.push({
+      tipo: "EVENTO",
+      titulo: rotuloEvento(e.event_type ?? e.eventType),
+      detalhe:
+        [e.description, e.lodge_name ?? e.lodgeName]
+          .filter(Boolean)
+          .join(" — ") || null,
+      data: e.event_date ?? e.eventDate ?? null,
+      dataFim: null,
+    });
+  }
+  for (const c of cargos) {
+    const nome = String(
+      c.position_name ?? c.positionName ?? c.name ?? c.position ?? ""
+    ).trim();
+    if (!nome) continue;
+    registros.push({
+      tipo: "CARGO",
+      titulo: nome,
+      detalhe: c.lodge_name ?? c.lodgeName ?? null,
+      data: c.start_date ?? c.startDate ?? null,
+      dataFim: c.end_date ?? c.endDate ?? null,
+    });
+  }
+  for (const l of lojas) {
+    const nome = String(l.lodge_name ?? l.lodgeName ?? l.name ?? "").trim();
+    if (!nome) continue;
+    const numero = l.lodge_number ?? l.lodgeNumber ?? l.number;
+    const recolhimento = l.is_primary ?? l.isPrimary ?? l.type === "PRIMARY";
+    const ativa = l.is_active ?? l.isActive ?? l.status === "ACTIVE";
+    registros.push({
+      tipo: "LOJA",
+      titulo: numero ? `${nome} Nº ${numero}` : nome,
+      detalhe: [recolhimento ? "Recolhimento" : "Filiada", ativa ? "Ativa" : "Inativa"].join(
+        " · "
+      ),
+      data: l.affiliation_date ?? l.affiliationDate ?? l.start_date ?? null,
+      dataFim: null,
+    });
+  }
+  for (const t of titulos) {
+    const nome = String(
+      t.title_name ?? t.titleName ?? t.title ?? t.name ?? t.commendation_title ?? ""
+    ).trim();
+    if (!nome) continue;
+    registros.push({
+      tipo: "TITULO",
+      titulo: nome,
+      detalhe: t.description ?? t.reason ?? null,
+      data:
+        t.granted_date ??
+        t.awarded_date ??
+        t.award_date ??
+        t.concession_date ??
+        t.date ??
+        null,
+      dataFim: null,
+    });
+  }
+  return registros;
 }
 
 // Dependente do Meta → parentesco local. O parentesco pode vir como texto
@@ -336,8 +472,11 @@ export async function buscarMembrosMeta(
           // mantém os dados resumidos da listagem
         }
         const atual = validos[i + k];
-        atual.foto = await baixarFoto(m.metaId, auth);
-        atual.dependentes = await baixarDependentes(m.metaId, auth, tiposParentesco);
+        [atual.foto, atual.dependentes, atual.registros] = await Promise.all([
+          baixarFoto(m.metaId, auth),
+          baixarDependentes(m.metaId, auth, tiposParentesco),
+          baixarRegistros(m.metaId, auth),
+        ]);
         // O Meta registra o cônjuge como dependente; se a ficha civil não
         // trouxe o nome, aproveita o do dependente
         if (!atual.conjuge) {

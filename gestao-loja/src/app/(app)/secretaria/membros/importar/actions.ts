@@ -41,6 +41,27 @@ async function importarDependentes(userId: string, m: MetaMember) {
   }
 }
 
+// Regrava os registros do Meta (linha do tempo, cargos, lojas, títulos) —
+// espelho fiel da varredura mais recente, por isso substitui os anteriores
+async function importarRegistros(userId: string, m: MetaMember) {
+  if (m.registros.length === 0) return;
+  const dataOk = (v: string | null) =>
+    v && !isNaN(new Date(v).getTime()) ? new Date(v) : null;
+  await prisma.$transaction([
+    prisma.metaRegistro.deleteMany({ where: { userId } }),
+    prisma.metaRegistro.createMany({
+      data: m.registros.map((r) => ({
+        userId,
+        tipo: r.tipo,
+        titulo: r.titulo,
+        detalhe: r.detalhe,
+        data: dataOk(r.data),
+        dataFim: dataOk(r.dataFim),
+      })),
+    }),
+  ]);
+}
+
 export type LinhaImportacao = {
   cim: string;
   nome: string;
@@ -127,6 +148,7 @@ export async function importarMembrosMeta(
             address: m.endereco ?? undefined,
             profession: m.profissao ?? undefined,
             initiationDate: m.iniciacao ? new Date(m.iniciacao) : undefined,
+            installationDate: m.instalacao ? new Date(m.instalacao) : undefined,
             rg: m.rg ?? undefined,
             naturalidade: m.naturalidade ?? undefined,
             estadoCivil: m.estadoCivil ?? undefined,
@@ -156,6 +178,7 @@ export async function importarMembrosMeta(
           });
         }
         await importarDependentes(existente.id, m);
+        await importarRegistros(existente.id, m);
         atualizados++;
       }
       continue;
@@ -181,6 +204,7 @@ export async function importarMembrosMeta(
             address: m.endereco,
             profession: m.profissao,
             initiationDate: m.iniciacao ? new Date(m.iniciacao) : null,
+            installationDate: m.instalacao ? new Date(m.instalacao) : null,
             rg: m.rg,
             naturalidade: m.naturalidade,
             estadoCivil: m.estadoCivil,
@@ -207,6 +231,7 @@ export async function importarMembrosMeta(
           });
         }
         await importarDependentes(criado.id, m);
+        await importarRegistros(criado.id, m);
         criados++;
       } catch {
         const l = linhas[linhas.length - 1];

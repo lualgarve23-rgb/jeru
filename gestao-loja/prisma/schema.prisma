@@ -165,6 +165,8 @@ model User {
   photoUrl       String?
   status         MemberStatus @default(ATIVO)
   initiationDate DateTime? // data de iniciação (base do interstício)
+  // Data de instalação como Venerável (Mestre Instalado) — importada do METAGOB
+  installationDate DateTime?
   // Carteirinha digital: token opaco do QR Code de verificação pública
   // (/verificar/<token>) — regenerável para revogar carteirinhas antigas
   cardToken      String       @unique @default(cuid())
@@ -199,6 +201,7 @@ model User {
   processosProgressao   ProcessoProgressao[]
   familiares            FamilyMember[]
   bibliotecaItens       BibliotecaItem[]
+  metaRegistros         MetaRegistro[]
 
   @@index([lodgeId])
   @@map("users")
@@ -209,6 +212,32 @@ enum LicencaStatus {
   PENDENTE
   PAGA
   VENCIDA
+}
+
+// Registros trazidos do METAGOB sem equivalente editável no cadastro local:
+// linha do tempo (EVENTO), cargos por período (CARGO), lojas do quadro (LOJA)
+// e títulos/comendas (TITULO). Regravados por completo a cada importação.
+enum MetaRegistroTipo {
+  EVENTO
+  CARGO
+  LOJA
+  TITULO
+}
+
+model MetaRegistro {
+  id        String           @id @default(cuid())
+  userId    String
+  tipo      MetaRegistroTipo
+  titulo    String // nome do evento/cargo/loja/título
+  detalhe   String? // descrição longa ou complemento (loja, período…)
+  data      DateTime?
+  dataFim   DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, tipo])
+  @@map("meta_registros")
 }
 
 enum Parentesco {
