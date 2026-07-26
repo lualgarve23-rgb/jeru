@@ -20,6 +20,13 @@ type MetaLoginResponse = {
   contexts?: MetaContext[];
 };
 
+export type MetaDependente = {
+  nome: string;
+  // Só CONJUGE e FILHO existem no cadastro local; outros parentescos vêm null
+  parentesco: "CONJUGE" | "FILHO" | null;
+  nascimento: string | null; // ISO
+};
+
 export type MetaMember = {
   metaId: string;
   cim: string;
@@ -45,6 +52,7 @@ export type MetaMember = {
   nomeMae: string | null;
   tipoSanguineo: string | null;
   foto: string | null; // data URI
+  dependentes: MetaDependente[];
 };
 
 async function metaFetch(path: string, init?: RequestInit) {
@@ -126,7 +134,86 @@ function mapMember(m: any): MetaMember {
     nomeMae: m.mother_name || null,
     tipoSanguineo: m.blood_type || null,
     foto: null, // preenchida depois, baixando members/{id}/photo
+    dependentes: [], // preenchidos depois, via members/{id}/dependents
   };
+}
+
+// Dependente do Meta → parentesco local. O parentesco pode vir como texto
+// (relationship/kinship), objeto (relationship_type.name) ou só o id do tipo
+// (relationship_type_id, resolvido pela tabela de referência)
+function mapDependente(
+  d: any,
+  tiposParentesco: Map<string, string>
+): MetaDependente | null {
+  const nome = String(d.full_name ?? d.fullName ?? d.name ?? "").trim();
+  if (!nome) return null;
+  const bruto =
+    d.relationship ??
+    d.kinship ??
+    d.relation ??
+    d.relationship_type?.name ??
+    d.relationship_type?.description ??
+    (d.relationship_type_id != null || d.relationshipTypeId != null
+      ? tiposParentesco.get(String(d.relationship_type_id ?? d.relationshipTypeId))
+      : null) ??
+    "";
+  const rel = String(bruto)
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const parentesco = /ESPOS|CONJUGE|SPOUSE|COMPANHEIR/.test(rel)
+    ? ("CONJUGE" as const)
+    : /FILH|ENTEAD|SON|DAUGHTER|CHILD/.test(rel)
+      ? ("FILHO" as const)
+      : null;
+  return {
+    nome,
+    parentesco,
+    nascimento: d.birth_date ?? d.birthDate ?? null,
+  };
+}
+
+// Tabela de referência dos tipos de parentesco (id → nome), quando os
+// dependentes vierem só com relationship_type_id
+async function buscarTiposParentesco(
+  auth: Record<string, string>
+): Promise<Map<string, string>> {
+  const mapa = new Map<string, string>();
+  try {
+    const resposta = (await metaFetch("relationship-types", { headers: auth })) as
+      | { items?: any[]; data?: any[] }
+      | any[];
+    const itens = Array.isArray(resposta)
+      ? resposta
+      : (resposta.items ?? resposta.data ?? []);
+    for (const t of itens) {
+      if (t?.id != null) mapa.set(String(t.id), String(t.name ?? t.description ?? ""));
+    }
+  } catch {
+    // sem a tabela, os parentescos textuais continuam funcionando
+  }
+  return mapa;
+}
+
+// Dependentes do membro (cônjuge e filhos) — members/{id}/dependents
+async function baixarDependentes(
+  metaId: string,
+  auth: Record<string, string>,
+  tiposParentesco: Map<string, string>
+): Promise<MetaDependente[]> {
+  try {
+    const resposta = (await metaFetch(`members/${metaId}/dependents`, {
+      headers: auth,
+    })) as { items?: any[]; data?: any[] } | any[];
+    const itens = Array.isArray(resposta)
+      ? resposta
+      : (resposta.items ?? resposta.data ?? []);
+    return itens
+      .map((d) => mapDependente(d, tiposParentesco))
+      .filter((d): d is MetaDependente => d !== null);
+  } catch {
+    return [];
+  }
 }
 
 // Mescla a ficha completa sobre a linha da listagem: só substitui um campo
@@ -233,6 +320,7 @@ export async function buscarMembrosMeta(
   // A listagem é resumida — busca a ficha completa de cada membro
   // (endereço, profissão, datas de grau), em lotes para não sobrecarregar
   const LOTE = 5;
+  const tiposParentesco = await buscarTiposParentesco(auth);
   for (let i = 0; i < validos.length; i += LOTE) {
     await Promise.all(
       validos.slice(i, i + LOTE).map(async (m, k) => {
@@ -247,7 +335,15 @@ export async function buscarMembrosMeta(
         } catch {
           // mantém os dados resumidos da listagem
         }
-        validos[i + k].foto = await baixarFoto(m.metaId, auth);
+        const atual = validos[i + k];
+        atual.foto = await baixarFoto(m.metaId, auth);
+        atual.dependentes = await baixarDependentes(m.metaId, auth, tiposParentesco);
+        // O Meta registra o cônjuge como dependente; se a ficha civil não
+        // trouxe o nome, aproveita o do dependente
+        if (!atual.conjuge) {
+          const c = atual.dependentes.find((d) => d.parentesco === "CONJUGE");
+          if (c) atual.conjuge = c.nome;
+        }
       })
     );
   }
