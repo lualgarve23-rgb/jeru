@@ -185,9 +185,17 @@ function rotuloEvento(tipo: unknown): string {
 
 function itensDe(resposta: unknown): any[] {
   if (Array.isArray(resposta)) return resposta;
-  const r = resposta as { items?: any[]; data?: any[] };
-  const d = r?.items ?? r?.data;
-  return Array.isArray(d) ? d : [];
+  const r = resposta as Record<string, unknown>;
+  for (const chave of ["items", "data", "results", "dependents"]) {
+    const d = r?.[chave];
+    if (Array.isArray(d)) return d;
+    // um nível de embrulho a mais: { data: { items: [...] } }
+    if (d && typeof d === "object") {
+      const interno = itensDe(d);
+      if (interno.length) return interno;
+    }
+  }
+  return [];
 }
 
 // Varre as demais abas da ficha do Meta (linha do tempo, cargos, lojas do
@@ -338,13 +346,10 @@ async function baixarDependentes(
   tiposParentesco: Map<string, string>
 ): Promise<MetaDependente[]> {
   try {
-    const resposta = (await metaFetch(`members/${metaId}/dependents`, {
+    const resposta = await metaFetch(`members/${metaId}/dependents`, {
       headers: auth,
-    })) as { items?: any[]; data?: any[] } | any[];
-    const itens = Array.isArray(resposta)
-      ? resposta
-      : (resposta.items ?? resposta.data ?? []);
-    return itens
+    });
+    return itensDe(resposta)
       .map((d) => mapDependente(d, tiposParentesco))
       .filter((d): d is MetaDependente => d !== null);
   } catch {
@@ -478,7 +483,14 @@ export async function buscarMembrosMeta(
           baixarRegistros(m.metaId, auth),
         ]);
         // O Meta registra o cônjuge como dependente; se a ficha civil não
-        // trouxe o nome, aproveita o do dependente
+        // trouxe o nome, aproveita o do dependente. Muitos cadastros vêm com
+        // o parentesco em branco (o portal mostra "-"): quando houver um único
+        // dependente sem parentesco, tratamos como cônjuge — filhos costumam
+        // vir classificados.
+        if (!atual.dependentes.some((d) => d.parentesco === "CONJUGE")) {
+          const semParentesco = atual.dependentes.filter((d) => !d.parentesco);
+          if (semParentesco.length === 1) semParentesco[0].parentesco = "CONJUGE";
+        }
         if (!atual.conjuge) {
           const c = atual.dependentes.find((d) => d.parentesco === "CONJUGE");
           if (c) atual.conjuge = c.nome;

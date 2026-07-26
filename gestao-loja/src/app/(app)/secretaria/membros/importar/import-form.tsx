@@ -66,6 +66,7 @@ export function ImportMetaForm() {
                 <TableHead>Grau</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Ação</TableHead>
+                <TableHead>Dados do Meta</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -82,6 +83,9 @@ export function ImportMetaForm() {
                     {l.motivo && (
                       <span className="ml-2 text-xs text-muted-foreground">{l.motivo}</span>
                     )}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {l.meta}
                   </TableCell>
                 </TableRow>
               ))}

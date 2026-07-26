@@ -69,6 +69,8 @@ export type LinhaImportacao = {
   status: string;
   acao: "criar" | "atualizar" | "pular";
   motivo?: string;
+  // Resumo do que a varredura encontrou no Meta (ajuda a conferir na simulação)
+  meta?: string;
 };
 
 export type ImportResult =
@@ -121,7 +123,21 @@ export async function importarMembrosMeta(
   for (const m of membros) {
     const grau = mapGrau(m.grau);
     const status = mapStatus(m.status);
-    const base = { cim: m.cim, nome: m.nome, grau, status };
+    const nReg = (t: string) => m.registros.filter((r) => r.tipo === t).length;
+    const base = {
+      cim: m.cim,
+      nome: m.nome,
+      grau,
+      status,
+      meta: [
+        m.conjuge ? `cônjuge: ${m.conjuge}` : "sem cônjuge",
+        `${m.dependentes.length} dependente(s)`,
+        `${nReg("EVENTO")} eventos`,
+        `${nReg("CARGO")} cargos`,
+        `${nReg("LOJA")} lojas`,
+        `${nReg("TITULO")} títulos`,
+      ].join(" · "),
+    };
     const existente = porCim.get(m.cim);
 
     if (existente && existente.lodgeId !== user.lodgeId) {
