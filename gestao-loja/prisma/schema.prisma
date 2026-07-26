@@ -243,6 +243,7 @@ model MetaRegistro {
 enum Parentesco {
   CONJUGE
   FILHO
+  DEPENDENTE // dependente do Meta sem parentesco classificado
 }
 
 // Familiares do obreiro (cônjuge e filhos) — base dos alertas de aniversário.
@@ -252,7 +253,9 @@ model FamilyMember {
   userId     String
   name       String
   parentesco Parentesco
-  birthDate  DateTime
+  // Opcional: o Meta nem sempre informa — sem ela o familiar aparece na
+  // ficha, mas fica fora dos alertas de aniversário
+  birthDate  DateTime?
   createdAt  DateTime   @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

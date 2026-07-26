@@ -285,7 +285,7 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
   // Aniversários (obreiro, cônjuge e filhos): alerta da véspera até o dia,
   // visível a toda a Loja (VM, Secretário, 2º Vigilante e demais irmãos).
   const familiares = await prisma.familyMember.findMany({
-    where: { user: { lodgeId, status: "ATIVO" } },
+    where: { user: { lodgeId, status: "ATIVO" }, birthDate: { not: null } },
     include: { user: { select: { name: true } } },
   });
   const aniversariantes: {
@@ -308,8 +308,10 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
       quem:
         f.parentesco === "CONJUGE"
           ? `de ${f.name}, cônjuge do Ir∴ ${f.user.name}`
-          : `de ${f.name}, filho(a) do Ir∴ ${f.user.name}`,
-      birthDate: f.birthDate,
+          : f.parentesco === "FILHO"
+            ? `de ${f.name}, filho(a) do Ir∴ ${f.user.name}`
+            : `de ${f.name}, dependente do Ir∴ ${f.user.name}`,
+      birthDate: f.birthDate as Date,
     })),
   ];
   for (const a of aniversariantes) {

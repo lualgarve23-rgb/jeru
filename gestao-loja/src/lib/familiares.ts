@@ -13,12 +13,16 @@ export async function criarFamiliar(
   const parentesco = String(formData.get("parentesco") ?? "");
   const birthRaw = String(formData.get("birthDate") ?? "");
   if (!name) return { error: "Informe o nome do familiar." };
-  if (!["CONJUGE", "FILHO"].includes(parentesco)) {
+  if (!["CONJUGE", "FILHO", "DEPENDENTE"].includes(parentesco)) {
     return { error: "Parentesco inválido." };
   }
-  const birthDate = new Date(birthRaw);
-  if (!birthRaw || isNaN(birthDate.getTime()) || birthDate > new Date()) {
-    return { error: "Informe uma data de nascimento válida." };
+  // Data de nascimento é opcional; quando vier, precisa ser válida
+  let birthDate: Date | null = null;
+  if (birthRaw) {
+    birthDate = new Date(birthRaw);
+    if (isNaN(birthDate.getTime()) || birthDate > new Date()) {
+      return { error: "Informe uma data de nascimento válida." };
+    }
   }
   await prisma.familyMember.create({
     data: { userId, name, parentesco: parentesco as Parentesco, birthDate },

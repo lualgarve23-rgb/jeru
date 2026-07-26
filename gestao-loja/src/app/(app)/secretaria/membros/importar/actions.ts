@@ -14,29 +14,32 @@ function graus(m: MetaMember): { degree: "APRENDIZ" | "COMPANHEIRO" | "MESTRE"; 
   ].filter((g) => g !== null);
 }
 
-// Grava os dependentes do Meta como familiares (cônjuge/filhos), sem duplicar
-// os já cadastrados (comparação por nome, ignorando maiúsculas). FamilyMember
-// exige data de nascimento — dependentes sem ela ficam de fora (o nome do
-// cônjuge já vai no campo "conjuge" da ficha de qualquer forma).
+// Grava TODOS os dependentes do Meta como familiares, sem duplicar os já
+// cadastrados (comparação por nome, ignorando maiúsculas). Sem parentesco
+// classificado no Meta entra como DEPENDENTE; sem data de nascimento entra
+// mesmo assim (só fica fora dos alertas de aniversário).
 async function importarDependentes(userId: string, m: MetaMember) {
-  const validos = m.dependentes.filter(
-    (d) => d.parentesco && d.nascimento && !isNaN(new Date(d.nascimento).getTime())
-  );
-  if (validos.length === 0) return;
+  if (m.dependentes.length === 0) return;
   const jaTem = await prisma.familyMember.findMany({
     where: { userId },
     select: { name: true },
   });
   const nomes = new Set(jaTem.map((f) => f.name.trim().toUpperCase()));
-  const novos = validos.filter((d) => !nomes.has(d.nome.trim().toUpperCase()));
+  const novos = m.dependentes.filter((d) => !nomes.has(d.nome.trim().toUpperCase()));
   if (novos.length) {
     await prisma.familyMember.createMany({
-      data: novos.map((d) => ({
-        userId,
-        name: d.nome,
-        parentesco: d.parentesco!,
-        birthDate: new Date(d.nascimento!),
-      })),
+      data: novos.map((d) => {
+        const nascimento =
+          d.nascimento && !isNaN(new Date(d.nascimento).getTime())
+            ? new Date(d.nascimento)
+            : null;
+        return {
+          userId,
+          name: d.nome,
+          parentesco: d.parentesco ?? "DEPENDENTE",
+          birthDate: nascimento,
+        };
+      }),
     });
   }
 }

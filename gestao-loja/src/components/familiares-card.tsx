@@ -15,12 +15,13 @@ export type FamiliarItem = {
   id: string;
   name: string;
   parentesco: string;
-  birthDate: Date;
+  birthDate: Date | null;
 };
 
 export const parentescoLabels: Record<string, string> = {
   CONJUGE: "Cônjuge",
   FILHO: "Filho(a)",
+  DEPENDENTE: "Dependente",
 };
 
 // Cadastro de cônjuge e filhos com data de aniversário — usado tanto na
@@ -39,8 +40,8 @@ export function FamiliaresCard({
       <CardHeader>
         <CardTitle>Família</CardTitle>
         <CardDescription>
-          Cônjuge e filhos, com data de aniversário — alimentam os alertas de
-          aniversariantes da Loja.
+          Cônjuge, filhos e demais dependentes — quem tem data de nascimento
+          alimenta os alertas de aniversariantes da Loja.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -58,10 +59,11 @@ export function FamiliaresCard({
                 <span className="min-w-0">
                   <strong>{f.name}</strong>{" "}
                   <span className="text-muted-foreground">
-                    · {parentescoLabels[f.parentesco] ?? f.parentesco} · 🎂{" "}
-                    {f.birthDate.toLocaleDateString("pt-BR", {
-                      timeZone: "UTC",
-                    })}
+                    · {parentescoLabels[f.parentesco] ?? f.parentesco}
+                    {f.birthDate &&
+                      ` · 🎂 ${f.birthDate.toLocaleDateString("pt-BR", {
+                        timeZone: "UTC",
+                      })}`}
                   </span>
                 </span>
                 <ActionButton
@@ -93,12 +95,11 @@ export function FamiliaresCard({
             </div>
             <div className="space-y-1">
               <Label htmlFor="fam-birthDate">Data de nascimento</Label>
-              <Input
-                id="fam-birthDate"
-                name="birthDate"
-                type="date"
-                required
-              />
+              <Input id="fam-birthDate" name="birthDate" type="date" />
+              <p className="text-xs text-muted-foreground">
+                Opcional — sem ela o familiar fica fora dos alertas de
+                aniversário.
+              </p>
             </div>
           </div>
         </ActionForm>
