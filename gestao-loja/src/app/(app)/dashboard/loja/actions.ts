@@ -169,12 +169,20 @@ export async function updateConviteTemplate(
       };
     }
   } else {
-    if (file.size > 3_000_000) {
-      return { error: "Imagem muito grande — use um JPG/PNG de até 3 MB." };
+    if (file.size > 15_000_000) {
+      return { error: "Imagem muito grande — use um JPG/PNG de até 15 MB." };
     }
+    // Comprime a arte para caber bem no e-mail (largura 1120px, JPEG q80)
+    const sharp = (await import("sharp")).default;
     const { templateDeImagem } = await import("@/lib/convite");
-    const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
-    html = templateDeImagem(`data:image/${extImg};base64,${base64}`);
+    const otimizada = await sharp(Buffer.from(await file.arrayBuffer()))
+      .resize({ width: 1120, withoutEnlargement: true })
+      .flatten({ background: "#ffffff" }) // PNG transparente vira fundo branco
+      .jpeg({ quality: 80 })
+      .toBuffer();
+    html = templateDeImagem(
+      `data:image/jpeg;base64,${otimizada.toString("base64")}`
+    );
   }
   await prisma.lodge.update({
     where: { id: user.lodgeId },
