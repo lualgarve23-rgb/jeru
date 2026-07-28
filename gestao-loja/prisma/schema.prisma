@@ -338,6 +338,8 @@ model LodgeSession {
   qrToken   String      @unique @default(cuid()) // check-in via QR Code
   // Link público do convite pré-sessão (RSVP) — /convite/[token]
   inviteToken String    @unique @default(cuid())
+  // Pauta do dia — exibida no convite e pré-preenche a Ata
+  pauta     String?
   createdAt DateTime    @default(now())
 
   lodge       Lodge        @relation(fields: [lodgeId], references: [id])

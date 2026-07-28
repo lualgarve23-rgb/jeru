@@ -6,7 +6,7 @@ import { ActionForm } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { sessionTypeLabels, degreeLabels } from "@/lib/labels";
-import { arteDoConvite, CONVITE_FRASE_PADRAO } from "@/lib/convite";
+import { arteDoConvite, renderFrase, fraseCitaPauta } from "@/lib/convite";
 import {
   Card,
   CardContent,
@@ -81,9 +81,17 @@ export default async function ConvitePage({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <p className="text-sm leading-relaxed text-neutral-600">
-            {session.lodge.conviteFrase?.trim() || CONVITE_FRASE_PADRAO}
+          <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-600">
+            {renderFrase(session.lodge, session)}
           </p>
+          {session.pauta && !fraseCitaPauta(session.lodge.conviteFrase) && (
+            <div className="rounded-md border bg-neutral-50 p-3 text-sm">
+              <p className="mb-1 font-semibold">Pauta do dia</p>
+              <p className="whitespace-pre-line text-neutral-600">
+                {session.pauta}
+              </p>
+            </div>
+          )}
           {authSession?.user ? (
             <div className="space-y-3">
               <p className="text-sm">

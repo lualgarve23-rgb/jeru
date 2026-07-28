@@ -275,8 +275,20 @@ export default async function LojaConfigPage({
                 className="w-full rounded-md border bg-transparent p-2 text-sm"
               />
               <p className="text-xs text-muted-foreground">
-                Aparece no e-mail e na página do convite — só a data e o tipo da
-                sessão variam. Em branco, vale a saudação padrão.
+                Aparece no e-mail e na página do convite. Aceita os marcadores{" "}
+                <code>&lt;&lt;pauta&gt;&gt;</code>,{" "}
+                <code>&lt;&lt;dia&gt;&gt;</code>,{" "}
+                <code>&lt;&lt;horario&gt;&gt;</code>,{" "}
+                <code>&lt;&lt;endereco da loja&gt;&gt;</code>,{" "}
+                <code>&lt;&lt;loja&gt;&gt;</code>,{" "}
+                <code>&lt;&lt;tipo&gt;&gt;</code> e{" "}
+                <code>&lt;&lt;grau&gt;&gt;</code>, preenchidos automaticamente a
+                cada sessão. Ex.: &quot;Temos a honra de convidá-lo juntamente
+                com os Obreiros de sua Oficina para: &lt;&lt;pauta&gt;&gt;, a
+                realizar-se no dia &lt;&lt;dia&gt;&gt; às
+                &lt;&lt;horario&gt;&gt;, no templo situado na
+                &lt;&lt;endereco da loja&gt;&gt;.&quot; Em branco, vale a
+                saudação padrão.
               </p>
             </div>
           </ActionForm>

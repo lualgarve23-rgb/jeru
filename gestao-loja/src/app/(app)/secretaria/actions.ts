@@ -433,10 +433,27 @@ export async function createSession(
       date: new Date(String(formData.get("date"))),
       type: formData.get("type") as SessionType,
       degree: formData.get("degree") as Degree,
+      pauta: String(formData.get("pauta") ?? "").trim() || null,
     },
   });
   revalidatePath("/secretaria/sessoes");
   redirect(`/secretaria/sessoes/${session.id}`);
+}
+
+// Pauta do dia da sessão — exibida no convite e pré-preenche a Ata
+export async function updateSessionPauta(
+  sessionId: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const pauta = String(formData.get("pauta") ?? "").trim();
+  await prisma.lodgeSession.update({
+    where: { id: sessionId, lodgeId: user.lodgeId },
+    data: { pauta: pauta || null },
+  });
+  revalidatePath(`/secretaria/sessoes/${sessionId}`);
+  return { ok: pauta ? "Pauta salva." : "Pauta removida." };
 }
 
 // Check-in de membro pelo Secretário (manual)

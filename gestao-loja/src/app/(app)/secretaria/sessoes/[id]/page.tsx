@@ -8,6 +8,7 @@ import {
   createAta,
   reenviarCertificadoVisita,
   dispararConvitesEmail,
+  updateSessionPauta,
 } from "../../actions";
 import { CopyButton } from "@/components/copy-button";
 import { ActionForm, ActionButton } from "@/components/action-form";
@@ -156,6 +157,19 @@ export default async function SessaoPage({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <ActionForm action={updateSessionPauta.bind(null, session.id)} submitLabel="Salvar pauta">
+              <div className="space-y-1">
+                <Label htmlFor="pauta">Pauta do dia</Label>
+                <textarea
+                  id="pauta"
+                  name="pauta"
+                  rows={3}
+                  defaultValue={session.pauta ?? ""}
+                  placeholder="assuntos da sessão — sai no convite e pré-preenche a Ata"
+                  className="w-full rounded-md border bg-transparent p-2 text-sm"
+                />
+              </div>
+            </ActionForm>
             <div className="flex flex-wrap items-center gap-3">
               <CopyButton text={inviteUrl} label="Copiar link do convite" />
               <ActionButton
@@ -248,6 +262,9 @@ export default async function SessaoPage({
                           id={name}
                           name={name}
                           rows={name === "pautaDoDia" ? 3 : 2}
+                          defaultValue={
+                            name === "pautaDoDia" ? session.pauta ?? "" : ""
+                          }
                           className="w-full rounded-md border bg-transparent p-2 text-sm"
                         />
                       </div>

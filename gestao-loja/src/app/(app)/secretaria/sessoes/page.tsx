@@ -95,6 +95,16 @@ export default async function SessoesPage() {
                   </select>
                 </div>
               </div>
+              <div className="space-y-1">
+                <Label htmlFor="pauta">Pauta do dia (opcional)</Label>
+                <textarea
+                  id="pauta"
+                  name="pauta"
+                  rows={3}
+                  placeholder="assuntos da sessão — sai no convite e pré-preenche a Ata"
+                  className="w-full rounded-md border bg-transparent p-2 text-sm"
+                />
+              </div>
             </ActionForm>
           </CardContent>
         </Card>
