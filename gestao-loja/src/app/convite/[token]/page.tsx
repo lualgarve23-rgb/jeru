@@ -6,6 +6,7 @@ import { ActionForm } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { sessionTypeLabels, degreeLabels } from "@/lib/labels";
+import { arteDoConvite, CONVITE_FRASE_PADRAO } from "@/lib/convite";
 import {
   Card,
   CardContent,
@@ -35,18 +36,28 @@ export default async function ConvitePage({
   });
   if (!session) notFound();
 
+  const arte = arteDoConvite(session.lodge.conviteTemplateHtml);
   const authSession = await auth();
   const memberAction = rsvpMember.bind(null, token);
   const publicoAction = rsvpPublico.bind(null, token);
 
   return (
     <main className="mx-auto max-w-md space-y-6 p-6">
-      <div className="space-y-1 text-center">
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">
-          Convite
-        </p>
-        <h1 className="text-xl font-bold">{session.lodge.name}</h1>
-      </div>
+      {arte ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={arte}
+          alt={`Convite — ${session.lodge.name}`}
+          className="w-full rounded-lg border shadow-sm"
+        />
+      ) : (
+        <div className="space-y-1 text-center">
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">
+            Convite
+          </p>
+          <h1 className="text-xl font-bold">{session.lodge.name}</h1>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -70,6 +81,9 @@ export default async function ConvitePage({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <p className="text-sm leading-relaxed text-neutral-600">
+            {session.lodge.conviteFrase?.trim() || CONVITE_FRASE_PADRAO}
+          </p>
           {authSession?.user ? (
             <div className="space-y-3">
               <p className="text-sm">

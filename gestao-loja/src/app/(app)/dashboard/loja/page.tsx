@@ -11,6 +11,7 @@ import {
   removeCertTemplate,
   updateConviteTemplate,
   removeConviteTemplate,
+  updateConviteFrase,
   updateInstrucoesNecessarias,
   updateAtaCabecalho,
   updateGmailLoja,
@@ -259,6 +260,26 @@ export default async function LojaConfigPage({
               />
             )}
           </div>
+          <ActionForm action={updateConviteFrase} submitLabel="Salvar frase">
+            <div className="space-y-1">
+              <Label htmlFor="convite-frase">
+                Frase fixa do convite (saudação da Loja)
+              </Label>
+              <textarea
+                id="convite-frase"
+                name="frase"
+                rows={3}
+                maxLength={600}
+                defaultValue={lodge.conviteFrase ?? ""}
+                placeholder="ex.: O Venerável Mestre e os obreiros da Loja têm a honra de convidar-vos para a nossa próxima sessão."
+                className="w-full rounded-md border bg-transparent p-2 text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                Aparece no e-mail e na página do convite — só a data e o tipo da
+                sessão variam. Em branco, vale a saudação padrão.
+              </p>
+            </div>
+          </ActionForm>
           <ActionForm action={updateConviteTemplate} submitLabel="Enviar template">
             <div className="space-y-1">
               <Label htmlFor="convite-template">

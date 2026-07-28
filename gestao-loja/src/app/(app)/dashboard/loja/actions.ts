@@ -192,6 +192,24 @@ export async function updateConviteTemplate(
   return { ok: "Template do convite de sessão atualizado." };
 }
 
+// Frase fixa do convite de sessão — só data e tipo variam entre convites
+export async function updateConviteFrase(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireRole("VENERAVEL_MESTRE", "SECRETARIO");
+  const frase = String(formData.get("frase") ?? "").trim();
+  if (frase.length > 600) {
+    return { error: "Frase longa demais — use até 600 caracteres." };
+  }
+  await prisma.lodge.update({
+    where: { id: user.lodgeId },
+    data: { conviteFrase: frase || null },
+  });
+  revalidatePath("/dashboard/loja");
+  return { ok: frase ? "Frase do convite salva." : "Frase do convite removida (volta ao padrão)." };
+}
+
 // Volta ao template padrão do convite (do repositório)
 export async function removeConviteTemplate(): Promise<ActionResult> {
   const user = await requireRole("VENERAVEL_MESTRE", "SECRETARIO");

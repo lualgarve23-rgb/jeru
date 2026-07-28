@@ -64,8 +64,10 @@ model Lodge {
   certFundoPdf       Bytes?
   certLayout         Json?
   // Template HTML do convite de sessão (upload na config da loja); null = padrão.
-  // Placeholders: {{LOJA}}, {{DATA}}, {{HORA}}, {{TIPO}}, {{GRAU}}, {{LINK}}
+  // Placeholders: {{LOJA}}, {{DATA}}, {{HORA}}, {{TIPO}}, {{GRAU}}, {{LINK}}, {{FRASE}}
   conviteTemplateHtml String?
+  // Frase fixa do convite (saudação/texto da loja) — só data e tipo variam
+  conviteFrase        String?
   // Gateway de pagamento Asaas (cobrança recorrente cartão/boleto)
   asaasApiKey        String? // API key da conta Asaas da Loja
   asaasWebhookToken  String? // token conferido no header asaas-access-token do webhook
