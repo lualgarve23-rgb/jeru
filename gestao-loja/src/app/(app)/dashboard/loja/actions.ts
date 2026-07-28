@@ -133,9 +133,9 @@ export async function removeCertTemplate(): Promise<ActionResult> {
   return { ok: "Template padrão restaurado." };
 }
 
-// Template HTML do convite de sessão (RSVP). O Secretário/Venerável envia um
-// .html com os placeholders do convite; {{LINK}} é obrigatório para o botão
-// de confirmação funcionar.
+// Template do convite de sessão (RSVP). O Secretário/Venerável envia um .html
+// com os placeholders do convite ({{LINK}} obrigatório) ou a arte pronta em
+// JPG/PNG — a imagem vira o corpo do e-mail com o botão de confirmação abaixo.
 export async function updateConviteTemplate(
   _prev: ActionResult,
   formData: FormData
@@ -143,21 +143,38 @@ export async function updateConviteTemplate(
   const user = await requireRole("VENERAVEL_MESTRE", "SECRETARIO");
   const file = formData.get("template") as File | null;
   if (!file || file.size === 0) {
-    return { error: "Selecione o arquivo HTML do convite." };
+    return { error: "Selecione o arquivo do convite (.html, .jpg ou .png)." };
   }
   const nome = file.name.toLowerCase();
-  if (!nome.endsWith(".html") && !nome.endsWith(".htm")) {
-    return { error: "O template deve ser um arquivo .html." };
+  const ehHtml = nome.endsWith(".html") || nome.endsWith(".htm");
+  const extImg = nome.endsWith(".png")
+    ? "png"
+    : nome.endsWith(".jpg") || nome.endsWith(".jpeg")
+      ? "jpeg"
+      : null;
+  if (!ehHtml && !extImg) {
+    return { error: "O template deve ser um arquivo .html, .jpg, .jpeg ou .png." };
   }
-  if (file.size > 1_000_000) {
-    return { error: "Template muito grande — use um HTML de até 1 MB (imagens como data URI pequenas)." };
-  }
-  const html = await file.text();
-  if (!html.includes("{{LINK}}")) {
-    return {
-      error:
-        "O template precisa conter o placeholder {{LINK}} (endereço de confirmação de presença).",
-    };
+
+  let html: string;
+  if (ehHtml) {
+    if (file.size > 1_000_000) {
+      return { error: "Template muito grande — use um HTML de até 1 MB (imagens como data URI pequenas)." };
+    }
+    html = await file.text();
+    if (!html.includes("{{LINK}}")) {
+      return {
+        error:
+          "O template precisa conter o placeholder {{LINK}} (endereço de confirmação de presença).",
+      };
+    }
+  } else {
+    if (file.size > 3_000_000) {
+      return { error: "Imagem muito grande — use um JPG/PNG de até 3 MB." };
+    }
+    const { templateDeImagem } = await import("@/lib/convite");
+    const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
+    html = templateDeImagem(`data:image/${extImg};base64,${base64}`);
   }
   await prisma.lodge.update({
     where: { id: user.lodgeId },

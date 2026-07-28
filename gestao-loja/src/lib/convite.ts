@@ -60,6 +60,35 @@ export const CONVITE_TEMPLATE_PADRAO = `<!doctype html>
   </body>
 </html>`;
 
+// Template a partir de uma arte pronta (JPG/PNG): a imagem vira o corpo do
+// e-mail, com o botão de confirmação logo abaixo. O HTML gerado é salvo em
+// Lodge.conviteTemplateHtml, como no upload de HTML.
+export function templateDeImagem(dataUri: string) {
+  return `<!doctype html>
+<html lang="pt-BR">
+  <body style="margin:0;padding:0;background:#f4f4f5;font-family:Georgia,'Times New Roman',serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 0;">
+      <tr><td align="center">
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #e4e4e7;">
+          <tr><td>
+            <a href="{{LINK}}"><img src="${dataUri}" alt="Convite — {{LOJA}}, sessão {{TIPO}} de {{DATA}}" width="560" style="display:block;width:100%;height:auto;"/></a>
+          </td></tr>
+          <tr><td style="padding:24px 32px;text-align:center;">
+            <p style="margin:0 0 16px;font-size:15px;color:#3f3f46;line-height:1.6;">
+              Confirme sua presença — e se ficará para o <strong>Ágape</strong> — pelo botão abaixo:
+            </p>
+            <a href="{{LINK}}" style="background:#1e3a5f;color:#ffffff;text-decoration:none;padding:12px 32px;border-radius:6px;font-size:15px;display:inline-block;">Confirmar presença</a>
+            <p style="margin:16px 0 0;font-size:12px;color:#a1a1aa;line-height:1.5;">
+              Se o botão não funcionar, copie e cole este endereço no navegador:<br/>{{LINK}}
+            </p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+}
+
 export function renderConvite(
   lodge: Pick<Lodge, "name" | "conviteTemplateHtml">,
   session: Pick<LodgeSession, "date" | "type" | "degree">,

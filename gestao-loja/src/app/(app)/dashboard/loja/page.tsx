@@ -234,12 +234,14 @@ export default async function LojaConfigPage({
         <CardHeader>
           <CardTitle>Convite de Sessão (e-mail)</CardTitle>
           <CardDescription>
-            Template HTML do convite enviado aos membros para confirmar
-            presença e Ágape. Placeholders: <code>{"{{LOJA}}"}</code>,{" "}
-            <code>{"{{DATA}}"}</code>, <code>{"{{HORA}}"}</code>,{" "}
-            <code>{"{{TIPO}}"}</code>, <code>{"{{GRAU}}"}</code> e{" "}
-            <code>{"{{LINK}}"}</code> (obrigatório — vira o endereço de
-            confirmação).
+            Template do convite enviado aos membros para confirmar presença e
+            Ágape. Envie a arte pronta em <strong>JPG/PNG</strong> (a imagem
+            vira o corpo do e-mail, com o botão de confirmação abaixo) ou um{" "}
+            <strong>HTML</strong> com os placeholders{" "}
+            <code>{"{{LOJA}}"}</code>, <code>{"{{DATA}}"}</code>,{" "}
+            <code>{"{{HORA}}"}</code>, <code>{"{{TIPO}}"}</code>,{" "}
+            <code>{"{{GRAU}}"}</code> e <code>{"{{LINK}}"}</code> (obrigatório
+            — vira o endereço de confirmação).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -259,12 +261,14 @@ export default async function LojaConfigPage({
           </div>
           <ActionForm action={updateConviteTemplate} submitLabel="Enviar template">
             <div className="space-y-1">
-              <Label htmlFor="convite-template">Novo template (.html)</Label>
+              <Label htmlFor="convite-template">
+                Novo template (.html, .jpg ou .png)
+              </Label>
               <Input
                 id="convite-template"
                 name="template"
                 type="file"
-                accept=".html,.htm"
+                accept=".html,.htm,.jpg,.jpeg,.png"
                 required
               />
             </div>
