@@ -792,9 +792,7 @@ export async function createAta(
     totalMembros: membros.length,
     ausenciasJustificadas: campo("ausenciasJustificadas"),
     pautaDoDia: campo("pautaDoDia"),
-    primeiroLevantamento: campo("primeiroLevantamento"),
-    segundoLevantamento: campo("segundoLevantamento"),
-    terceiroLevantamento: campo("terceiroLevantamento"),
+    detalhamentos: campo("detalhamentos"),
     horaEncerramento: campo("horaEncerramento"),
   });
 

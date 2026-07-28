@@ -80,9 +80,7 @@ export type AtaTemplateData = {
   // (vazios viram _____ para completar depois)
   ausenciasJustificadas?: string;
   pautaDoDia?: string;
-  primeiroLevantamento?: string;
-  segundoLevantamento?: string;
-  terceiroLevantamento?: string;
+  detalhamentos?: string;
   horaEncerramento?: string;
 };
 
@@ -136,13 +134,9 @@ Os seguintes irmãos justificaram ausência: ${livre(d.ausenciasJustificadas)}.
 Os trabalhos foram abertos conforme o Ritual, no Grau de ${degreeLabels[d.degree] ?? d.degree} Maçom, sendo lida pelo Secretário a pauta do dia:
 ${livre(d.pautaDoDia)}
 
-No primeiro levantamento, o Secr∴ ${livre(d.primeiroLevantamento)}.
+Os trabalhos transcorreram conforme descrito a seguir:
 
-No segundo levantamento, o Secr∴ ${livre(d.segundoLevantamento)}.
-
-No terceiro levantamento, que trata a respeito de questões voltadas à nossa Loja, alguns irmãos se manifestaram conforme descrito abaixo:
-
-${livre(d.terceiroLevantamento)}
+${livre(d.detalhamentos)}
 
 A sessão foi preenchida por ${total} obreiros, sendo ${d.totalMembros} da Loja e ${d.visitantes.length} ${d.visitantes.length === 1 ? "irmão visitante" : "irmãos visitantes"}${visitantes ? `: ${visitantes}` : ""}.
 

@@ -244,12 +244,7 @@ export default async function SessaoPage({
                     {(
                       [
                         ["pautaDoDia", "Pauta do dia (lida pelo Secretário)"],
-                        ["primeiroLevantamento", "Primeiro levantamento"],
-                        ["segundoLevantamento", "Segundo levantamento"],
-                        [
-                          "terceiroLevantamento",
-                          "Terceiro levantamento (manifestações dos irmãos)",
-                        ],
+                        ["detalhamentos", "Detalhamentos da Sessão"],
                         [
                           "ausenciasJustificadas",
                           "Irmãos que justificaram ausência",
@@ -261,7 +256,7 @@ export default async function SessaoPage({
                         <textarea
                           id={name}
                           name={name}
-                          rows={name === "pautaDoDia" ? 3 : 2}
+                          rows={name === "detalhamentos" ? 6 : name === "pautaDoDia" ? 3 : 2}
                           defaultValue={
                             name === "pautaDoDia" ? session.pauta ?? "" : ""
                           }
