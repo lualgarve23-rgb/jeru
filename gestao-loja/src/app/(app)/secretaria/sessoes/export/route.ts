@@ -35,7 +35,10 @@ export async function GET(request: Request) {
         degree: true,
         status: true,
         attendances: {
-          where: dateFilter ? { session: { date: dateFilter } } : {},
+          where: {
+            checkedIn: true,
+            ...(dateFilter ? { session: { date: dateFilter } } : {}),
+          },
           select: { id: true },
         },
       },

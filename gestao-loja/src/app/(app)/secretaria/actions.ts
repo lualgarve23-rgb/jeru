@@ -20,6 +20,7 @@ import { gerarTextoAta } from "@/lib/ata-template";
 import { gerarAtaPdf } from "@/lib/ata-pdf";
 import { gerarPdfAtaAssinada } from "@/lib/ata-final";
 import { enviarCertificadoVisita } from "@/lib/certificado";
+import { renderConvite } from "@/lib/convite";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
@@ -447,12 +448,15 @@ export async function registerAttendance(
   const user = await requireSecretariaWriter();
   const memberId = String(formData.get("memberId"));
   try {
-    await prisma.attendance.create({
-      data: {
+    // Se o membro já confirmou pelo convite (RSVP), o registro vira presença
+    await prisma.attendance.upsert({
+      where: { sessionId_userId: { sessionId, userId: memberId } },
+      create: {
         lodgeId: user.lodgeId,
         sessionId,
         userId: memberId,
       },
+      update: { checkedIn: true, checkedInAt: new Date() },
     });
   } catch {
     return { error: "Membro já registrado nesta sessão." };
@@ -470,7 +474,17 @@ export async function qrCheckinMember(qrToken: string): Promise<ActionResult> {
   if (!session || session.lodgeId !== user.lodgeId) {
     return { error: "Sessão não encontrada para a sua Loja." };
   }
-  try {
+  const existente = await prisma.attendance.findUnique({
+    where: { sessionId_userId: { sessionId: session.id, userId: user.id } },
+  });
+  if (existente?.checkedIn) return { error: "Presença já registrada." };
+  if (existente) {
+    // RSVP pelo convite vira presença efetiva no check-in do dia
+    await prisma.attendance.update({
+      where: { id: existente.id },
+      data: { checkedIn: true, checkedInAt: new Date(), viaQrCode: true },
+    });
+  } else {
     await prisma.attendance.create({
       data: {
         lodgeId: session.lodgeId,
@@ -479,8 +493,6 @@ export async function qrCheckinMember(qrToken: string): Promise<ActionResult> {
         viaQrCode: true,
       },
     });
-  } catch {
-    return { error: "Presença já registrada." };
   }
   return { ok: "Presença confirmada. TFA!" };
 }
@@ -521,6 +533,160 @@ export async function qrCheckinVisitor(
     }
   }
   return { ok: "Presença de visitante confirmada. Seja bem-vindo!" };
+}
+
+// RSVP pelo link público do convite — membro logado
+export async function rsvpMember(
+  inviteToken: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireUser();
+  const session = await prisma.lodgeSession.findUnique({
+    where: { inviteToken },
+  });
+  if (!session || session.lodgeId !== user.lodgeId) {
+    return { error: "Convite não encontrado para a sua Loja." };
+  }
+  const agape = formData.get("agape") === "on";
+  await prisma.attendance.upsert({
+    where: { sessionId_userId: { sessionId: session.id, userId: user.id } },
+    create: {
+      lodgeId: session.lodgeId,
+      sessionId: session.id,
+      userId: user.id,
+      checkedIn: false,
+      rsvpAt: new Date(),
+      agapeConfirmed: agape,
+    },
+    update: { rsvpAt: new Date(), agapeConfirmed: agape },
+  });
+  return {
+    ok: agape
+      ? "Presença e Ágape confirmados. Até lá, TFA!"
+      : "Presença confirmada. Até lá, TFA!",
+  };
+}
+
+// RSVP pelo link público do convite — sem login (membro identificado pelo CIM
+// ou visitante de outra Loja)
+export async function rsvpPublico(
+  inviteToken: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const session = await prisma.lodgeSession.findUnique({
+    where: { inviteToken },
+  });
+  if (!session) return { error: "Convite não encontrado." };
+  const nome = String(formData.get("nome") ?? "").trim();
+  if (!nome) return { error: "Informe o seu nome." };
+  const cim = String(formData.get("cim") ?? "").trim();
+  const agape = formData.get("agape") === "on";
+
+  // CIM de membro ativo da própria Loja: vincula o RSVP ao cadastro
+  if (cim) {
+    const membro = await prisma.user.findFirst({
+      where: { lodgeId: session.lodgeId, cim, status: "ATIVO" },
+    });
+    if (membro) {
+      await prisma.attendance.upsert({
+        where: {
+          sessionId_userId: { sessionId: session.id, userId: membro.id },
+        },
+        create: {
+          lodgeId: session.lodgeId,
+          sessionId: session.id,
+          userId: membro.id,
+          checkedIn: false,
+          rsvpAt: new Date(),
+          agapeConfirmed: agape,
+        },
+        update: { rsvpAt: new Date(), agapeConfirmed: agape },
+      });
+      return {
+        ok: `Presença confirmada, Irmão ${membro.name}.${agape ? " Ágape anotado." : ""} TFA!`,
+      };
+    }
+  }
+
+  // Visitante: evita duplicar a confirmação pelo mesmo nome nesta sessão
+  const jaConfirmado = await prisma.attendance.findFirst({
+    where: {
+      sessionId: session.id,
+      userId: null,
+      visitorName: { equals: nome, mode: "insensitive" },
+    },
+  });
+  if (jaConfirmado) {
+    await prisma.attendance.update({
+      where: { id: jaConfirmado.id },
+      data: { rsvpAt: new Date(), agapeConfirmed: agape },
+    });
+  } else {
+    await prisma.attendance.create({
+      data: {
+        lodgeId: session.lodgeId,
+        sessionId: session.id,
+        visitorName: nome,
+        visitorEmail:
+          String(formData.get("email") ?? "").trim().toLowerCase() || null,
+        visitorCim: cim || null,
+        visitorLodge: (formData.get("lojaOrigem") as string)?.trim() || null,
+        visitorPotencia: (formData.get("potencia") as string)?.trim() || null,
+        checkedIn: false,
+        rsvpAt: new Date(),
+        agapeConfirmed: agape,
+      },
+    });
+  }
+  return {
+    ok: `Presença confirmada.${agape ? " Ágape anotado." : ""} Seja bem-vindo!`,
+  };
+}
+
+// Dispara o convite da sessão por e-mail para todos os membros ativos,
+// pelo Gmail da Loja (template padrão ou o HTML enviado pela loja)
+export async function dispararConvitesEmail(
+  sessionId: string
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const session = await prisma.lodgeSession.findUnique({
+    where: { id: sessionId, lodgeId: user.lodgeId },
+    include: { lodge: true },
+  });
+  if (!session) return { error: "Sessão não encontrada." };
+
+  const membros = await prisma.user.findMany({
+    where: {
+      lodgeId: user.lodgeId,
+      status: "ATIVO",
+      currentRole: { not: "SUPER_ADMIN" },
+    },
+    select: { email: true },
+  });
+  const emails = membros.map((m) => m.email).filter((e) => e.includes("@"));
+  if (emails.length === 0) {
+    return { error: "Nenhum membro ativo com e-mail cadastrado." };
+  }
+
+  const baseUrl = process.env.APP_URL ?? "http://localhost:3100";
+  const inviteUrl = `${baseUrl}/convite/${session.inviteToken}`;
+  const html = renderConvite(session.lodge, session, inviteUrl);
+  const dataFmt = session.date.toLocaleDateString("pt-BR");
+  try {
+    await sendLodgeEmail({
+      lodgeId: user.lodgeId,
+      to: (await getGmailAuth(user.lodgeId))!.user, // BCC preserva os endereços
+      bcc: emails,
+      subject: `Convite — Sessão de ${dataFmt} · ${session.lodge.name}`,
+      text: `Convite para a sessão de ${dataFmt}. Confirme sua presença e o Ágape em: ${inviteUrl}`,
+      html,
+    });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Falha no envio." };
+  }
+  return { ok: `Convite enviado para ${emails.length} membro(s).` };
 }
 
 // Reenvio manual do Certificado de Visita pela Secretaria

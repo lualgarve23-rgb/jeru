@@ -7,7 +7,9 @@ import {
   registerAttendance,
   createAta,
   reenviarCertificadoVisita,
+  dispararConvitesEmail,
 } from "../../actions";
+import { CopyButton } from "@/components/copy-button";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Label } from "@/components/ui/label";
 import { sessionTypeLabels, degreeLabels } from "@/lib/labels";
@@ -53,13 +55,24 @@ export default async function SessaoPage({
   const baseUrl = process.env.APP_URL ?? "http://localhost:3100";
   const checkinUrl = `${baseUrl}/checkin/${session.qrToken}`;
   const qrDataUrl = await QRCode.toDataURL(checkinUrl, { width: 240 });
+  const inviteUrl = `${baseUrl}/convite/${session.inviteToken}`;
+
+  // RSVP pelo convite: confirmados (antes do dia) e total do Ágape
+  const confirmados = session.attendances.filter((a) => a.rsvpAt);
+  const agapeTotal = session.attendances.filter(
+    (a) => a.agapeConfirmed
+  ).length;
 
   const members = isWriter
     ? await prisma.user.findMany({
         where: {
           lodgeId: user.lodgeId,
           status: "ATIVO",
-          id: { notIn: session.attendances.flatMap((a) => a.userId ?? []) },
+          id: {
+            notIn: session.attendances.flatMap((a) =>
+              a.userId && a.checkedIn ? [a.userId] : []
+            ),
+          },
         },
         orderBy: { name: "asc" },
       })
@@ -94,7 +107,9 @@ export default async function SessaoPage({
   ]);
   const freqPorMembro = new Map(freq.map((f) => [f.userId, f]));
   const presentes = new Set(
-    session.attendances.flatMap((a) => (a.userId ? [a.userId] : []))
+    session.attendances.flatMap((a) =>
+      a.userId && a.checkedIn ? [a.userId] : []
+    )
   );
   const linhas = quadro.filter(
     (m) => (DEGREE_RANK[m.degree] ?? 3) >= (DEGREE_RANK[session.degree] ?? 1)
@@ -116,7 +131,10 @@ export default async function SessaoPage({
     if (f.percentual < minFreq + 10) return { texto, tone: "amarelo" };
     return { texto, tone: "ok" };
   }
-  const visitantes = session.attendances.filter((a) => !a.user);
+  const visitantes = session.attendances.filter((a) => !a.user && a.checkedIn);
+  const visitantesConfirmados = session.attendances.filter(
+    (a) => !a.user && !a.checkedIn
+  );
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -127,6 +145,39 @@ export default async function SessaoPage({
           (grau {degreeLabels[session.degree] ?? session.degree})
         </span>
       </h1>
+
+      {isWriter && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Convite da Sessão (RSVP + Ágape)</CardTitle>
+            <CardDescription>
+              Compartilhe o link do convite para os irmãos e visitantes
+              confirmarem presença — e o Ágape — antes da sessão.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <CopyButton text={inviteUrl} label="Copiar link do convite" />
+              <ActionButton
+                action={dispararConvitesEmail.bind(null, session.id)}
+                label="Disparar convites por e-mail"
+                variant="secondary"
+              />
+            </div>
+            <p className="break-all text-xs text-muted-foreground">
+              {inviteUrl}
+            </p>
+            <div className="flex gap-3 text-sm">
+              <Badge variant="secondary">
+                {confirmados.length} presença(s) confirmada(s)
+              </Badge>
+              <Badge className="border-amber-200 bg-amber-50 text-amber-700">
+                {agapeTotal} para o Ágape
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -270,7 +321,7 @@ export default async function SessaoPage({
                     <TableCell>{degreeLabels[m.degree] ?? m.degree}</TableCell>
                     <TableCell>{m.cargoRito ?? "—"}</TableCell>
                     <TableCell>
-                      {att ? (
+                      {att?.checkedIn ? (
                         <Badge variant="success">
                           Presente
                           {att.viaQrCode ? " · QR" : ""}
@@ -279,6 +330,11 @@ export default async function SessaoPage({
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
+                          {att.agapeConfirmed ? " · Ágape" : ""}
+                        </Badge>
+                      ) : att ? (
+                        <Badge className="border-blue-200 bg-blue-50 text-blue-700">
+                          Confirmado{att.agapeConfirmed ? " · Ágape" : ""}
                         </Badge>
                       ) : (
                         <Badge variant="secondary">Ausente</Badge>
@@ -317,6 +373,35 @@ export default async function SessaoPage({
           </Table>
         </CardContent>
       </Card>
+
+      {visitantesConfirmados.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              Visitantes confirmados pelo convite ({visitantesConfirmados.length})
+            </CardTitle>
+            <CardDescription>
+              Ainda não fizeram o check-in do dia da sessão.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-1 text-sm">
+              {visitantesConfirmados.map((a) => (
+                <li key={a.id}>
+                  {a.visitorName}
+                  {a.visitorLodge ? ` · ${a.visitorLodge}` : ""}
+                  {a.visitorPotencia ? ` / ${a.visitorPotencia}` : ""}
+                  {a.agapeConfirmed && (
+                    <Badge className="ml-2 border-amber-200 bg-amber-50 text-amber-700">
+                      Ágape
+                    </Badge>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {visitantes.length > 0 && (
         <Card>

@@ -33,7 +33,12 @@ export default async function SessoesPage() {
   const sessions = await prisma.lodgeSession.findMany({
     where: { lodgeId: user.lodgeId },
     orderBy: { date: "desc" },
-    include: { _count: { select: { attendances: true } }, ata: true },
+    include: {
+      _count: {
+        select: { attendances: { where: { checkedIn: true } } },
+      },
+      ata: true,
+    },
   });
 
   return (

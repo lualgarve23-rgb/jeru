@@ -148,7 +148,12 @@ async function MemberDashboard({
         where: { lodgeId, date: { gte: yearStart, lte: new Date() } },
       }),
       prisma.attendance.count({
-        where: { lodgeId, userId, session: { date: { gte: yearStart } } },
+        where: {
+          lodgeId,
+          userId,
+          checkedIn: true,
+          session: { date: { gte: yearStart } },
+        },
       }),
     ]);
 

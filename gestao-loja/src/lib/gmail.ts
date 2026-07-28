@@ -36,6 +36,7 @@ export async function sendLodgeEmail(opts: {
   bcc?: string[];
   subject: string;
   text: string;
+  html?: string; // corpo HTML (ex.: convite de sessão); text fica como fallback
   attachments?: { filename: string; content: Buffer | string }[];
   // Encadeamento de resposta (Re: na mesma conversa)
   inReplyTo?: string;

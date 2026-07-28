@@ -63,6 +63,9 @@ model Lodge {
   // fundo renderizado em PDF + posições dos placeholders; null = template padrão
   certFundoPdf       Bytes?
   certLayout         Json?
+  // Template HTML do convite de sessão (upload na config da loja); null = padrão.
+  // Placeholders: {{LOJA}}, {{DATA}}, {{HORA}}, {{TIPO}}, {{GRAU}}, {{LINK}}
+  conviteTemplateHtml String?
   // Gateway de pagamento Asaas (cobrança recorrente cartão/boleto)
   asaasApiKey        String? // API key da conta Asaas da Loja
   asaasWebhookToken  String? // token conferido no header asaas-access-token do webhook
@@ -331,6 +334,8 @@ model LodgeSession {
   type      SessionType @default(ORDINARIA)
   degree    Degree      @default(APRENDIZ) // grau em que a sessão foi aberta
   qrToken   String      @unique @default(cuid()) // check-in via QR Code
+  // Link público do convite pré-sessão (RSVP) — /convite/[token]
+  inviteToken String    @unique @default(cuid())
   createdAt DateTime    @default(now())
 
   lodge       Lodge        @relation(fields: [lodgeId], references: [id])
@@ -355,6 +360,11 @@ model Attendance {
   visitorPotencia String? // potência de origem
   checkedInAt     DateTime @default(now())
   viaQrCode       Boolean  @default(false)
+  // RSVP pré-sessão (link de convite): checkedIn=false até o check-in do dia.
+  // Só registros com checkedIn=true contam como presença/frequência.
+  checkedIn       Boolean  @default(true)
+  rsvpAt          DateTime? // quando confirmou presença pelo convite
+  agapeConfirmed  Boolean  @default(false) // ficará para o Ágape (jantar)
 
   lodge   Lodge        @relation(fields: [lodgeId], references: [id])
   session LodgeSession @relation(fields: [sessionId], references: [id])

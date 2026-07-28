@@ -50,6 +50,7 @@ export async function frequenciaAnual(
       where: {
         lodgeId,
         userId: { not: null },
+        checkedIn: true,
         session: { date: { gte: inicio, lte: fim } },
       },
       select: { userId: true, sessionId: true },

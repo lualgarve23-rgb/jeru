@@ -68,6 +68,7 @@ export default async function ProgressoesPage() {
           where: {
             lodgeId: user.lodgeId,
             userId: p.userId,
+            checkedIn: true,
             session: { date: { gte: p.dataInicio, lte: new Date() } },
           },
         }),

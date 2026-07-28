@@ -9,6 +9,8 @@ import {
   updateLimiteInadimplencia,
   updateCertTemplate,
   removeCertTemplate,
+  updateConviteTemplate,
+  removeConviteTemplate,
   updateInstrucoesNecessarias,
   updateAtaCabecalho,
   updateGmailLoja,
@@ -221,6 +223,48 @@ export default async function LojaConfigPage({
                 name="template"
                 type="file"
                 accept=".pptx"
+                required
+              />
+            </div>
+          </ActionForm>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Convite de Sessão (e-mail)</CardTitle>
+          <CardDescription>
+            Template HTML do convite enviado aos membros para confirmar
+            presença e Ágape. Placeholders: <code>{"{{LOJA}}"}</code>,{" "}
+            <code>{"{{DATA}}"}</code>, <code>{"{{HORA}}"}</code>,{" "}
+            <code>{"{{TIPO}}"}</code>, <code>{"{{GRAU}}"}</code> e{" "}
+            <code>{"{{LINK}}"}</code> (obrigatório — vira o endereço de
+            confirmação).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <Badge variant={lodge.conviteTemplateHtml ? "default" : "secondary"}>
+              {lodge.conviteTemplateHtml
+                ? "Template personalizado"
+                : "Template padrão"}
+            </Badge>
+            {lodge.conviteTemplateHtml && (
+              <ActionButton
+                action={removeConviteTemplate}
+                label="Voltar ao padrão"
+                variant="outline"
+              />
+            )}
+          </div>
+          <ActionForm action={updateConviteTemplate} submitLabel="Enviar template">
+            <div className="space-y-1">
+              <Label htmlFor="convite-template">Novo template (.html)</Label>
+              <Input
+                id="convite-template"
+                name="template"
+                type="file"
+                accept=".html,.htm"
                 required
               />
             </div>
