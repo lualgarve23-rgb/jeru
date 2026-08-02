@@ -407,6 +407,100 @@ async function baixarFoto(
   }
 }
 
+// Total de páginas informado pela API, em qualquer dos formatos comuns
+// (totalPages, total_pages, meta.total_pages, ou total de itens ÷ página)
+function totalPaginasDe(resposta: Record<string, unknown>, porPagina: number): number | null {
+  const fontes = [resposta, resposta.meta, resposta.pagination] as (
+    | Record<string, unknown>
+    | undefined
+  )[];
+  for (const f of fontes) {
+    if (!f || typeof f !== "object") continue;
+    const paginas = f.totalPages ?? f.total_pages ?? f.pages ?? f.last_page;
+    if (typeof paginas === "number" && paginas > 0) return paginas;
+    const total = f.total ?? f.totalItems ?? f.total_items ?? f.total_count ?? f.count;
+    if (typeof total === "number" && total > 0 && porPagina > 0)
+      return Math.ceil(total / porPagina);
+  }
+  return null;
+}
+
+// Lista TODOS os membros, tolerando as variações de paginação da API:
+// pede 100 por página com todos os nomes de parâmetro usuais, deduplica por
+// id e, se a API ignorar `page` (repetir a mesma página), refaz por offset.
+async function listarMembros(
+  auth: Record<string, string>,
+  lodgeId: string | null
+): Promise<MetaMember[]> {
+  const pageSize = 100;
+  const membros: MetaMember[] = [];
+  const vistos = new Set<string>();
+
+  const adiciona = (itens: unknown[]): number => {
+    let novos = 0;
+    for (const it of itens.map(mapMember)) {
+      const chave = it.metaId || it.cim;
+      if (chave && vistos.has(chave)) continue;
+      if (chave) vistos.add(chave);
+      membros.push(it);
+      novos++;
+    }
+    return novos;
+  };
+
+  let paginaIgnorada = false;
+  for (let page = 1; page <= 100; page++) {
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: String(pageSize),
+      page_size: String(pageSize),
+      per_page: String(pageSize),
+      limit: String(pageSize),
+    });
+    if (lodgeId) params.set("lodge_id", lodgeId);
+    const data = (await metaFetch(`members?${params}`, {
+      headers: auth,
+    })) as Record<string, unknown>;
+    const itens = itensDe(data);
+    if (itens.length === 0) break;
+    const novos = adiciona(itens);
+    if (novos === 0) {
+      // A API devolveu a mesma página de novo — ela não entende `page`
+      paginaIgnorada = page > 1;
+      break;
+    }
+    const totalPages = totalPaginasDe(data, itens.length);
+    if (totalPages !== null && page >= totalPages) return membros;
+    // Página cheia sem total informado: continua até vir vazia/repetida
+    if (totalPages === null && itens.length < Math.min(pageSize, 20)) break;
+  }
+
+  // Fallback por offset, para APIs que paginam com limit/offset (ou skip)
+  if (paginaIgnorada || membros.length > 0) {
+    for (let volta = 0; volta < 100; volta++) {
+      const params = new URLSearchParams({
+        limit: String(pageSize),
+        offset: String(membros.length),
+        skip: String(membros.length),
+      });
+      if (lodgeId) params.set("lodge_id", lodgeId);
+      let itens: unknown[];
+      try {
+        itens = itensDe(
+          (await metaFetch(`members?${params}`, { headers: auth })) as Record<
+            string,
+            unknown
+          >
+        );
+      } catch {
+        break;
+      }
+      if (itens.length === 0 || adiciona(itens) === 0) break;
+    }
+  }
+  return membros;
+}
+
 // Lê todos os membros visíveis no contexto de loja do usuário do Meta.
 // Se o usuário tiver mais de um contexto de loja, usa o marcado como
 // primário (ou o primeiro) — o Meta já filtra a listagem pelo contexto.
@@ -437,24 +531,7 @@ export async function buscarMembrosMeta(
   }
 
   const auth = { Authorization: `Bearer ${token}` };
-  const membros: MetaMember[] = [];
-  const pageSize = 100;
-  for (let page = 1; page <= 50; page++) {
-    const params = new URLSearchParams({
-      page: String(page),
-      pageSize: String(pageSize),
-    });
-    if (contexto?.lodge_id) params.set("lodge_id", contexto.lodge_id);
-    const data = (await metaFetch(`members?${params}`, { headers: auth })) as {
-      items?: unknown[];
-      data?: unknown[];
-      totalPages?: number;
-    };
-    const itens = data.items ?? data.data ?? [];
-    membros.push(...itens.map(mapMember));
-    const totalPages = data.totalPages ?? 1;
-    if (page >= totalPages || itens.length === 0) break;
-  }
+  const membros = await listarMembros(auth, contexto?.lodge_id ?? null);
 
   const validos = membros.filter((m) => m.cim && m.nome);
 
