@@ -501,6 +501,29 @@ async function listarMembros(
   return membros;
 }
 
+// A listagem do Meta pode não incluir o próprio usuário logado. Busca a
+// ficha do próprio usuário nos endpoints usuais de "perfil" e devolve o
+// membro mapeado (ou null se nenhum endpoint responder algo utilizável).
+async function buscarProprioMembro(
+  auth: Record<string, string>
+): Promise<MetaMember | null> {
+  for (const path of ["members/me", "auth/me", "me", "profile"]) {
+    try {
+      const resposta = (await metaFetch(path, { headers: auth })) as {
+        data?: unknown;
+      } & Record<string, unknown>;
+      const bruto = (resposta.data ?? resposta) as Record<string, unknown>;
+      // Alguns "me" devolvem só a conta; o cadastro pode vir aninhado
+      const candidato = (bruto.member ?? bruto) as Record<string, unknown>;
+      const m = mapMember(candidato);
+      if (m.cim && m.nome) return m;
+    } catch {
+      // tenta o próximo endpoint
+    }
+  }
+  return null;
+}
+
 // Lê todos os membros visíveis no contexto de loja do usuário do Meta.
 // Se o usuário tiver mais de um contexto de loja, usa o marcado como
 // primário (ou o primeiro) — o Meta já filtra a listagem pelo contexto.
@@ -534,6 +557,15 @@ export async function buscarMembrosMeta(
   const membros = await listarMembros(auth, contexto?.lodge_id ?? null);
 
   const validos = membros.filter((m) => m.cim && m.nome);
+
+  // Inclui o próprio usuário logado, que a listagem do Meta costuma omitir
+  const cpfLogin = cpf.replace(/\D/g, "");
+  const jaVeio = (m: MetaMember, eu: MetaMember) =>
+    (eu.metaId && m.metaId === eu.metaId) ||
+    (eu.cim && m.cim === eu.cim) ||
+    (cpfLogin && m.cpf?.replace(/\D/g, "") === cpfLogin);
+  const eu = await buscarProprioMembro(auth);
+  if (eu && !validos.some((m) => jaVeio(m, eu))) validos.unshift(eu);
 
   // A listagem é resumida — busca a ficha completa de cada membro
   // (endereço, profissão, datas de grau), em lotes para não sobrecarregar
