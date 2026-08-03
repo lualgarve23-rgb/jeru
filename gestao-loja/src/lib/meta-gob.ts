@@ -122,7 +122,9 @@ function mapMember(m: any): MetaMember {
     : null;
   return {
     metaId: String(m.id ?? ""),
-    cim: String(m.identification_card ?? "").trim(),
+    // O Meta devolve o CIM com zero à esquerda (ex.: 0304258); o cadastro
+    // local usa o CIM sem esse zero, que é como os irmãos o conhecem
+    cim: String(m.identification_card ?? "").trim().replace(/^0+(?=\d)/, ""),
     cpf: String(m.cpf ?? "").replace(/\D/g, ""),
     nome: String(m.full_name ?? "").trim(),
     email: m.email ? String(m.email).trim().toLowerCase() : null,
