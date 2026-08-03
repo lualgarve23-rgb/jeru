@@ -28,10 +28,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const { cim, password } = parsed.data;
 
         // O CIM é único globalmente e mapeia o usuário à sua Loja (tenant).
-        const user = await prisma.user.findUnique({
-          where: { cim },
-          include: { lodge: { select: { id: true, name: true } } },
-        });
+        // Muitos CIMs do GOB têm zero à esquerda (ex.: 0304258) que o irmão
+        // não digita — se a busca exata falhar, procura ignorando esses zeros.
+        const include = { lodge: { select: { id: true, name: true } } } as const;
+        let user = await prisma.user.findUnique({ where: { cim }, include });
+        if (!user && /^\d+$/.test(cim)) {
+          const semZeros = cim.replace(/^0+/, "");
+          if (semZeros) {
+            const candidatos = await prisma.user.findMany({
+              where: { cim: { endsWith: semZeros } },
+              include,
+            });
+            const iguais = candidatos.filter(
+              (u) => u.cim.replace(/^0+/, "") === semZeros
+            );
+            if (iguais.length === 1) user = iguais[0];
+          }
+        }
         if (!user || user.status === "EX_MEMBRO") return null;
 
         // Aceita a senha como digitada e, como fallback, só os dígitos —

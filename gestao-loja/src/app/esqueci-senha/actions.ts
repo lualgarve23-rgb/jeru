@@ -21,7 +21,21 @@ function maskEmail(email: string) {
 }
 
 async function findByCimCpf(cim: string, cpf: string) {
-  const user = await prisma.user.findUnique({ where: { cim: cim.trim() } });
+  const digitado = cim.trim();
+  let user = await prisma.user.findUnique({ where: { cim: digitado } });
+  // CIMs do GOB costumam ter zero à esquerda que o irmão não digita
+  if (!user && /^\d+$/.test(digitado)) {
+    const semZeros = digitado.replace(/^0+/, "");
+    if (semZeros) {
+      const candidatos = await prisma.user.findMany({
+        where: { cim: { endsWith: semZeros } },
+      });
+      const iguais = candidatos.filter(
+        (u) => u.cim.replace(/^0+/, "") === semZeros
+      );
+      if (iguais.length === 1) user = iguais[0];
+    }
+  }
   if (!user) return null;
   if (user.cpf.replace(/\D/g, "") !== cpf.replace(/\D/g, "")) return null;
   return user;
