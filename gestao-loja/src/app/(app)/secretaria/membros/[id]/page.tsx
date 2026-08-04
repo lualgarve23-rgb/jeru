@@ -393,6 +393,20 @@ export default async function MembroPage({
                   {v.observacao && (
                     <span className="text-muted-foreground"> · {v.observacao}</span>
                   )}
+                  {v.certificadoDriveId && (
+                    <>
+                      {" "}
+                      ·{" "}
+                      <a
+                        href={`https://drive.google.com/file/d/${v.certificadoDriveId}/view`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline underline-offset-2"
+                      >
+                        certificado
+                      </a>
+                    </>
+                  )}
                 </li>
               ))}
             </ul>

@@ -413,6 +413,7 @@ model VisitaExterna {
   potencia        String?
   oriente         String?
   observacao      String? // tipo de sessão, grau, motivo etc.
+  certificadoDriveId String? // certificado de visita arquivado no Drive da Loja
   registradaPorId String
   createdAt       DateTime @default(now())
 

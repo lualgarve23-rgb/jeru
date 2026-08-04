@@ -2,7 +2,11 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
-import { registrarVisitaExterna, removerVisitaExterna } from "../actions";
+import {
+  registrarVisitaExterna,
+  removerVisitaExterna,
+  anexarCertificadoVisitaExterna,
+} from "../actions";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -111,6 +115,18 @@ export default async function VisitasPage() {
                     placeholder="ex.: Sessão Magna de Iniciação"
                   />
                 </div>
+                <div className="space-y-1">
+                  <Label htmlFor="certificado">Certificado de visita (opcional)</Label>
+                  <Input
+                    id="certificado"
+                    name="certificado"
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    PDF, JPG ou PNG — arquivado no Drive da Loja.
+                  </p>
+                </div>
               </div>
             </ActionForm>
           </CardContent>
@@ -129,6 +145,7 @@ export default async function VisitasPage() {
                 <TableHead>Irmão</TableHead>
                 <TableHead>Oficina visitada</TableHead>
                 <TableHead>Observação</TableHead>
+                <TableHead>Certificado</TableHead>
                 {isWriter && <TableHead />}
               </TableRow>
             </TableHeader>
@@ -157,6 +174,34 @@ export default async function VisitasPage() {
                   <TableCell className="text-muted-foreground">
                     {v.observacao ?? "—"}
                   </TableCell>
+                  <TableCell>
+                    {v.certificadoDriveId ? (
+                      <a
+                        href={`https://drive.google.com/file/d/${v.certificadoDriveId}/view`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm underline underline-offset-2"
+                      >
+                        Ver certificado
+                      </a>
+                    ) : isWriter ? (
+                      <ActionForm
+                        action={anexarCertificadoVisitaExterna.bind(null, v.id)}
+                        submitLabel="Anexar"
+                        className="flex flex-col gap-1"
+                      >
+                        <Input
+                          name="certificado"
+                          type="file"
+                          required
+                          accept="application/pdf,image/jpeg,image/png"
+                          className="h-8 max-w-48 text-xs"
+                        />
+                      </ActionForm>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   {isWriter && (
                     <TableCell>
                       <ActionButton
@@ -171,7 +216,7 @@ export default async function VisitasPage() {
               {visitas.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={isWriter ? 5 : 4}
+                    colSpan={isWriter ? 6 : 5}
                     className="text-muted-foreground"
                   >
                     Nenhuma visita registrada ainda.

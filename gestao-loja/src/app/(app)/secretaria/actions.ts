@@ -792,6 +792,20 @@ export async function registrarVisitaExterna(
     select: { name: true },
   });
   if (!member) return { error: "Irmão não encontrado." };
+
+  // Certificado de visita (opcional) — vai direto ao Drive da Loja
+  let certificadoDriveId: string | null = null;
+  const certificado = formData.get("certificado") as File | null;
+  if (certificado && certificado.size > 0) {
+    const enviado = await subirCertificadoVisitaDrive(user.lodgeId, certificado, {
+      memberName: member.name,
+      date,
+      lojaVisitada,
+    });
+    if ("error" in enviado) return enviado;
+    certificadoDriveId = enviado.driveFileId;
+  }
+
   await prisma.visitaExterna.create({
     data: {
       lodgeId: user.lodgeId,
@@ -801,12 +815,95 @@ export async function registrarVisitaExterna(
       potencia: String(formData.get("potencia") ?? "").trim() || null,
       oriente: String(formData.get("oriente") ?? "").trim() || null,
       observacao: String(formData.get("observacao") ?? "").trim() || null,
+      certificadoDriveId,
       registradaPorId: user.id,
     },
   });
   revalidatePath("/secretaria/visitas");
   revalidatePath(`/secretaria/membros/${memberId}`);
-  return { ok: `Visita de ${member.name} a ${lojaVisitada} registrada.` };
+  return {
+    ok: `Visita de ${member.name} a ${lojaVisitada} registrada.${
+      certificadoDriveId ? " Certificado arquivado no Drive da Loja." : ""
+    }`,
+  };
+}
+
+const CERTIFICADO_TIPOS: Record<string, string> = {
+  "application/pdf": "pdf",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+};
+
+// Sobe o certificado de visita para o Drive da Loja (exige Drive conectado).
+async function subirCertificadoVisitaDrive(
+  lodgeId: string,
+  file: File,
+  info: { memberName: string; date: Date; lojaVisitada: string }
+): Promise<{ driveFileId: string } | { error: string }> {
+  if (!(await isDriveAvailable(lodgeId))) {
+    return {
+      error:
+        "Não existe Google Drive conectado — conecte a conta Google da Loja em Configurações da Loja para arquivar o certificado.",
+    };
+  }
+  const ext = CERTIFICADO_TIPOS[file.type];
+  if (!ext) {
+    return { error: "O certificado deve ser um PDF, JPG ou PNG." };
+  }
+  if (file.size > 15_000_000) {
+    return { error: "Arquivo muito grande — o certificado deve ter até 15 MB." };
+  }
+  const dia = info.date.toLocaleDateString("pt-BR", { timeZone: "UTC" });
+  const nome = `Certificado de visita - ${info.memberName} - ${info.lojaVisitada} - ${dia}.${ext}`;
+  try {
+    const driveFileId = await uploadToLodgeDrive(
+      lodgeId,
+      nome,
+      file.type,
+      Buffer.from(await file.arrayBuffer())
+    );
+    return { driveFileId };
+  } catch (e) {
+    return {
+      error:
+        e instanceof Error
+          ? `Falha ao enviar o certificado ao Drive: ${e.message}`
+          : "Falha ao enviar o certificado ao Drive.",
+    };
+  }
+}
+
+// Anexa (ou substitui) o certificado de uma visita já registrada
+export async function anexarCertificadoVisitaExterna(
+  visitaId: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const visita = await prisma.visitaExterna.findUnique({
+    where: { id: visitaId },
+    include: { user: { select: { name: true } } },
+  });
+  if (!visita || visita.lodgeId !== user.lodgeId) {
+    return { error: "Registro de visita não encontrado." };
+  }
+  const certificado = formData.get("certificado") as File | null;
+  if (!certificado || certificado.size === 0) {
+    return { error: "Selecione o arquivo do certificado." };
+  }
+  const enviado = await subirCertificadoVisitaDrive(user.lodgeId, certificado, {
+    memberName: visita.user.name,
+    date: visita.date,
+    lojaVisitada: visita.lojaVisitada,
+  });
+  if ("error" in enviado) return enviado;
+  await prisma.visitaExterna.update({
+    where: { id: visitaId },
+    data: { certificadoDriveId: enviado.driveFileId },
+  });
+  revalidatePath("/secretaria/visitas");
+  revalidatePath(`/secretaria/membros/${visita.userId}`);
+  return { ok: "Certificado arquivado no Drive da Loja." };
 }
 
 export async function removerVisitaExterna(
