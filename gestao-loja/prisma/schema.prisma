@@ -86,6 +86,7 @@ model Lodge {
   sessions          LodgeSession[]
   attendances       Attendance[]
   instrucoes        Instrucao[]
+  visitasExternas   VisitaExterna[]
   atas              Ata[]
   pranchas          Prancha[]
   documents         Document[]
@@ -203,6 +204,8 @@ model User {
   notifications         Notification[]
   instrucoesRecebidas   Instrucao[]     @relation("InstrucaoUser")
   instrucoesRegistradas Instrucao[]     @relation("InstrucaoRegistrador")
+  visitasExternas       VisitaExterna[] @relation("VisitaExternaUser")
+  visitasRegistradas    VisitaExterna[] @relation("VisitaExternaRegistrador")
   processosProgressao   ProcessoProgressao[]
   familiares            FamilyMember[]
   bibliotecaItens       BibliotecaItem[]
@@ -398,6 +401,28 @@ model Instrucao {
   @@index([lodgeId])
   @@index([userId])
   @@map("instrucoes")
+}
+
+// Visitas dos irmãos da Loja a outras oficinas — entram no histórico do membro
+model VisitaExterna {
+  id              String   @id @default(cuid())
+  lodgeId         String
+  userId          String // irmão que visitou
+  date            DateTime
+  lojaVisitada    String // nome (e nº) da oficina visitada
+  potencia        String?
+  oriente         String?
+  observacao      String? // tipo de sessão, grau, motivo etc.
+  registradaPorId String
+  createdAt       DateTime @default(now())
+
+  lodge         Lodge @relation(fields: [lodgeId], references: [id])
+  user          User  @relation("VisitaExternaUser", fields: [userId], references: [id])
+  registradaPor User  @relation("VisitaExternaRegistrador", fields: [registradaPorId], references: [id])
+
+  @@index([lodgeId])
+  @@index([userId])
+  @@map("visitas_externas")
 }
 
 enum AtaStatus {

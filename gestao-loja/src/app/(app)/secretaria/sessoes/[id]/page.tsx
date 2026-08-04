@@ -6,6 +6,8 @@ import { canWriteSecretaria } from "@/lib/permissions";
 import {
   registerAttendance,
   createAta,
+  atualizarPresencasAta,
+  desmarcarPresenca,
   reenviarCertificadoVisita,
   dispararConvitesEmail,
   updateSessionPauta,
@@ -81,6 +83,13 @@ export default async function SessaoPage({
 
   const attendanceAction = registerAttendance.bind(null, session.id);
   const createAtaAction = createAta.bind(null, session.id);
+  const ataEditavel =
+    !!session.ata &&
+    session.ata.status !== "AGUARDANDO_ASSINATURAS" &&
+    session.ata.status !== "ASSINADA" &&
+    !session.ata.signedByMasterId &&
+    !session.ata.signedBySecId &&
+    !session.ata.govbrUploadedAt;
 
   // Tabela de presenças: irmãos do quadro que podiam assistir à sessão
   // (grau ≥ grau da sessão), com a frequência anual e alerta de mínimo legal
@@ -281,11 +290,27 @@ export default async function SessaoPage({
                   </form>
                 </details>
               ) : (
-                <Button asChild variant="secondary">
-                  <Link href={`/secretaria/atas/${session.ata.id}`}>
-                    Abrir Ata nº {session.ata.number}
-                  </Link>
-                </Button>
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-3">
+                    <Button asChild variant="secondary">
+                      <Link href={`/secretaria/atas/${session.ata.id}`}>
+                        Abrir Ata nº {session.ata.number}
+                      </Link>
+                    </Button>
+                    {ataEditavel && (
+                      <ActionButton
+                        action={atualizarPresencasAta.bind(null, session.id)}
+                        label="Atualizar rascunho com as presenças"
+                        variant="outline"
+                      />
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {ataEditavel
+                      ? "Registrou presenças depois de gerar o rascunho? Atualize a ata sem perder o texto já editado."
+                      : "Ata liberada para assinaturas — as presenças não podem mais ser alteradas."}
+                  </p>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -334,16 +359,25 @@ export default async function SessaoPage({
                     <TableCell>{m.cargoRito ?? "—"}</TableCell>
                     <TableCell>
                       {att?.checkedIn ? (
-                        <Badge variant="success">
-                          Presente
-                          {att.viaQrCode ? " · QR" : ""}
-                          {" às "}
-                          {att.checkedInAt.toLocaleTimeString("pt-BR", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                          {att.agapeConfirmed ? " · Ágape" : ""}
-                        </Badge>
+                        <span className="inline-flex flex-wrap items-center gap-2">
+                          <Badge variant="success">
+                            Presente
+                            {att.viaQrCode ? " · QR" : ""}
+                            {" às "}
+                            {att.checkedInAt.toLocaleTimeString("pt-BR", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                            {att.agapeConfirmed ? " · Ágape" : ""}
+                          </Badge>
+                          {isWriter && (!session.ata || ataEditavel) && (
+                            <ActionButton
+                              action={desmarcarPresenca.bind(null, att.id)}
+                              label="Desfazer"
+                              variant="outline"
+                            />
+                          )}
+                        </span>
                       ) : att ? (
                         <Badge className="border-blue-200 bg-blue-50 text-blue-700">
                           Confirmado{att.agapeConfirmed ? " · Ágape" : ""}

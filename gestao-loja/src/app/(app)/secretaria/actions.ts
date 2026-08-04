@@ -482,6 +482,51 @@ export async function registerAttendance(
   return { ok: "Presença registrada." };
 }
 
+// Correção de presença marcada errada pela Secretaria: desfaz o check-in do
+// irmão na sessão (se ele tinha confirmado pelo convite, o RSVP é preservado)
+export async function desmarcarPresenca(
+  attendanceId: string
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const att = await prisma.attendance.findUnique({
+    where: { id: attendanceId },
+    include: { user: { select: { name: true } }, session: { include: { ata: true } } },
+  });
+  if (!att || att.lodgeId !== user.lodgeId || !att.userId) {
+    return { error: "Registro de presença não encontrado." };
+  }
+  if (!att.checkedIn) return { error: "Este irmão não está marcado como presente." };
+  const ata = att.session.ata;
+  if (
+    ata &&
+    (ata.status === "AGUARDANDO_ASSINATURAS" ||
+      ata.status === "ASSINADA" ||
+      ata.signedByMasterId ||
+      ata.signedBySecId ||
+      ata.govbrUploadedAt)
+  ) {
+    return {
+      error:
+        "A ata desta sessão já foi liberada para assinaturas — as presenças não podem mais ser alteradas.",
+    };
+  }
+  if (att.rsvpAt) {
+    // Confirmou pelo convite: volta a ser apenas RSVP, sem contar frequência
+    await prisma.attendance.update({
+      where: { id: att.id },
+      data: { checkedIn: false, viaQrCode: false },
+    });
+  } else {
+    await prisma.attendance.delete({ where: { id: att.id } });
+  }
+  revalidatePath(`/secretaria/sessoes/${att.sessionId}`);
+  return {
+    ok:
+      `Presença de ${att.user?.name ?? "irmão"} desfeita.` +
+      (ata ? " Se a ata já foi gerada, use “Atualizar rascunho com as presenças”." : ""),
+  };
+}
+
 // Check-in via QR Code — membro logado
 export async function qrCheckinMember(qrToken: string): Promise<ActionResult> {
   const user = await requireUser();
@@ -729,30 +774,74 @@ export async function reenviarCertificadoVisita(
   return { ok: `Certificado de Visita enviado para ${att.visitorEmail}.` };
 }
 
-// ───────────────────────── Atas ─────────────────────────
+// ──────────────── Visitas a outras Oficinas ────────────────
 
-export async function createAta(
-  sessionId: string,
+export async function registrarVisitaExterna(
+  _prev: ActionResult,
   formData: FormData
-): Promise<void> {
-  const campo = (name: string) => {
-    const v = formData.get(name);
-    return typeof v === "string" ? v.trim() : "";
-  };
+): Promise<ActionResult> {
   const user = await requireSecretariaWriter();
-  const session = await prisma.lodgeSession.findUniqueOrThrow({
-    where: { id: sessionId, lodgeId: user.lodgeId },
-    include: {
-      lodge: true,
-      attendances: { include: { user: true }, orderBy: { checkedInAt: "asc" } },
+  const memberId = String(formData.get("memberId"));
+  const date = new Date(String(formData.get("date")));
+  const lojaVisitada = String(formData.get("lojaVisitada") ?? "").trim();
+  if (!memberId || isNaN(date.getTime()) || !lojaVisitada) {
+    return { error: "Informe o irmão, a data e a oficina visitada." };
+  }
+  const member = await prisma.user.findUnique({
+    where: { id: memberId, lodgeId: user.lodgeId },
+    select: { name: true },
+  });
+  if (!member) return { error: "Irmão não encontrado." };
+  await prisma.visitaExterna.create({
+    data: {
+      lodgeId: user.lodgeId,
+      userId: memberId,
+      date,
+      lojaVisitada,
+      potencia: String(formData.get("potencia") ?? "").trim() || null,
+      oriente: String(formData.get("oriente") ?? "").trim() || null,
+      observacao: String(formData.get("observacao") ?? "").trim() || null,
+      registradaPorId: user.id,
     },
   });
-  const last = await prisma.ata.findFirst({
-    where: { lodgeId: user.lodgeId },
-    orderBy: { number: "desc" },
-  });
+  revalidatePath("/secretaria/visitas");
+  revalidatePath(`/secretaria/membros/${memberId}`);
+  return { ok: `Visita de ${member.name} a ${lojaVisitada} registrada.` };
+}
 
-  // Pré-preenche o rascunho com o modelo da Loja e os dados da sessão
+export async function removerVisitaExterna(
+  visitaId: string
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const visita = await prisma.visitaExterna.findUnique({
+    where: { id: visitaId },
+  });
+  if (!visita || visita.lodgeId !== user.lodgeId) {
+    return { error: "Registro de visita não encontrado." };
+  }
+  await prisma.visitaExterna.delete({ where: { id: visitaId } });
+  revalidatePath("/secretaria/visitas");
+  revalidatePath(`/secretaria/membros/${visita.userId}`);
+  return { ok: "Registro de visita removido." };
+}
+
+// ───────────────────────── Atas ─────────────────────────
+
+// Dados da ata que derivam das presenças registradas na sessão —
+// usados na geração do rascunho e na atualização posterior das presenças
+function dadosPresencaSessao(session: {
+  degree: Degree;
+  type: SessionType;
+  date: Date;
+  lodge: { name: string; number: string; address: string | null };
+  attendances: {
+    checkedIn: boolean;
+    visitorName: string | null;
+    visitorLodge: string | null;
+    visitorPotencia: string | null;
+    user: { name: string; currentRole: Role; cargoRito: string | null } | null;
+  }[];
+}) {
   const membros = session.attendances.filter((a) => a.user);
   const byRole = (role: Role) =>
     membros.find((a) => a.user!.currentRole === role)?.user!.name ?? null;
@@ -766,7 +855,7 @@ export async function createAta(
     (["1º Vigilante", "2º Vigilante", "Diretor de Cerimônias", "Guarda Interno"] as const).some(
       (c) => cargoCorresponde(a.user!.cargoRito, c)
     );
-  const content = gerarTextoAta({
+  return {
     lodgeName: `${session.lodge.name} nº ${session.lodge.number}`,
     address: session.lodge.address,
     degree: session.degree,
@@ -790,6 +879,32 @@ export async function createAta(
         potencia: a.visitorPotencia,
       })),
     totalMembros: membros.length,
+  };
+}
+
+export async function createAta(
+  sessionId: string,
+  formData: FormData
+): Promise<void> {
+  const campo = (name: string) => {
+    const v = formData.get(name);
+    return typeof v === "string" ? v.trim() : "";
+  };
+  const user = await requireSecretariaWriter();
+  const session = await prisma.lodgeSession.findUniqueOrThrow({
+    where: { id: sessionId, lodgeId: user.lodgeId },
+    include: {
+      lodge: true,
+      attendances: { include: { user: true }, orderBy: { checkedInAt: "asc" } },
+    },
+  });
+  const last = await prisma.ata.findFirst({
+    where: { lodgeId: user.lodgeId },
+    orderBy: { number: "desc" },
+  });
+
+  const content = gerarTextoAta({
+    ...dadosPresencaSessao(session),
     ausenciasJustificadas: campo("ausenciasJustificadas"),
     pautaDoDia: campo("pautaDoDia"),
     detalhamentos: campo("detalhamentos"),
@@ -805,6 +920,76 @@ export async function createAta(
     },
   });
   redirect(`/secretaria/atas/${ata.id}`);
+}
+
+// Atualiza no rascunho os trechos que derivam das presenças (abertura com os
+// cargos, demais irmãos presentes e contagem de obreiros), preservando o
+// restante do texto já editado pelo Secretário. Permitido até a liberação
+// para assinaturas ("Validação concluída").
+export async function atualizarPresencasAta(
+  sessionId: string
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const session = await prisma.lodgeSession.findUniqueOrThrow({
+    where: { id: sessionId, lodgeId: user.lodgeId },
+    include: {
+      lodge: true,
+      attendances: { include: { user: true }, orderBy: { checkedInAt: "asc" } },
+      ata: true,
+    },
+  });
+  const ata = session.ata;
+  if (!ata) return { error: "Esta sessão ainda não tem rascunho de ata." };
+  if (
+    ata.status === "AGUARDANDO_ASSINATURAS" ||
+    ata.status === "ASSINADA" ||
+    ata.signedByMasterId ||
+    ata.signedBySecId ||
+    ata.govbrUploadedAt
+  ) {
+    return {
+      error:
+        "Ata já liberada para assinaturas — as presenças não podem mais ser alteradas.",
+    };
+  }
+
+  const novo = gerarTextoAta(dadosPresencaSessao(session));
+  const trechos: [string, RegExp][] = [
+    ["abertura e cargos", /^Ao .+a pedido do Dir∴ de Cer∴\.$/m],
+    ["irmãos presentes", /^Demais irmãos do quadro presentes: .+$/m],
+    ["contagem de obreiros", /^A sessão foi preenchida por .+$/m],
+  ];
+  let content = ata.content;
+  let trocados = 0;
+  const naoEncontrados: string[] = [];
+  for (const [nome, re] of trechos) {
+    const trecho = novo.match(re)?.[0];
+    if (trecho && re.test(content)) {
+      content = content.replace(re, () => trecho);
+      trocados++;
+    } else {
+      naoEncontrados.push(nome);
+    }
+  }
+  if (!trocados) {
+    return {
+      error:
+        "Não encontrei no texto da ata os trechos de presença para atualizar — o texto foi muito alterado; ajuste as presenças diretamente no editor da ata.",
+    };
+  }
+  await prisma.ata.update({
+    where: { id: ata.id, lodgeId: user.lodgeId },
+    data: { content },
+  });
+  revalidatePath(`/secretaria/sessoes/${sessionId}`);
+  revalidatePath(`/secretaria/atas/${ata.id}`);
+  return {
+    ok:
+      `Rascunho da Ata nº ${ata.number} atualizado com as presenças atuais.` +
+      (naoEncontrados.length
+        ? ` Atenção: não localizei no texto (provavelmente editado) — ${naoEncontrados.join(", ")}; confira no editor.`
+        : ""),
+  };
 }
 
 export async function updateAta(

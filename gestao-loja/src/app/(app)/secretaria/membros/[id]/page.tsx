@@ -40,6 +40,11 @@ export default async function MembroPage({
       roleHistory: { orderBy: { startDate: "desc" } },
       familiares: { orderBy: { birthDate: "asc" } },
       metaRegistros: { orderBy: [{ data: "desc" }, { createdAt: "asc" }] },
+      instrucoesRecebidas: {
+        orderBy: { date: "desc" },
+        include: { registradaPor: { select: { name: true } } },
+      },
+      visitasExternas: { orderBy: { date: "desc" } },
     },
   });
   if (!member) notFound();
@@ -345,6 +350,55 @@ export default async function MembroPage({
           />
         </CardContent>
       </Card>
+
+      {member.instrucoesRecebidas.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Instruções de grau recebidas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-1 border-l pl-4 text-sm">
+              {member.instrucoesRecebidas.map((i) => (
+                <li key={i.id}>
+                  {i.date.toLocaleDateString("pt-BR")} —{" "}
+                  {degreeLabels[i.degree] ?? i.degree}
+                  {i.tema ? ` · ${i.tema}` : ""}
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · registrada por {i.registradaPor.name}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      {member.visitasExternas.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Visitas a outras Oficinas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-1 border-l pl-4 text-sm">
+              {member.visitasExternas.map((v) => (
+                <li key={v.id}>
+                  {v.date.toLocaleDateString("pt-BR")} — {v.lojaVisitada}
+                  {(v.potencia || v.oriente) && (
+                    <span className="text-muted-foreground">
+                      {" "}
+                      · {[v.potencia, v.oriente].filter(Boolean).join(" — ")}
+                    </span>
+                  )}
+                  {v.observacao && (
+                    <span className="text-muted-foreground"> · {v.observacao}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {member.metaRegistros.length > 0 && (
         <Card>

@@ -39,6 +39,7 @@ function navFor(role: string, cargoRito: string | null, unread: number): NavItem
     ...(ehInstrutor
       ? [{ href: "/dashboard/instrucoes", label: "Instruções", icon: "instrucoes" as const, section: "Secretaria" }]
       : []),
+    { href: "/secretaria/visitas", label: "Visitas a Oficinas", icon: "visitas", section: "Secretaria", roles: fiscal },
     { href: "/secretaria/quitte-placets", label: "Quitte Placets", icon: "quitteplacets", section: "Secretaria", roles: fiscal },
     { href: "/tesouraria/mensalidades", label: "Mensalidades", icon: "mensalidades", section: "Tesouraria", roles: tesouraria },
     { href: "/tesouraria/despesas", label: "Despesas", icon: "despesas", section: "Tesouraria", roles: tesouraria },
