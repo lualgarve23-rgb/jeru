@@ -6,6 +6,7 @@ import {
   gerarFormularioPreenchido,
 } from "@/lib/formularios-fill";
 import { ehFormularioDeIndicacao } from "@/lib/formularios-candidato";
+import { attachmentResponse, DOCX_MIME } from "@/lib/download";
 
 // Download público (pelo token do candidato) dos formulários de indicação.
 // Os .docx da série 105 saem preenchidos com a Loja e o nome do candidato;
@@ -30,13 +31,7 @@ export async function GET(
     const docx = await gerarFormularioPreenchido(arquivo, processo.lodgeId, {
       candidato: processo.nomeCandidato,
     });
-    return new Response(new Uint8Array(docx), {
-      headers: {
-        "Content-Type":
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "Content-Disposition": `attachment; filename="preenchido-${arquivo}"`,
-      },
-    });
+    return attachmentResponse(docx, `preenchido-${arquivo}`, DOCX_MIME);
   }
 
   // Formulário sem preenchimento automático: entrega o original do GOB-SP.
@@ -44,12 +39,9 @@ export async function GET(
   const original = await readFile(
     path.join(process.cwd(), "public", "formularios-gob", arquivo)
   );
-  return new Response(new Uint8Array(original), {
-    headers: {
-      "Content-Type": arquivo.endsWith(".pdf")
-        ? "application/pdf"
-        : "application/octet-stream",
-      "Content-Disposition": `attachment; filename="${arquivo}"`,
-    },
-  });
+  return attachmentResponse(
+    original,
+    arquivo,
+    arquivo.endsWith(".pdf") ? "application/pdf" : null
+  );
 }

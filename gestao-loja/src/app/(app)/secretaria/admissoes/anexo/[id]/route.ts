@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { attachmentResponse } from "@/lib/download";
 
 // Download de um formulário anexado ao processo de admissão (guardado no banco).
 export async function GET(
@@ -15,10 +16,5 @@ export async function GET(
   if (!anexo || anexo.processo.lodgeId !== user.lodgeId) {
     return new Response("Anexo não encontrado.", { status: 404 });
   }
-  return new Response(new Uint8Array(anexo.arquivo), {
-    headers: {
-      "Content-Type": anexo.mimeType || "application/octet-stream",
-      "Content-Disposition": `attachment; filename="${anexo.nome.replace(/"/g, "")}"`,
-    },
-  });
+  return attachmentResponse(anexo.arquivo, anexo.nome, anexo.mimeType);
 }

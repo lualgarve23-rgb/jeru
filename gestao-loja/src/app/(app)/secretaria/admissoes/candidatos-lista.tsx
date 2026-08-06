@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CopyButton } from "@/components/copy-button";
+import { formatBytes } from "@/lib/utils";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import {
   Card,
@@ -41,11 +42,6 @@ type Candidato = {
   souPadrinho: boolean;
   anexos: Anexo[];
 };
-
-const kb = (bytes: number) =>
-  bytes >= 1_000_000
-    ? `${(bytes / 1_000_000).toFixed(1)} MB`
-    : `${Math.max(1, Math.round(bytes / 1000))} KB`;
 
 export function CandidatosLista({
   processos,
@@ -161,7 +157,7 @@ export function CandidatosLista({
                             {a.nome}
                           </a>
                           <span className="text-xs text-muted-foreground">
-                            {kb(a.sizeBytes)} · por {a.enviadoPor} ·{" "}
+                            {formatBytes(a.sizeBytes)} · por {a.enviadoPor} ·{" "}
                             {a.createdAt.toLocaleDateString("pt-BR")}
                           </span>
                           {podeAnexar && (

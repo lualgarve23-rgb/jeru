@@ -10,10 +10,10 @@ const ARQUIVOS_INDICACAO = [
   "form-104-testamento.pdf",
 ];
 
-export const FORMULARIOS_INDICACAO: FormularioGob[] = ARQUIVOS_INDICACAO.flatMap(
-  (arquivo) => FORMULARIOS_GOB.filter((f) => f.arquivo === arquivo)
-);
-
 export function ehFormularioDeIndicacao(arquivo: string) {
   return ARQUIVOS_INDICACAO.includes(arquivo);
 }
+
+export const FORMULARIOS_INDICACAO: FormularioGob[] = FORMULARIOS_GOB.filter(
+  (f) => ehFormularioDeIndicacao(f.arquivo)
+);

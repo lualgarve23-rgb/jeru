@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdmissaoKanban } from "./kanban-board";
+import { appUrl } from "@/lib/utils";
 import { CandidatosLista } from "./candidatos-lista";
 
 export default async function AdmissoesPage() {
@@ -24,7 +25,6 @@ export default async function AdmissoesPage() {
       nomeCandidato: true,
       status: true,
       certidoesValidas: true,
-      cpf: true,
       email: true,
       phone: true,
       fotoUrl: true,
@@ -45,7 +45,7 @@ export default async function AdmissoesPage() {
       },
     },
   });
-  const baseUrl = process.env.APP_URL ?? "http://localhost:3100";
+  const baseUrl = appUrl();
 
   return (
     <div className="space-y-6">
@@ -115,8 +115,17 @@ export default async function AdmissoesPage() {
       </Card>
 
       <CandidatosLista
+        // Campos explícitos: nada além do que a lista exibe atravessa a
+        // fronteira de serialização (fotos data URI ficam só no kanban)
         processos={processos.map((p) => ({
-          ...p,
+          id: p.id,
+          nomeCandidato: p.nomeCandidato,
+          status: p.status,
+          email: p.email,
+          phone: p.phone,
+          observacoes: p.observacoes,
+          createdAt: p.createdAt,
+          anexos: p.anexos,
           padrinhoNome: p.padrinho?.name ?? null,
           linkCandidato: `${baseUrl}/candidato/${p.token}`,
           souPadrinho: p.padrinhoId === user.id,
@@ -131,7 +140,17 @@ export default async function AdmissoesPage() {
             ? "Arraste os cards entre as etapas do processo de iniciação."
             : "Acompanhamento das etapas — a movimentação é feita pela Secretaria."}
         </p>
-        <AdmissaoKanban processos={processos} readOnly={!isWriter} />
+        <AdmissaoKanban
+          processos={processos.map((p) => ({
+            id: p.id,
+            nomeCandidato: p.nomeCandidato,
+            status: p.status,
+            certidoesValidas: p.certidoesValidas,
+            email: p.email,
+            fotoUrl: p.fotoUrl,
+          }))}
+          readOnly={!isWriter}
+        />
       </div>
     </div>
   );

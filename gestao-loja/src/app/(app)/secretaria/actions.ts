@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  AtaStatus,
   Degree,
   Role,
   SessionType,
@@ -14,6 +15,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { canWriteSecretaria, INTERSTICE_MONTHS } from "@/lib/permissions";
 import { cargoCorresponde, type CargoPadrao } from "@/lib/cargos";
+import { appUrl } from "@/lib/utils";
 import { criarFamiliar, atualizarFamiliar } from "@/lib/familiares";
 import { uploadToLodgeDrive, isDriveAvailable } from "@/lib/google-drive";
 import { sendLodgeEmail, getGmailAuth, GUARDA_SELOS_EMAIL } from "@/lib/gmail";
@@ -504,18 +506,8 @@ export async function desmarcarPresenca(
   }
   if (!att.checkedIn) return { error: "Este irmão não está marcado como presente." };
   const ata = att.session.ata;
-  if (
-    ata &&
-    (ata.status === "AGUARDANDO_ASSINATURAS" ||
-      ata.status === "ASSINADA" ||
-      ata.signedByMasterId ||
-      ata.signedBySecId ||
-      ata.govbrUploadedAt)
-  ) {
-    return {
-      error:
-        "A ata desta sessão já foi liberada para assinaturas — as presenças não podem mais ser alteradas.",
-    };
+  if (ataFechadaParaPresencas(ata)) {
+    return { error: ERRO_PRESENCAS_TRAVADAS };
   }
   if (att.rsvpAt) {
     // Confirmou pelo convite: volta a ser apenas RSVP, sem contar frequência
@@ -1061,17 +1053,8 @@ export async function atualizarPresencasAta(
   });
   const ata = session.ata;
   if (!ata) return { error: "Esta sessão ainda não tem rascunho de ata." };
-  if (
-    ata.status === "AGUARDANDO_ASSINATURAS" ||
-    ata.status === "ASSINADA" ||
-    ata.signedByMasterId ||
-    ata.signedBySecId ||
-    ata.govbrUploadedAt
-  ) {
-    return {
-      error:
-        "Ata já liberada para assinaturas — as presenças não podem mais ser alteradas.",
-    };
+  if (ataFechadaParaPresencas(ata)) {
+    return { error: ERRO_PRESENCAS_TRAVADAS };
   }
 
   const novo = gerarTextoAta(dadosPresencaSessao(session));
@@ -1780,32 +1763,6 @@ export async function uploadDocument(
 
 // ───────────────────── Pipeline de Admissão (Kanban) ─────────────────────
 
-export async function createProcessoAdmissao(
-  _prev: ActionResult,
-  formData: FormData
-): Promise<ActionResult> {
-  const user = await requireSecretariaWriter();
-  const nomeCandidato = String(formData.get("nomeCandidato")).trim();
-  if (!nomeCandidato) return { error: "Informe o nome do candidato." };
-  const foto = await imageToDataUri(
-    formData.get("foto") as File | null,
-    "A foto do candidato"
-  );
-  if (foto.error) return { error: foto.error };
-  await prisma.processoAdmissao.create({
-    data: {
-      lodgeId: user.lodgeId,
-      nomeCandidato,
-      cpf: (formData.get("cpf") as string)?.replace(/\D/g, "") || null,
-      email: (formData.get("email") as string)?.trim().toLowerCase() || null,
-      phone: (formData.get("phone") as string) || null,
-      fotoUrl: foto.dataUri ?? null,
-    },
-  });
-  revalidatePath("/secretaria/admissoes");
-  return { ok: "Candidato incluído no pipeline de admissão." };
-}
-
 // Move o card no Kanban — só avança/retrocede uma etapa por vez, e a
 // entrada em ESCRUTINIO exige que as certidões já tenham sido validadas.
 export async function moveProcessoAdmissao(
@@ -2324,7 +2281,7 @@ const ANEXO_TIPOS = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 
-function validarAnexoCandidato(file: File | null): { error: string } | { file: File } {
+function validarAnexo(file: File | null): { error: string } | { file: File } {
   if (!file || file.size === 0) return { error: "Selecione o arquivo preenchido." };
   if (!ANEXO_TIPOS.includes(file.type)) {
     return { error: "Envie o formulário em PDF, DOC/DOCX, JPG ou PNG." };
@@ -2369,27 +2326,28 @@ export async function indicarCandidato(
   );
   if (foto.error) return { error: foto.error };
 
-  const processo = await prisma.processoAdmissao.create({
-    data: {
-      lodgeId: user.lodgeId,
-      nomeCandidato,
-      cpf: String(formData.get("cpf") ?? "").replace(/\D/g, "") || null,
-      email,
-      phone: String(formData.get("phone") ?? "").trim() || null,
-      fotoUrl: foto.dataUri ?? null,
-      padrinhoId: user.id,
-      observacoes: String(formData.get("observacoes") ?? "").trim() || null,
-    },
-  });
-
-  // Avisa a Secretaria e o Venerável de que há um candidato novo a conferir
-  const responsaveis = await prisma.user.findMany({
-    where: {
-      lodgeId: user.lodgeId,
-      currentRole: { in: ["SECRETARIO", "VENERAVEL_MESTRE"] },
-    },
-    select: { id: true },
-  });
+  const [processo, responsaveis] = await Promise.all([
+    prisma.processoAdmissao.create({
+      data: {
+        lodgeId: user.lodgeId,
+        nomeCandidato,
+        cpf: String(formData.get("cpf") ?? "").replace(/\D/g, "") || null,
+        email,
+        phone: String(formData.get("phone") ?? "").trim() || null,
+        fotoUrl: foto.dataUri ?? null,
+        padrinhoId: user.id,
+        observacoes: String(formData.get("observacoes") ?? "").trim() || null,
+      },
+    }),
+    // Avisa a Secretaria e o Venerável de que há um candidato novo a conferir
+    prisma.user.findMany({
+      where: {
+        lodgeId: user.lodgeId,
+        currentRole: { in: ["SECRETARIO", "VENERAVEL_MESTRE"] },
+      },
+      select: { id: true },
+    }),
+  ]);
   await prisma.notification.createMany({
     data: responsaveis.map((r) => ({
       lodgeId: user.lodgeId,
@@ -2405,7 +2363,6 @@ export async function indicarCandidato(
 
   // Envia o link ao candidato quando o padrinho informou o e-mail
   if (email) {
-    const baseUrl = process.env.APP_URL ?? "http://localhost:3100";
     try {
       await sendLodgeEmail({
         lodgeId: user.lodgeId,
@@ -2415,7 +2372,7 @@ export async function indicarCandidato(
           `Prezado ${nomeCandidato},\n\n` +
           `Você foi indicado por ${user.name}. Acesse o link abaixo para baixar os ` +
           `formulários de indicação, preenchê-los e devolvê-los pelo próprio link:\n\n` +
-          `${baseUrl}/candidato/${processo.token}\n\n` +
+          `${appUrl()}/candidato/${processo.token}\n\n` +
           `O link é pessoal — não o compartilhe.`,
       });
     } catch (e) {
@@ -2449,7 +2406,7 @@ export async function anexarFormularioCandidatoPublico(
   if (processo.status === "INICIADO" || processo.status === "REPROVADO") {
     return { error: "Este processo já foi encerrado." };
   }
-  const valid = validarAnexoCandidato(formData.get("arquivo") as File | null);
+  const valid = validarAnexo(formData.get("arquivo") as File | null);
   if ("error" in valid) return valid;
   await gravarAnexoCandidato(processo.id, valid.file, "candidato");
 
@@ -2468,9 +2425,10 @@ export async function anexarFormularioCandidatoPublico(
       lodgeId: processo.lodgeId,
       userId: r.id,
       title: "Formulário do candidato recebido",
-      description: `${processo.nomeCandidato} anexou ${valid.file.name}.`,
+      description: `${processo.nomeCandidato} devolveu formulário(s) de indicação.`,
       type: "MISSING_DATA" as const,
-      sourceKey: `candidato-anexo:${processo.id}:${Date.now()}:${r.id}`,
+      // Chave estável: um aviso por candidato/destinatário, mesmo com vários envios
+      sourceKey: `candidato-anexo:${processo.id}:${r.id}`,
       link: "/secretaria/admissoes",
     })),
     skipDuplicates: true,
@@ -2478,6 +2436,14 @@ export async function anexarFormularioCandidatoPublico(
   revalidatePath(`/candidato/${token}`);
   revalidatePath("/secretaria/admissoes");
   return { ok: "Formulário recebido. Obrigado!" };
+}
+
+// Anexos do candidato no painel: só o padrinho ou a Secretaria mexem
+function podeEditarAnexosCandidato(
+  user: { id: string; role: string },
+  processo: { padrinhoId: string | null }
+) {
+  return canWriteSecretaria(user.role) || processo.padrinhoId === user.id;
 }
 
 // Anexo enviado por um irmão (padrinho ou Secretaria) pelo painel
@@ -2492,10 +2458,10 @@ export async function anexarFormularioCandidato(
     select: { id: true, padrinhoId: true },
   });
   if (!processo) return { error: "Candidato não encontrado." };
-  if (!canWriteSecretaria(user.role) && processo.padrinhoId !== user.id) {
+  if (!podeEditarAnexosCandidato(user, processo)) {
     return { error: "Só o padrinho ou a Secretaria podem anexar formulários." };
   }
-  const valid = validarAnexoCandidato(formData.get("arquivo") as File | null);
+  const valid = validarAnexo(formData.get("arquivo") as File | null);
   if ("error" in valid) return valid;
   await gravarAnexoCandidato(processo.id, valid.file, user.name);
   revalidatePath("/secretaria/admissoes");
@@ -2508,12 +2474,12 @@ export async function removerAnexoCandidato(
   const user = await requireUser();
   const anexo = await prisma.candidatoAnexo.findUnique({
     where: { id: anexoId },
-    include: { processo: { select: { lodgeId: true, padrinhoId: true } } },
+    select: { id: true, processo: { select: { lodgeId: true, padrinhoId: true } } },
   });
   if (!anexo || anexo.processo.lodgeId !== user.lodgeId) {
     return { error: "Anexo não encontrado." };
   }
-  if (!canWriteSecretaria(user.role) && anexo.processo.padrinhoId !== user.id) {
+  if (!podeEditarAnexosCandidato(user, anexo.processo)) {
     return { error: "Só o padrinho ou a Secretaria podem remover anexos." };
   }
   await prisma.candidatoAnexo.delete({ where: { id: anexoId } });
@@ -2524,7 +2490,29 @@ export async function removerAnexoCandidato(
 // ─────────── Ausências justificadas no Livro de Presenças ───────────
 
 // Trava comum às alterações de presença: a partir da liberação da ata,
-// o livro de presenças daquela sessão não pode mais mudar.
+// o livro de presenças daquela sessão não pode mais mudar. Definição única
+// da regra — toda mutação de presença deve passar por aqui.
+const ERRO_PRESENCAS_TRAVADAS =
+  "A ata desta sessão já foi liberada para assinaturas — as presenças não podem mais ser alteradas.";
+
+function ataFechadaParaPresencas(
+  ata: {
+    status: AtaStatus;
+    signedByMasterId: string | null;
+    signedBySecId: string | null;
+    govbrUploadedAt: Date | null;
+  } | null
+) {
+  if (!ata) return false;
+  return (
+    ata.status === "AGUARDANDO_ASSINATURAS" ||
+    ata.status === "ASSINADA" ||
+    Boolean(ata.signedByMasterId) ||
+    Boolean(ata.signedBySecId) ||
+    Boolean(ata.govbrUploadedAt)
+  );
+}
+
 async function ataTravaPresencas(sessionId: string) {
   const ata = await prisma.ata.findUnique({
     where: { sessionId },
@@ -2535,14 +2523,7 @@ async function ataTravaPresencas(sessionId: string) {
       govbrUploadedAt: true,
     },
   });
-  if (!ata) return false;
-  return (
-    ata.status === "AGUARDANDO_ASSINATURAS" ||
-    ata.status === "ASSINADA" ||
-    Boolean(ata.signedByMasterId) ||
-    Boolean(ata.signedBySecId) ||
-    Boolean(ata.govbrUploadedAt)
-  );
+  return ataFechadaParaPresencas(ata);
 }
 
 // Registra que o irmão justificou a ausência: entra no livro como
@@ -2558,22 +2539,19 @@ export async function justificarAusencia(
   const justificativa =
     String(formData.get("justificativa") ?? "").trim().slice(0, 300) || null;
 
-  const session = await prisma.lodgeSession.findUnique({
-    where: { id: sessionId, lodgeId: user.lodgeId },
-    select: { id: true },
-  });
+  const [session, travada, existente] = await Promise.all([
+    prisma.lodgeSession.findUnique({
+      where: { id: sessionId, lodgeId: user.lodgeId },
+      select: { id: true },
+    }),
+    ataTravaPresencas(sessionId),
+    prisma.attendance.findUnique({
+      where: { sessionId_userId: { sessionId, userId: memberId } },
+      select: { id: true, checkedIn: true },
+    }),
+  ]);
   if (!session) return { error: "Sessão não encontrada." };
-  if (await ataTravaPresencas(sessionId)) {
-    return {
-      error:
-        "A ata desta sessão já foi liberada para assinaturas — as presenças não podem mais ser alteradas.",
-    };
-  }
-
-  const existente = await prisma.attendance.findUnique({
-    where: { sessionId_userId: { sessionId, userId: memberId } },
-    select: { id: true, checkedIn: true },
-  });
+  if (travada) return { error: ERRO_PRESENCAS_TRAVADAS };
   if (existente?.checkedIn) {
     return {
       error:
@@ -2608,16 +2586,25 @@ export async function desfazerJustificativa(
       sessionId: true,
       rsvpAt: true,
       justificado: true,
+      session: {
+        select: {
+          ata: {
+            select: {
+              status: true,
+              signedByMasterId: true,
+              signedBySecId: true,
+              govbrUploadedAt: true,
+            },
+          },
+        },
+      },
     },
   });
   if (!att || att.lodgeId !== user.lodgeId || !att.justificado) {
     return { error: "Justificativa não encontrada." };
   }
-  if (await ataTravaPresencas(att.sessionId)) {
-    return {
-      error:
-        "A ata desta sessão já foi liberada para assinaturas — as presenças não podem mais ser alteradas.",
-    };
+  if (ataFechadaParaPresencas(att.session.ata)) {
+    return { error: ERRO_PRESENCAS_TRAVADAS };
   }
   if (att.rsvpAt) {
     // Veio do convite: mantém o RSVP, só remove a justificativa
@@ -2648,22 +2635,14 @@ export async function anexarFormularioQuittePlacet(
     select: { id: true, status: true },
   });
   if (!placet) return { error: "Quitte Placet não encontrado." };
-  const arquivo = formData.get("arquivo") as File | null;
-  if (!arquivo || arquivo.size === 0) {
-    return { error: "Selecione o formulário preenchido." };
-  }
-  if (arquivo.size > ANEXO_MAX_BYTES) {
-    return { error: "Arquivo muito grande — use até 15 MB." };
-  }
-  if (!ANEXO_TIPOS.includes(arquivo.type)) {
-    return { error: "Envie o formulário em PDF, DOC/DOCX, JPG ou PNG." };
-  }
+  const valid = validarAnexo(formData.get("arquivo") as File | null);
+  if ("error" in valid) return valid;
   await prisma.quittePlacet.update({
     where: { id: placetId, lodgeId: user.lodgeId },
     data: {
-      formularioArquivo: Buffer.from(await arquivo.arrayBuffer()),
-      formularioNome: arquivo.name.slice(0, 200),
-      formularioMime: arquivo.type,
+      formularioArquivo: Buffer.from(await valid.file.arrayBuffer()),
+      formularioNome: valid.file.name.slice(0, 200),
+      formularioMime: valid.file.type,
       formularioEnviadoAt: null,
     },
   });

@@ -24,9 +24,13 @@ export default async function CandidatoPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
+  // select explícito: a página pública não precisa (nem deve receber) CPF,
+  // telefone, observações do padrinho ou a foto em data URI
   const processo = await prisma.processoAdmissao.findUnique({
     where: { token },
-    include: {
+    select: {
+      nomeCandidato: true,
+      status: true,
       lodge: { select: { name: true, number: true, oriente: true, logoUrl: true } },
       padrinho: { select: { name: true } },
       anexos: {

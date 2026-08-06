@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
+import { attachmentResponse } from "@/lib/download";
 
 // Download do Form. 122 anexado ao Quitte Placet (guardado no banco).
 export async function GET(
@@ -15,12 +16,9 @@ export async function GET(
   if (!placet?.formularioArquivo) {
     return new Response("Formulário não anexado.", { status: 404 });
   }
-  return new Response(new Uint8Array(placet.formularioArquivo), {
-    headers: {
-      "Content-Type": placet.formularioMime || "application/octet-stream",
-      "Content-Disposition": `attachment; filename="${(
-        placet.formularioNome ?? "quitte-placet"
-      ).replace(/"/g, "")}"`,
-    },
-  });
+  return attachmentResponse(
+    placet.formularioArquivo,
+    placet.formularioNome ?? "quitte-placet",
+    placet.formularioMime
+  );
 }

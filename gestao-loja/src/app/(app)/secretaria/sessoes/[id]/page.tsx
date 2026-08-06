@@ -130,9 +130,9 @@ export default async function SessaoPage({
 
   // Ausências justificadas: registro sem check-in marcado como justificado
   const justificadas = new Map(
-    session.attendances.flatMap((a) =>
-      a.userId && a.justificado && !a.checkedIn ? [[a.userId, a] as const] : []
-    )
+    session.attendances
+      .filter((a) => a.userId && a.justificado && !a.checkedIn)
+      .map((a) => [a.userId!, a])
   );
   // Combo de justificativa: irmãos do quadro que ainda não estão presentes
   const podemJustificar = linhas.filter(

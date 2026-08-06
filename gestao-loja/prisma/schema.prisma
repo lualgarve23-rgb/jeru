@@ -814,7 +814,9 @@ model QuittePlacet {
 
   driveFileId String?
   // Formulário oficial (Form. 122) preenchido e assinado, anexado pela
-  // Secretaria; guardado no banco para poder ser reenviado a qualquer momento
+  // Secretaria; guardado no banco para poder ser reenviado a qualquer momento.
+  // Colunas inline (não um model de anexo como CandidatoAnexo) de propósito:
+  // o processo tem exatamente UM formulário, substituível, lido junto da linha
   formularioArquivo   Bytes?
   formularioNome      String?
   formularioMime      String?

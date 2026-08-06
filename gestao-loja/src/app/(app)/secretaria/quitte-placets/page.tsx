@@ -144,7 +144,6 @@ export default async function QuittePlacetsPage() {
                 <TableHead>Nada Consta</TableHead>
                 <TableHead>Assinaturas</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Formulário (Form. 122)</TableHead>
                 {(isWriter || canSign) && <TableHead>Ações</TableHead>}
               </TableRow>
             </TableHeader>
@@ -177,30 +176,6 @@ export default async function QuittePlacetsPage() {
                     <Badge variant={statusPlacetTone(p.status)}>
                       {statusPlacetLabels[p.status]}
                     </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {p.formularioNome ? (
-                      <span className="flex flex-wrap items-center gap-2 text-xs">
-                        <a
-                          href={`/secretaria/quitte-placets/formulario/${p.id}`}
-                          className="break-all underline"
-                        >
-                          {p.formularioNome}
-                        </a>
-                        {p.formularioEnviadoAt ? (
-                          <Badge variant="success">
-                            Enviado em{" "}
-                            {p.formularioEnviadoAt.toLocaleDateString("pt-BR")}
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary">Anexado</Badge>
-                        )}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        Não anexado
-                      </span>
-                    )}
                   </TableCell>
                   {(isWriter || canSign) && (
                     <TableCell>
@@ -236,7 +211,7 @@ export default async function QuittePlacetsPage() {
               ))}
               {placets.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center text-muted-foreground">
                     Nenhuma solicitação registrada.
                   </TableCell>
                 </TableRow>
