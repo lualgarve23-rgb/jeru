@@ -5,6 +5,10 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "@/auth.config";
 
+// Anti-força-bruta no login (loja.md §segurança)
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_MINUTES = 15;
+
 const credentialsSchema = z.object({
   cim: z
     .string()
@@ -47,6 +51,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
         if (!user || user.status === "EX_MEMBRO") return null;
 
+        // Anti-força-bruta: após MAX_LOGIN_ATTEMPTS falhas seguidas, a conta
+        // fica bloqueada por LOCKOUT_MINUTES. O bloqueio expira sozinho e é
+        // limpo a cada login válido. A mensagem ao usuário é sempre genérica
+        // (não revela o bloqueio), evitando dar sinais ao atacante.
+        if (user.lockedUntil && user.lockedUntil > new Date()) return null;
+
         // Aceita a senha como digitada e, como fallback, só os dígitos —
         // a senha inicial é o CPF, que muitos digitam com máscara (000.000.000-00)
         let valid = await bcrypt.compare(password.trim(), user.passwordHash);
@@ -54,7 +64,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const digits = password.replace(/\D/g, "");
           if (digits) valid = await bcrypt.compare(digits, user.passwordHash);
         }
-        if (!valid) return null;
+        if (!valid) {
+          const attempts = user.failedLoginAttempts + 1;
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              failedLoginAttempts: attempts,
+              lockedUntil:
+                attempts >= MAX_LOGIN_ATTEMPTS
+                  ? new Date(Date.now() + LOCKOUT_MINUTES * 60_000)
+                  : null,
+            },
+          });
+          return null;
+        }
+
+        // Login válido: zera o contador e libera eventual bloqueio.
+        if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { failedLoginAttempts: 0, lockedUntil: null },
+          });
+        }
 
         return {
           id: user.id,

@@ -157,6 +157,10 @@ model User {
   resetCodeHash      String?
   resetCodeExpiresAt DateTime?
   resetCodeAttempts  Int       @default(0)
+  // Anti-força-bruta no login: falhas consecutivas e janela de bloqueio.
+  // Zeradas a cada login bem-sucedido; lockedUntil expira sozinho.
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
   // Gateway Asaas: cliente e assinatura recorrente da capitação
   asaasCustomerId     String?
   asaasSubscriptionId String?
