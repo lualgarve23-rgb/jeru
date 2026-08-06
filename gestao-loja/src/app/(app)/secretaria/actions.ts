@@ -467,6 +467,9 @@ export async function registerAttendance(
 ): Promise<ActionResult> {
   const user = await requireSecretariaWriter();
   const memberId = String(formData.get("memberId"));
+  if (await ataTravaPresencas(sessionId)) {
+    return { error: ERRO_PRESENCAS_TRAVADAS };
+  }
   try {
     // Se o membro já confirmou pelo convite (RSVP), o registro vira presença
     await prisma.attendance.upsert({
@@ -535,6 +538,9 @@ export async function qrCheckinMember(qrToken: string): Promise<ActionResult> {
   if (!session || session.lodgeId !== user.lodgeId) {
     return { error: "Sessão não encontrada para a sua Loja." };
   }
+  if (await ataTravaPresencas(session.id)) {
+    return { error: ERRO_PRESENCAS_TRAVADAS };
+  }
   const existente = await prisma.attendance.findUnique({
     where: { sessionId_userId: { sessionId: session.id, userId: user.id } },
   });
@@ -572,6 +578,9 @@ export async function qrCheckinVisitor(
 ): Promise<ActionResult> {
   const session = await prisma.lodgeSession.findUnique({ where: { qrToken } });
   if (!session) return { error: "Sessão não encontrada." };
+  if (await ataTravaPresencas(session.id)) {
+    return { error: ERRO_PRESENCAS_TRAVADAS };
+  }
   const visitorName = String(formData.get("visitorName")).trim();
   if (!visitorName) return { error: "Informe o nome." };
   const visitorEmail =
