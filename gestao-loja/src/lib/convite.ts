@@ -45,7 +45,7 @@ export const CONVITE_TEMPLATE_PADRAO = `<!doctype html>
                 </td></tr>
               </table>
               <p style="margin:24px 0 8px;font-size:15px;color:#3f3f46;line-height:1.6;">
-                Por gentileza, confirme sua presença — e se ficará para o <strong>Ágape</strong> — pelo botão abaixo:
+                Por gentileza, confirme sua presença — e se ficará para o <strong>Ágape</strong> — pelo botão abaixo. Caso não possa comparecer, o mesmo link permite justificar a ausência:
               </p>
               <p style="text-align:center;margin:24px 0;">
                 <a href="{{LINK}}" style="background:#1e3a5f;color:#ffffff;text-decoration:none;padding:12px 32px;border-radius:6px;font-size:15px;display:inline-block;">Confirmar presença</a>
@@ -83,7 +83,7 @@ export function templateDeImagem(dataUri: string) {
             <p style="margin:0 0 12px;font-size:15px;color:#3f3f46;line-height:1.6;">{{FRASE}}</p>
             <p style="margin:0 0 16px;font-size:14px;color:#3f3f46;line-height:1.6;">
               <strong>{{TIPO}}</strong> — {{DATA}}, às {{HORA}}.{{PAUTA}}<br/>
-              Confirme sua presença — e se ficará para o <strong>Ágape</strong> — pelo botão abaixo:
+              Confirme sua presença — e se ficará para o <strong>Ágape</strong> — pelo botão abaixo. Não podendo comparecer, o mesmo link permite justificar a ausência.
             </p>
             <a href="{{LINK}}" style="background:#1e3a5f;color:#ffffff;text-decoration:none;padding:12px 32px;border-radius:6px;font-size:15px;display:inline-block;">Confirmar presença</a>
             <p style="margin:16px 0 0;font-size:12px;color:#a1a1aa;line-height:1.5;">

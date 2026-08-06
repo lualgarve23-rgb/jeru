@@ -721,6 +721,94 @@ export async function rsvpPublico(
   };
 }
 
+// Justificativa de ausência pelo próprio irmão, a partir do convite: entra no
+// livro como "Justificado" (não conta frequência) e alimenta o trecho da ata,
+// como no registro manual da Secretaria.
+async function justificarPeloConvite(
+  session: { id: string; lodgeId: string },
+  userId: string,
+  justificativa: string
+): Promise<ActionResult> {
+  if (await ataTravaPresencas(session.id)) {
+    return { error: ERRO_PRESENCAS_TRAVADAS };
+  }
+  const existente = await prisma.attendance.findUnique({
+    where: { sessionId_userId: { sessionId: session.id, userId } },
+    select: { checkedIn: true },
+  });
+  if (existente?.checkedIn) {
+    return { error: "Sua presença já está registrada nesta sessão." };
+  }
+  await prisma.attendance.upsert({
+    where: { sessionId_userId: { sessionId: session.id, userId } },
+    create: {
+      lodgeId: session.lodgeId,
+      sessionId: session.id,
+      userId,
+      checkedIn: false,
+      justificado: true,
+      justificativa,
+    },
+    // Justificar cancela um eventual RSVP anterior (inclusive o Ágape)
+    update: { justificado: true, justificativa, agapeConfirmed: false },
+  });
+  return {
+    ok: "Ausência justificada registrada. A Secretaria foi informada pelo Livro de Presenças. TFA!",
+  };
+}
+
+function justificativaDoForm(formData: FormData) {
+  return String(formData.get("justificativa") ?? "").trim().slice(0, 300);
+}
+
+// Ausência justificada pelo link do convite — membro logado
+export async function ausenciaMember(
+  inviteToken: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireUser();
+  const session = await prisma.lodgeSession.findUnique({
+    where: { inviteToken },
+    select: { id: true, lodgeId: true },
+  });
+  if (!session || session.lodgeId !== user.lodgeId) {
+    return { error: "Convite não encontrado para a sua Loja." };
+  }
+  const justificativa = justificativaDoForm(formData);
+  if (!justificativa) return { error: "Escreva o motivo da ausência." };
+  return justificarPeloConvite(session, user.id, justificativa);
+}
+
+// Ausência justificada pelo link do convite — sem login, irmão do quadro
+// identificado pelo CIM
+export async function ausenciaPublico(
+  inviteToken: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const session = await prisma.lodgeSession.findUnique({
+    where: { inviteToken },
+    select: { id: true, lodgeId: true },
+  });
+  if (!session) return { error: "Convite não encontrado." };
+  const cim = String(formData.get("cim") ?? "").trim();
+  if (!cim) return { error: "Informe o CIM para justificar a ausência." };
+  const justificativa = justificativaDoForm(formData);
+  if (!justificativa) return { error: "Escreva o motivo da ausência." };
+  const membro = await prisma.user.findFirst({
+    where: { lodgeId: session.lodgeId, cim, status: "ATIVO" },
+    select: { id: true },
+  });
+  if (!membro) {
+    return {
+      error:
+        "CIM não encontrado no quadro da Loja — a justificativa de ausência é para irmãos do quadro.",
+    };
+  }
+  return justificarPeloConvite(session, membro.id, justificativa);
+}
+
 // Dispara o convite da sessão por e-mail para todos os membros ativos,
 // pelo Gmail da Loja (template padrão ou o HTML enviado pela loja)
 export async function dispararConvitesEmail(

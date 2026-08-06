@@ -1,7 +1,12 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { rsvpMember, rsvpPublico } from "@/app/(app)/secretaria/actions";
+import {
+  rsvpMember,
+  rsvpPublico,
+  ausenciaMember,
+  ausenciaPublico,
+} from "@/app/(app)/secretaria/actions";
 import { ActionForm } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +19,23 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+
+function CampoJustificativa() {
+  return (
+    <div className="space-y-1">
+      <Label htmlFor="justificativa">Motivo da ausência</Label>
+      <textarea
+        id="justificativa"
+        name="justificativa"
+        rows={3}
+        required
+        maxLength={300}
+        placeholder="Escreva o motivo — ele constará no Livro de Presenças como ausência justificada."
+        className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+      />
+    </div>
+  );
+}
 
 function AgapeCheckbox() {
   return (
@@ -40,6 +62,8 @@ export default async function ConvitePage({
   const authSession = await auth();
   const memberAction = rsvpMember.bind(null, token);
   const publicoAction = rsvpPublico.bind(null, token);
+  const ausenciaMemberAction = ausenciaMember.bind(null, token);
+  const ausenciaPublicoAction = ausenciaPublico.bind(null, token);
 
   return (
     <main className="mx-auto max-w-md space-y-6 p-6">
@@ -100,6 +124,19 @@ export default async function ConvitePage({
               <ActionForm action={memberAction} submitLabel="Confirmar presença">
                 <AgapeCheckbox />
               </ActionForm>
+              <details className="rounded-md border p-3">
+                <summary className="cursor-pointer text-sm font-medium">
+                  Não poderei comparecer — justificar ausência
+                </summary>
+                <div className="mt-3">
+                  <ActionForm
+                    action={ausenciaMemberAction}
+                    submitLabel="Justificar ausência"
+                  >
+                    <CampoJustificativa />
+                  </ActionForm>
+                </div>
+              </details>
             </div>
           ) : (
             <ActionForm action={publicoAction} submitLabel="Confirmar presença">
@@ -134,6 +171,28 @@ export default async function ConvitePage({
               </div>
               <AgapeCheckbox />
             </ActionForm>
+          )}
+          {!authSession?.user && (
+            <details className="rounded-md border p-3">
+              <summary className="cursor-pointer text-sm font-medium">
+                Não poderei comparecer — justificar ausência
+              </summary>
+              <div className="mt-3">
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Para irmãos do quadro da Loja: informe o CIM e o motivo.
+                </p>
+                <ActionForm
+                  action={ausenciaPublicoAction}
+                  submitLabel="Justificar ausência"
+                >
+                  <div className="space-y-1">
+                    <Label htmlFor="cim-ausencia">CIM</Label>
+                    <Input id="cim-ausencia" name="cim" required />
+                  </div>
+                  <CampoJustificativa />
+                </ActionForm>
+              </div>
+            </details>
           )}
           <p className="text-center text-xs text-muted-foreground">
             A confirmação antecipada ajuda a Secretaria a organizar a sessão e o
