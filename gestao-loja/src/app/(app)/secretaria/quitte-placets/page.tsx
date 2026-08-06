@@ -115,7 +115,7 @@ export default async function QuittePlacetsPage() {
         <h2 className="mb-2 text-lg font-semibold">Andamento dos processos</h2>
         <p className="mb-3 text-sm text-muted-foreground">
           {isWriter
-            ? "Arraste o card para “Em análise” ao iniciar o processo. A aprovação sai das duas assinaturas; “Negado” encerra o pedido."
+            ? "Arraste o card para “Em análise” ao iniciar o processo. A aprovação sai das duas assinaturas; “Negado” encerra o pedido. Clique no card para abrir a documentação (Form. 122)."
             : "Acompanhamento das etapas — a movimentação é feita pela Secretaria."}
         </p>
         <QuittePlacetKanban
@@ -236,7 +236,11 @@ export default async function QuittePlacetsPage() {
             {placets
               .filter((p) => p.status !== "NEGADO")
               .map((p) => (
-                <div key={p.id} className="space-y-3 rounded-lg border p-4">
+                <div
+                  key={p.id}
+                  id={`form-placet-${p.id}`}
+                  className="scroll-mt-20 space-y-3 rounded-lg border p-4 target:ring-2 target:ring-primary"
+                >
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{p.user.name}</span>
                     <span className="text-xs text-muted-foreground">

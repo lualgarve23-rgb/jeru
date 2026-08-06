@@ -21,9 +21,23 @@ export type PlacetCard = {
 // Etapas do processo, na ordem em que ele caminha
 const COLUNAS: StatusPlacet[] = ["PENDENTE", "EM_ANALISE", "APROVADO", "NEGADO"];
 
+// Clique no card abre a documentação do processo (bloco do Form. 122 mais
+// abaixo na página). O drag só ativa após 4px/toque longo, então o clique
+// simples não conflita com o arrasto.
+function abrirDocumentacao(id: string) {
+  const alvo = document.getElementById(`form-placet-${id}`);
+  if (!alvo) return; // perfis sem escrita não veem o bloco de documentação
+  window.location.hash = `form-placet-${id}`;
+  alvo.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function CardBody({ placet }: { placet: PlacetCard }) {
   return (
-    <>
+    <div
+      className="cursor-pointer space-y-2"
+      onClick={() => abrirDocumentacao(placet.id)}
+      title="Abrir documentação do processo"
+    >
       <div>
         <p className="font-medium">{placet.memberName}</p>
         <p className="text-xs text-muted-foreground">
@@ -38,7 +52,7 @@ function CardBody({ placet }: { placet: PlacetCard }) {
         {placet.temFormulario && <Badge variant="outline">Form. 122</Badge>}
         {placet.enviadoGSelos && <Badge variant="success">Enviado</Badge>}
       </div>
-    </>
+    </div>
   );
 }
 
