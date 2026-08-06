@@ -210,6 +210,7 @@ model User {
   familiares            FamilyMember[]
   bibliotecaItens       BibliotecaItem[]
   metaRegistros         MetaRegistro[]
+  candidatosApadrinhados ProcessoAdmissao[] @relation("AdmissaoPadrinho")
 
   @@index([lodgeId])
   @@map("users")
@@ -372,6 +373,10 @@ model Attendance {
   checkedIn       Boolean  @default(true)
   rsvpAt          DateTime? // quando confirmou presença pelo convite
   agapeConfirmed  Boolean  @default(false) // ficará para o Ágape (jantar)
+  // Ausência justificada (irmão avisou que não comparecerá): registro com
+  // checkedIn=false — não conta frequência, mas entra na ata como justificada
+  justificado     Boolean  @default(false)
+  justificativa   String?
 
   lodge   Lodge        @relation(fields: [lodgeId], references: [id])
   session LodgeSession @relation(fields: [sessionId], references: [id])
@@ -747,13 +752,41 @@ model ProcessoAdmissao {
   dataEscrutinio   DateTime?
   aprovado         Boolean?
   observacoes      String?
+  // Irmão que apadrinha (indica) o candidato — qualquer membro pode abrir o
+  // cadastro inicial; null nos processos abertos pela Secretaria
+  padrinhoId       String?
+  // Token opaco do link público entregue ao candidato (/candidato/<token>):
+  // ele baixa os formulários de indicação e anexa os preenchidos
+  token            String         @unique @default(cuid())
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
-  lodge Lodge @relation(fields: [lodgeId], references: [id])
+  lodge    Lodge             @relation(fields: [lodgeId], references: [id])
+  padrinho User?             @relation("AdmissaoPadrinho", fields: [padrinhoId], references: [id])
+  anexos   CandidatoAnexo[]
 
   @@index([lodgeId])
   @@map("processos_admissao")
+}
+
+// Formulários de indicação preenchidos, anexados pelo próprio candidato no
+// link público ou pelo padrinho/Secretaria. Guardados no banco (independem
+// do Google Drive conectado).
+model CandidatoAnexo {
+  id         String   @id @default(cuid())
+  processoId String
+  nome       String // nome original do arquivo
+  mimeType   String
+  sizeBytes  Int
+  arquivo    Bytes
+  // Quem anexou: "candidato" (link público) ou o nome do irmão
+  enviadoPor String
+  createdAt  DateTime @default(now())
+
+  processo ProcessoAdmissao @relation(fields: [processoId], references: [id], onDelete: Cascade)
+
+  @@index([processoId])
+  @@map("candidato_anexos")
 }
 
 enum StatusPlacet {
@@ -780,6 +813,12 @@ model QuittePlacet {
   signedBySecAt    DateTime?
 
   driveFileId String?
+  // Formulário oficial (Form. 122) preenchido e assinado, anexado pela
+  // Secretaria; guardado no banco para poder ser reenviado a qualquer momento
+  formularioArquivo   Bytes?
+  formularioNome      String?
+  formularioMime      String?
+  formularioEnviadoAt DateTime? // envio à Guarda dos Selos por e-mail
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

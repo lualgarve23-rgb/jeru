@@ -7,6 +7,7 @@ import {
   Role,
   SessionType,
   StatusAdmissao,
+  StatusPlacet,
   StatusProgressao,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -473,7 +474,13 @@ export async function registerAttendance(
         sessionId,
         userId: memberId,
       },
-      update: { checkedIn: true, checkedInAt: new Date() },
+      // Presença efetiva prevalece sobre uma ausência antes justificada
+      update: {
+        checkedIn: true,
+        checkedInAt: new Date(),
+        justificado: false,
+        justificativa: null,
+      },
     });
   } catch {
     return { error: "Membro já registrado nesta sessão." };
@@ -544,7 +551,13 @@ export async function qrCheckinMember(qrToken: string): Promise<ActionResult> {
     // RSVP pelo convite vira presença efetiva no check-in do dia
     await prisma.attendance.update({
       where: { id: existente.id },
-      data: { checkedIn: true, checkedInAt: new Date(), viaQrCode: true },
+      data: {
+        checkedIn: true,
+        checkedInAt: new Date(),
+        viaQrCode: true,
+        justificado: false,
+        justificativa: null,
+      },
     });
   } else {
     await prisma.attendance.create({
@@ -933,13 +946,16 @@ function dadosPresencaSessao(session: {
   lodge: { name: string; number: string; address: string | null };
   attendances: {
     checkedIn: boolean;
+    justificado: boolean;
     visitorName: string | null;
     visitorLodge: string | null;
     visitorPotencia: string | null;
     user: { name: string; currentRole: Role; cargoRito: string | null } | null;
   }[];
 }) {
-  const membros = session.attendances.filter((a) => a.user);
+  // Só quem fez check-in entra na ata — confirmações do convite (RSVP) e
+  // ausências justificadas não contam como presença.
+  const membros = session.attendances.filter((a) => a.user && a.checkedIn);
   const byRole = (role: Role) =>
     membros.find((a) => a.user!.currentRole === role)?.user!.name ?? null;
   const byCargo = (padrao: CargoPadrao) =>
@@ -969,12 +985,17 @@ function dadosPresencaSessao(session: {
       .filter((a) => !temCargoDestacado(a))
       .map((a) => ({ name: a.user!.name })),
     visitantes: session.attendances
-      .filter((a) => !a.user && a.visitorName)
+      .filter((a) => !a.user && a.visitorName && a.checkedIn)
       .map((a) => ({
         name: a.visitorName!,
         lodge: a.visitorLodge,
         potencia: a.visitorPotencia,
       })),
+    // Irmãos que justificaram a ausência (combo do Livro de Presenças)
+    ausenciasJustificadas: session.attendances
+      .filter((a) => a.user && a.justificado && !a.checkedIn)
+      .map((a) => a.user!.name)
+      .join(", "),
     totalMembros: membros.length,
   };
 }
@@ -1000,9 +1021,12 @@ export async function createAta(
     orderBy: { number: "desc" },
   });
 
+  const derivados = dadosPresencaSessao(session);
   const content = gerarTextoAta({
-    ...dadosPresencaSessao(session),
-    ausenciasJustificadas: campo("ausenciasJustificadas"),
+    ...derivados,
+    // Texto digitado pelo Secretário prevalece sobre as justificativas do livro
+    ausenciasJustificadas:
+      campo("ausenciasJustificadas") || derivados.ausenciasJustificadas,
     pautaDoDia: campo("pautaDoDia"),
     detalhamentos: campo("detalhamentos"),
     horaEncerramento: campo("horaEncerramento"),
@@ -1054,6 +1078,7 @@ export async function atualizarPresencasAta(
   const trechos: [string, RegExp][] = [
     ["abertura e cargos", /^Ao .+a pedido do Dir∴ de Cer∴\.$/m],
     ["irmãos presentes", /^Demais irmãos do quadro presentes: .+$/m],
+    ["ausências justificadas", /^Os seguintes irmãos justificaram ausência: .+$/m],
     ["contagem de obreiros", /^A sessão foi preenchida por .+$/m],
   ];
   let content = ata.content;
@@ -2286,4 +2311,448 @@ export async function removeFamiliar(
   });
   revalidatePath(`/secretaria/membros/${memberId}`);
   return { ok: "Familiar removido." };
+}
+
+// ─────────── Candidatos: indicação pelo padrinho e link público ───────────
+
+const ANEXO_MAX_BYTES = 15_000_000;
+const ANEXO_TIPOS = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+];
+
+function validarAnexoCandidato(file: File | null): { error: string } | { file: File } {
+  if (!file || file.size === 0) return { error: "Selecione o arquivo preenchido." };
+  if (!ANEXO_TIPOS.includes(file.type)) {
+    return { error: "Envie o formulário em PDF, DOC/DOCX, JPG ou PNG." };
+  }
+  if (file.size > ANEXO_MAX_BYTES) {
+    return { error: "Arquivo muito grande — use até 15 MB." };
+  }
+  return { file };
+}
+
+async function gravarAnexoCandidato(
+  processoId: string,
+  file: File,
+  enviadoPor: string
+) {
+  await prisma.candidatoAnexo.create({
+    data: {
+      processoId,
+      nome: file.name.slice(0, 200),
+      mimeType: file.type,
+      sizeBytes: file.size,
+      arquivo: Buffer.from(await file.arrayBuffer()),
+      enviadoPor,
+    },
+  });
+}
+
+// Cadastro inicial do candidato aberto por qualquer irmão (padrinho). O
+// processo entra no pipeline em DOCUMENTACAO e já nasce com o link público
+// para o candidato baixar e devolver os formulários de indicação.
+export async function indicarCandidato(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireUser();
+  const nomeCandidato = String(formData.get("nomeCandidato") ?? "").trim();
+  if (!nomeCandidato) return { error: "Informe o nome do candidato." };
+  const email = String(formData.get("email") ?? "").trim().toLowerCase() || null;
+  const foto = await imageToDataUri(
+    formData.get("foto") as File | null,
+    "A foto do candidato"
+  );
+  if (foto.error) return { error: foto.error };
+
+  const processo = await prisma.processoAdmissao.create({
+    data: {
+      lodgeId: user.lodgeId,
+      nomeCandidato,
+      cpf: String(formData.get("cpf") ?? "").replace(/\D/g, "") || null,
+      email,
+      phone: String(formData.get("phone") ?? "").trim() || null,
+      fotoUrl: foto.dataUri ?? null,
+      padrinhoId: user.id,
+      observacoes: String(formData.get("observacoes") ?? "").trim() || null,
+    },
+  });
+
+  // Avisa a Secretaria e o Venerável de que há um candidato novo a conferir
+  const responsaveis = await prisma.user.findMany({
+    where: {
+      lodgeId: user.lodgeId,
+      currentRole: { in: ["SECRETARIO", "VENERAVEL_MESTRE"] },
+    },
+    select: { id: true },
+  });
+  await prisma.notification.createMany({
+    data: responsaveis.map((r) => ({
+      lodgeId: user.lodgeId,
+      userId: r.id,
+      title: "Novo candidato indicado",
+      description: `${user.name} indicou ${nomeCandidato} para iniciação.`,
+      type: "MISSING_DATA" as const,
+      sourceKey: `candidato:${processo.id}:${r.id}`,
+      link: "/secretaria/admissoes",
+    })),
+    skipDuplicates: true,
+  });
+
+  // Envia o link ao candidato quando o padrinho informou o e-mail
+  if (email) {
+    const baseUrl = process.env.APP_URL ?? "http://localhost:3100";
+    try {
+      await sendLodgeEmail({
+        lodgeId: user.lodgeId,
+        to: email,
+        subject: "Formulários de indicação — processo de admissão",
+        text:
+          `Prezado ${nomeCandidato},\n\n` +
+          `Você foi indicado por ${user.name}. Acesse o link abaixo para baixar os ` +
+          `formulários de indicação, preenchê-los e devolvê-los pelo próprio link:\n\n` +
+          `${baseUrl}/candidato/${processo.token}\n\n` +
+          `O link é pessoal — não o compartilhe.`,
+      });
+    } catch (e) {
+      console.error("e-mail do candidato", e);
+      revalidatePath("/secretaria/admissoes");
+      return {
+        ok:
+          "Candidato cadastrado. Não foi possível enviar o e-mail — copie o link e entregue ao candidato.",
+      };
+    }
+  }
+  revalidatePath("/secretaria/admissoes");
+  return {
+    ok: email
+      ? `Candidato cadastrado e link enviado para ${email}.`
+      : "Candidato cadastrado. Copie o link e entregue ao candidato.",
+  };
+}
+
+// Anexo enviado pelo próprio candidato no link público (sem login)
+export async function anexarFormularioCandidatoPublico(
+  token: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const processo = await prisma.processoAdmissao.findUnique({
+    where: { token },
+    select: { id: true, status: true, nomeCandidato: true, lodgeId: true, padrinhoId: true },
+  });
+  if (!processo) return { error: "Link inválido." };
+  if (processo.status === "INICIADO" || processo.status === "REPROVADO") {
+    return { error: "Este processo já foi encerrado." };
+  }
+  const valid = validarAnexoCandidato(formData.get("arquivo") as File | null);
+  if ("error" in valid) return valid;
+  await gravarAnexoCandidato(processo.id, valid.file, "candidato");
+
+  const avisar = await prisma.user.findMany({
+    where: {
+      lodgeId: processo.lodgeId,
+      OR: [
+        { currentRole: { in: ["SECRETARIO", "VENERAVEL_MESTRE"] } },
+        ...(processo.padrinhoId ? [{ id: processo.padrinhoId }] : []),
+      ],
+    },
+    select: { id: true },
+  });
+  await prisma.notification.createMany({
+    data: avisar.map((r) => ({
+      lodgeId: processo.lodgeId,
+      userId: r.id,
+      title: "Formulário do candidato recebido",
+      description: `${processo.nomeCandidato} anexou ${valid.file.name}.`,
+      type: "MISSING_DATA" as const,
+      sourceKey: `candidato-anexo:${processo.id}:${Date.now()}:${r.id}`,
+      link: "/secretaria/admissoes",
+    })),
+    skipDuplicates: true,
+  });
+  revalidatePath(`/candidato/${token}`);
+  revalidatePath("/secretaria/admissoes");
+  return { ok: "Formulário recebido. Obrigado!" };
+}
+
+// Anexo enviado por um irmão (padrinho ou Secretaria) pelo painel
+export async function anexarFormularioCandidato(
+  processoId: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireUser();
+  const processo = await prisma.processoAdmissao.findUnique({
+    where: { id: processoId, lodgeId: user.lodgeId },
+    select: { id: true, padrinhoId: true },
+  });
+  if (!processo) return { error: "Candidato não encontrado." };
+  if (!canWriteSecretaria(user.role) && processo.padrinhoId !== user.id) {
+    return { error: "Só o padrinho ou a Secretaria podem anexar formulários." };
+  }
+  const valid = validarAnexoCandidato(formData.get("arquivo") as File | null);
+  if ("error" in valid) return valid;
+  await gravarAnexoCandidato(processo.id, valid.file, user.name);
+  revalidatePath("/secretaria/admissoes");
+  return { ok: "Formulário anexado." };
+}
+
+export async function removerAnexoCandidato(
+  anexoId: string
+): Promise<ActionResult> {
+  const user = await requireUser();
+  const anexo = await prisma.candidatoAnexo.findUnique({
+    where: { id: anexoId },
+    include: { processo: { select: { lodgeId: true, padrinhoId: true } } },
+  });
+  if (!anexo || anexo.processo.lodgeId !== user.lodgeId) {
+    return { error: "Anexo não encontrado." };
+  }
+  if (!canWriteSecretaria(user.role) && anexo.processo.padrinhoId !== user.id) {
+    return { error: "Só o padrinho ou a Secretaria podem remover anexos." };
+  }
+  await prisma.candidatoAnexo.delete({ where: { id: anexoId } });
+  revalidatePath("/secretaria/admissoes");
+  return { ok: "Anexo removido." };
+}
+
+// ─────────── Ausências justificadas no Livro de Presenças ───────────
+
+// Trava comum às alterações de presença: a partir da liberação da ata,
+// o livro de presenças daquela sessão não pode mais mudar.
+async function ataTravaPresencas(sessionId: string) {
+  const ata = await prisma.ata.findUnique({
+    where: { sessionId },
+    select: {
+      status: true,
+      signedByMasterId: true,
+      signedBySecId: true,
+      govbrUploadedAt: true,
+    },
+  });
+  if (!ata) return false;
+  return (
+    ata.status === "AGUARDANDO_ASSINATURAS" ||
+    ata.status === "ASSINADA" ||
+    Boolean(ata.signedByMasterId) ||
+    Boolean(ata.signedBySecId) ||
+    Boolean(ata.govbrUploadedAt)
+  );
+}
+
+// Registra que o irmão justificou a ausência: entra no livro como
+// "Justificado" (não conta frequência) e alimenta o trecho da ata.
+export async function justificarAusencia(
+  sessionId: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const memberId = String(formData.get("memberId") ?? "");
+  if (!memberId) return { error: "Selecione o irmão." };
+  const justificativa =
+    String(formData.get("justificativa") ?? "").trim().slice(0, 300) || null;
+
+  const session = await prisma.lodgeSession.findUnique({
+    where: { id: sessionId, lodgeId: user.lodgeId },
+    select: { id: true },
+  });
+  if (!session) return { error: "Sessão não encontrada." };
+  if (await ataTravaPresencas(sessionId)) {
+    return {
+      error:
+        "A ata desta sessão já foi liberada para assinaturas — as presenças não podem mais ser alteradas.",
+    };
+  }
+
+  const existente = await prisma.attendance.findUnique({
+    where: { sessionId_userId: { sessionId, userId: memberId } },
+    select: { id: true, checkedIn: true },
+  });
+  if (existente?.checkedIn) {
+    return {
+      error:
+        "Este irmão está marcado como presente — desfaça a presença antes de justificar a ausência.",
+    };
+  }
+  await prisma.attendance.upsert({
+    where: { sessionId_userId: { sessionId, userId: memberId } },
+    create: {
+      lodgeId: user.lodgeId,
+      sessionId,
+      userId: memberId,
+      checkedIn: false,
+      justificado: true,
+      justificativa,
+    },
+    update: { justificado: true, justificativa },
+  });
+  revalidatePath(`/secretaria/sessoes/${sessionId}`);
+  return { ok: "Ausência justificada registrada." };
+}
+
+export async function desfazerJustificativa(
+  attendanceId: string
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const att = await prisma.attendance.findUnique({
+    where: { id: attendanceId },
+    select: {
+      id: true,
+      lodgeId: true,
+      sessionId: true,
+      rsvpAt: true,
+      justificado: true,
+    },
+  });
+  if (!att || att.lodgeId !== user.lodgeId || !att.justificado) {
+    return { error: "Justificativa não encontrada." };
+  }
+  if (await ataTravaPresencas(att.sessionId)) {
+    return {
+      error:
+        "A ata desta sessão já foi liberada para assinaturas — as presenças não podem mais ser alteradas.",
+    };
+  }
+  if (att.rsvpAt) {
+    // Veio do convite: mantém o RSVP, só remove a justificativa
+    await prisma.attendance.update({
+      where: { id: att.id },
+      data: { justificado: false, justificativa: null },
+    });
+  } else {
+    await prisma.attendance.delete({ where: { id: att.id } });
+  }
+  revalidatePath(`/secretaria/sessoes/${att.sessionId}`);
+  return { ok: "Justificativa removida." };
+}
+
+// ───── Quitte Placet: formulário oficial (Form. 122) e etapas do kanban ─────
+
+const QUITTE_FORM = "form-122-quite-placet.docx";
+
+// Anexa o Form. 122 preenchido/assinado ao processo (guardado no banco)
+export async function anexarFormularioQuittePlacet(
+  placetId: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const placet = await prisma.quittePlacet.findUnique({
+    where: { id: placetId, lodgeId: user.lodgeId },
+    select: { id: true, status: true },
+  });
+  if (!placet) return { error: "Quitte Placet não encontrado." };
+  const arquivo = formData.get("arquivo") as File | null;
+  if (!arquivo || arquivo.size === 0) {
+    return { error: "Selecione o formulário preenchido." };
+  }
+  if (arquivo.size > ANEXO_MAX_BYTES) {
+    return { error: "Arquivo muito grande — use até 15 MB." };
+  }
+  if (!ANEXO_TIPOS.includes(arquivo.type)) {
+    return { error: "Envie o formulário em PDF, DOC/DOCX, JPG ou PNG." };
+  }
+  await prisma.quittePlacet.update({
+    where: { id: placetId, lodgeId: user.lodgeId },
+    data: {
+      formularioArquivo: Buffer.from(await arquivo.arrayBuffer()),
+      formularioNome: arquivo.name.slice(0, 200),
+      formularioMime: arquivo.type,
+      formularioEnviadoAt: null,
+    },
+  });
+  revalidatePath("/secretaria/quitte-placets");
+  return { ok: "Formulário anexado ao Quitte Placet." };
+}
+
+// Envia o Quitte Placet à Guarda dos Selos com o formulário em anexo
+export async function enviarQuittePlacetGSelos(
+  placetId: string
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const placet = await prisma.quittePlacet.findUnique({
+    where: { id: placetId, lodgeId: user.lodgeId },
+    include: {
+      lodge: { select: { name: true, number: true } },
+      user: { select: { name: true, cim: true } },
+    },
+  });
+  if (!placet) return { error: "Quitte Placet não encontrado." };
+  if (!placet.formularioArquivo) {
+    return {
+      error:
+        "Anexe o Form. 122 preenchido e assinado antes de enviar à Guarda dos Selos.",
+    };
+  }
+  if (placet.status !== "APROVADO") {
+    return {
+      error:
+        "O Quitte Placet precisa das assinaturas do Venerável Mestre e do Secretário antes do envio.",
+    };
+  }
+  try {
+    await sendLodgeEmail({
+      lodgeId: user.lodgeId,
+      to: GUARDA_SELOS_EMAIL,
+      subject: `Quitte Placet — ${placet.user.name} (CIM ${placet.user.cim}) — ${placet.lodge.name} nº ${placet.lodge.number}`,
+      text:
+        `Loja ${placet.lodge.name} nº ${placet.lodge.number}\n` +
+        `Obreiro: ${placet.user.name} (CIM ${placet.user.cim})\n` +
+        (placet.motivo ? `Motivo: ${placet.motivo}\n` : "") +
+        `\nSegue em anexo o formulário de Quitte Placet assinado pelo Venerável Mestre e pelo Secretário.`,
+      attachments: [
+        {
+          filename: placet.formularioNome ?? "quitte-placet.pdf",
+          content: Buffer.from(placet.formularioArquivo),
+        },
+      ],
+    });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Falha no envio." };
+  }
+  await prisma.quittePlacet.update({
+    where: { id: placetId, lodgeId: user.lodgeId },
+    data: { formularioEnviadoAt: new Date() },
+  });
+  revalidatePath("/secretaria/quitte-placets");
+  return { ok: `Enviado para ${GUARDA_SELOS_EMAIL}.` };
+}
+
+// Move o card no kanban do Quitte Placet. "Em análise" é o início efetivo do
+// processo; a aprovação só acontece pelas duas assinaturas (signQuittePlacet).
+export async function moveQuittePlacet(
+  placetId: string,
+  toStatus: StatusPlacet
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const placet = await prisma.quittePlacet.findUniqueOrThrow({
+    where: { id: placetId, lodgeId: user.lodgeId },
+    select: { status: true },
+  });
+  if (placet.status === "APROVADO") {
+    return { error: "Quitte Placet já aprovado — processo encerrado." };
+  }
+  if (toStatus === "APROVADO") {
+    return {
+      error:
+        "A aprovação sai das assinaturas do Venerável Mestre e do Secretário, não do arraste.",
+    };
+  }
+  await prisma.quittePlacet.update({
+    where: { id: placetId, lodgeId: user.lodgeId },
+    data: { status: toStatus },
+  });
+  revalidatePath("/secretaria/quitte-placets");
+  return {
+    ok:
+      toStatus === "EM_ANALISE"
+        ? "Processo de Quitte Placet iniciado (em análise)."
+        : "Processo atualizado.",
+  };
 }

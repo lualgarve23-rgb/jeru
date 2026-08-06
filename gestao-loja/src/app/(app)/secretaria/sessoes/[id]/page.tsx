@@ -8,6 +8,8 @@ import {
   createAta,
   atualizarPresencasAta,
   desmarcarPresenca,
+  justificarAusencia,
+  desfazerJustificativa,
   reenviarCertificadoVisita,
   dispararConvitesEmail,
   updateSessionPauta,
@@ -125,6 +127,17 @@ export default async function SessaoPage({
     (m) => (DEGREE_RANK[m.degree] ?? 3) >= (DEGREE_RANK[session.degree] ?? 1)
   );
   const minFreq = lodgeCfg.minFreqProgressao;
+
+  // Ausências justificadas: registro sem check-in marcado como justificado
+  const justificadas = new Map(
+    session.attendances.flatMap((a) =>
+      a.userId && a.justificado && !a.checkedIn ? [[a.userId, a] as const] : []
+    )
+  );
+  // Combo de justificativa: irmãos do quadro que ainda não estão presentes
+  const podemJustificar = linhas.filter(
+    (m) => !presentes.has(m.id) && !justificadas.has(m.id)
+  );
 
   // Situação da frequência: alerta legal para Aprendizes e Companheiros
   function situacaoFreq(m: (typeof linhas)[number]) {
@@ -267,7 +280,14 @@ export default async function SessaoPage({
                           name={name}
                           rows={name === "detalhamentos" ? 6 : name === "pautaDoDia" ? 3 : 2}
                           defaultValue={
-                            name === "pautaDoDia" ? session.pauta ?? "" : ""
+                            name === "pautaDoDia"
+                              ? session.pauta ?? ""
+                              : name === "ausenciasJustificadas"
+                                ? [...justificadas.values()]
+                                    .map((a) => a.user?.name)
+                                    .filter(Boolean)
+                                    .join(", ")
+                                : ""
                           }
                           className="w-full rounded-md border bg-transparent p-2 text-sm"
                         />
@@ -317,10 +337,70 @@ export default async function SessaoPage({
         )}
       </div>
 
+      {isWriter && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Justificar ausência</CardTitle>
+            <CardDescription>
+              Irmãos que avisaram que não poderiam comparecer. A ausência
+              justificada aparece com a tag <strong>Justificado</strong> no
+              livro, não conta como presença na frequência e entra no trecho
+              da ata &quot;Os seguintes irmãos justificaram ausência&quot;.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {podemJustificar.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Todos os irmãos do quadro já estão presentes ou com ausência
+                justificada.
+              </p>
+            ) : (
+              <ActionForm
+                action={justificarAusencia.bind(null, session.id)}
+                submitLabel="Registrar justificativa"
+              >
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="memberIdJustifica">Irmão</Label>
+                    <select
+                      id="memberIdJustifica"
+                      name="memberId"
+                      required
+                      className="h-9 w-full rounded-md border bg-transparent px-2 text-sm"
+                    >
+                      <option value="">Selecione...</option>
+                      {podemJustificar.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} (CIM {m.cim})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="justificativa">Motivo (opcional)</Label>
+                    <input
+                      id="justificativa"
+                      name="justificativa"
+                      maxLength={300}
+                      placeholder="ex.: viagem de trabalho"
+                      className="h-9 w-full rounded-md border bg-transparent px-2 text-sm"
+                    />
+                  </div>
+                </div>
+              </ActionForm>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-1">
-            Livro de Presenças ({presentes.size} de {linhas.length} irmãos)
+            Livro de Presenças ({presentes.size} de {linhas.length} irmãos
+            {justificadas.size > 0
+              ? `, ${justificadas.size} justificada(s)`
+              : ""}
+            )
             <InfoDica titulo="Frequência" texto={AJUDA.frequencia} />
           </CardTitle>
           <CardDescription>
@@ -373,6 +453,24 @@ export default async function SessaoPage({
                           {isWriter && (!session.ata || ataEditavel) && (
                             <ActionButton
                               action={desmarcarPresenca.bind(null, att.id)}
+                              label="Desfazer"
+                              variant="outline"
+                            />
+                          )}
+                        </span>
+                      ) : att?.justificado ? (
+                        <span className="inline-flex flex-wrap items-center gap-2">
+                          <Badge className="border-violet-200 bg-violet-50 text-violet-700">
+                            Justificado
+                          </Badge>
+                          {att.justificativa && (
+                            <span className="text-xs text-muted-foreground">
+                              {att.justificativa}
+                            </span>
+                          )}
+                          {isWriter && (!session.ata || ataEditavel) && (
+                            <ActionButton
+                              action={desfazerJustificativa.bind(null, att.id)}
                               label="Desfazer"
                               variant="outline"
                             />

@@ -17,6 +17,7 @@ export const authConfig = {
         pathname.startsWith("/api/auth") ||
         pathname.startsWith("/checkin/") || // check-in de visitantes via QR
         pathname.startsWith("/convite/") || // RSVP público do convite de sessão
+        pathname.startsWith("/candidato/") || // formulários de indicação do candidato (token)
         pathname.startsWith("/verificar/") || // verificação pública da carteirinha (QR)
         pathname.startsWith("/api/webhooks/") || // PSP autentica por segredo próprio
         pathname.startsWith("/api/cron/"); // cron autentica por x-cron-secret

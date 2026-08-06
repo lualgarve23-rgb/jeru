@@ -67,11 +67,40 @@ function CandidatoAvatar({
   );
 }
 
-function Card({ processo }: { processo: Processo }) {
+function Card({
+  processo,
+  readOnly,
+}: {
+  processo: Processo;
+  readOnly: boolean;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({ id: processo.id });
+    useDraggable({ id: processo.id, disabled: readOnly });
   const [pending, startTransition] = useTransition();
   const fotoInputRef = useRef<HTMLInputElement>(null);
+
+  if (readOnly) {
+    return (
+      <div className="space-y-2 rounded-lg border bg-card p-3 text-sm shadow-sm">
+        <div className="flex items-center gap-2.5">
+          <CandidatoAvatar processo={processo} />
+          <div className="min-w-0">
+            <p className="truncate font-medium">{processo.nomeCandidato}</p>
+            {processo.email && (
+              <p className="truncate text-xs text-muted-foreground">
+                {processo.email}
+              </p>
+            )}
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {processo.certidoesValidas
+            ? "Certidões válidas"
+            : "Certidões pendentes"}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -164,11 +193,13 @@ function Card({ processo }: { processo: Processo }) {
 function Column({
   status,
   processos,
+  readOnly,
 }: {
   status: StatusAdmissao;
   processos: Processo[];
+  readOnly: boolean;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: status });
+  const { setNodeRef, isOver } = useDroppable({ id: status, disabled: readOnly });
   return (
     <div
       ref={setNodeRef}
@@ -183,7 +214,7 @@ function Column({
         <Badge variant="outline">{processos.length}</Badge>
       </div>
       {processos.map((p) => (
-        <Card key={p.id} processo={p} />
+        <Card key={p.id} processo={p} readOnly={readOnly} />
       ))}
     </div>
   );
@@ -191,8 +222,10 @@ function Column({
 
 export function AdmissaoKanban({
   processos: initial,
+  readOnly = false,
 }: {
   processos: Processo[];
+  readOnly?: boolean;
 }) {
   const [processos, setProcessos] = useState(initial);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -256,6 +289,7 @@ export function AdmissaoKanban({
               key={status}
               status={status}
               processos={processos.filter((p) => p.status === status)}
+              readOnly={readOnly}
             />
           ))}
         </div>

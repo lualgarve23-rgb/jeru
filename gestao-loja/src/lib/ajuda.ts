@@ -32,13 +32,13 @@ export const AJUDA = {
   carteirinha:
     "Sua identificação maçônica digital, com QR Code de verificação. Apresente na tela do celular ao visitar outra Loja — quem escanear o código vê a confirmação de que você é membro regular. Use o botão de imprimir para levar em papel.",
   admissoes:
-    "Acompanhamento do candidato à Iniciação, etapa por etapa: pré-cadastro, edital, sindicância (comissão), escrutínio (votação) e Placet — a autorização final da Potência. Arraste o cartão quando a etapa concluir.",
+    "Qualquer irmão pode apadrinhar um candidato: abra o cadastro inicial e o sistema gera um link pessoal para ele baixar os formulários de indicação (já preenchidos com os dados da Loja) e devolvê-los preenchidos. A Secretaria conduz as etapas seguintes: edital, sindicância (comissão), escrutínio (votação) e Placet — a autorização final da Potência.",
   progressoes:
     "Caminho do irmão para o próximo grau (Elevação = Companheiro, Exaltação = Mestre). O sistema confere interstício (tempo mínimo no grau), instruções e frequência antes de liberar as etapas.",
   instrucoes:
     "Instruções de grau ministradas pelos Vigilantes: Aprendizes com o 2º Vigilante e Companheiros com o 1º. Registre cada instrução dada; a meta é configurada pela Loja.",
   quitte:
-    "Quitte Placet é o documento de desligamento ou transferência do irmão. Só pode ser emitido com o Nada Consta da Tesouraria (trava financeira) e a dupla assinatura do Venerável e do Secretário.",
+    "Quitte Placet é o documento de desligamento ou transferência do irmão. Só pode ser emitido com o Nada Consta da Tesouraria (trava financeira) e a dupla assinatura do Venerável e do Secretário. Acompanhe o andamento no quadro de etapas, baixe o Form. 122 já preenchido, anexe o formulário assinado e envie à Guarda dos Selos.",
   mensalidades:
     "Capitações (mensalidades) dos irmãos: gere as cobranças do mês, envie link de pagamento (cartão, boleto ou Pix pelo Asaas) ou dê baixa manual. Vencidas em excesso tornam o irmão irregular automaticamente.",
   despesas:
