@@ -280,3 +280,26 @@ export async function updateGmailLoja(
       : "Configuração de e-mail da loja removida.",
   };
 }
+
+// Backup completo da Loja salvo direto na pasta da loja no Google Drive
+export async function backupParaDrive(): Promise<ActionResult> {
+  const user = await requireRole("VENERAVEL_MESTRE", "SECRETARIO");
+  const { isDriveAvailable, uploadToLodgeDrive } = await import(
+    "@/lib/google-drive"
+  );
+  if (!(await isDriveAvailable(user.lodgeId))) {
+    return {
+      error:
+        "Google Drive não conectado — conecte a conta da loja logo abaixo ou baixe o ZIP.",
+    };
+  }
+  try {
+    const { gerarBackupLoja } = await import("@/lib/backup");
+    const { zip, fileName } = await gerarBackupLoja(user.lodgeId);
+    await uploadToLodgeDrive(user.lodgeId, fileName, "application/zip", zip);
+    return { ok: `Backup ${fileName} salvo na pasta da loja no Google Drive.` };
+  } catch (e) {
+    console.error("backupParaDrive", e);
+    return { error: "Falha ao salvar o backup no Google Drive. Tente o download do ZIP." };
+  }
+}

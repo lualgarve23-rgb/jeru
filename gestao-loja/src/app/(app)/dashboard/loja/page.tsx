@@ -15,6 +15,7 @@ import {
   updateInstrucoesNecessarias,
   updateAtaCabecalho,
   updateGmailLoja,
+  backupParaDrive,
 } from "./actions";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
@@ -421,6 +422,33 @@ export default async function LojaConfigPage({
               Para remover a configuração, salve com os dois campos vazios.
             </p>
           </ActionForm>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Backup da Loja</CardTitle>
+          <CardDescription>
+            Exporta todos os dados da loja num arquivo ZIP: cadastros e
+            históricos em JSON, planilhas CSV (membros, presenças,
+            mensalidades, livro-caixa e despesas) e os PDFs guardados no
+            sistema (atas e pranchas assinadas no gov.br, biblioteca).
+            Senhas e credenciais da loja ficam de fora. Os arquivos já
+            arquivados no Google Drive permanecem na pasta da loja — faça
+            também o backup dela.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center gap-3">
+          <Button asChild>
+            <a href="/api/backup">Baixar backup (ZIP)</a>
+          </Button>
+          {lodge.googleRefreshToken && (
+            <ActionButton
+              action={backupParaDrive}
+              label="Salvar backup no Drive da loja"
+              variant="outline"
+            />
+          )}
         </CardContent>
       </Card>
 
