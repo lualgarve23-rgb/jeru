@@ -45,6 +45,8 @@ export async function recreateDemoLodge(): Promise<{ logins: string }> {
     await prisma.$transaction([
       prisma.notification.deleteMany({ where }),
       prisma.instrucao.deleteMany({ where }),
+      prisma.visitaExterna.deleteMany({ where }),
+      prisma.bibliotecaItem.deleteMany({ where }),
       prisma.processoProgressao.deleteMany({ where }),
       prisma.processoAdmissao.deleteMany({ where }),
       prisma.quittePlacet.deleteMany({ where }),
