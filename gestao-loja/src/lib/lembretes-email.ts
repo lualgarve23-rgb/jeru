@@ -24,7 +24,7 @@ function corpo(intro: string, itens: Notif[]) {
     const link = n.link ? `\n  ${BASE_URL}${n.link}` : "";
     return `• [${tipo}] ${n.title}\n  ${n.description}${link}`;
   });
-  return `${intro}\n\n${linhas.join("\n\n")}\n\n—\nCentral de notificações: ${BASE_URL}/dashboard/notificacoes\nMensagem automática do sistema de gestão da Loja.`;
+  return `${intro}\n\n${linhas.join("\n\n")}\n\n—\nCentral de notificações: ${BASE_URL}/dashboard/notificacoes\nMensagem automática do sistema Gestão NoPrumo.`;
 }
 
 export async function enviarLembretesEmail(lodgeId: string) {

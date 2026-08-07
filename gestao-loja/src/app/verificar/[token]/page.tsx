@@ -104,7 +104,7 @@ export default async function VerificarCarteirinhaPage({
               : `Situação: ${memberStatusLabels[member.status] ?? member.status}.`}
           </div>
           <p className="text-xs text-muted-foreground">
-            Verificação emitida pelo sistema de gestão da Loja. Consulta
+            Verificação emitida pelo sistema Gestão NoPrumo. Consulta
             realizada em {new Date().toLocaleDateString("pt-BR")}.
           </p>
         </CardContent>

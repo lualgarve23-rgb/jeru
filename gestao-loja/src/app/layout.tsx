@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Gestão da Loja",
+  title: "Gestão NoPrumo",
   description: "Sistema de gestão de secretaria e tesouraria para Lojas Maçônicas",
 };
 

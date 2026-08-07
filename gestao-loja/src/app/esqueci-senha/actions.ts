@@ -72,7 +72,7 @@ export async function requestPasswordReset(
   await sendLodgeEmail({
     lodgeId: user.lodgeId,
     to: user.email,
-    subject: "Código de recuperação de senha — Gestão da Loja",
+    subject: "Código de recuperação de senha — Gestão NoPrumo",
     text:
       `Olá, ${user.name}.\n\n` +
       `Seu código de verificação é: ${code}\n\n` +

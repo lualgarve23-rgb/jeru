@@ -18,7 +18,7 @@ export default function LoginPage() {
           <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#c9973b]">
             <Landmark className="h-8 w-8 text-[#c9973b]" />
           </span>
-          <h1 className="text-2xl font-bold text-white">Gestão da Loja</h1>
+          <h1 className="text-2xl font-bold text-white">Gestão NoPrumo</h1>
           <p className="mt-1 text-sm text-slate-300">
             Sistema de Secretaria e Tesouraria
           </p>
