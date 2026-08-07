@@ -16,13 +16,6 @@ export function isOAuthAppConfigured() {
   );
 }
 
-export function isServiceAccountConfigured() {
-  return Boolean(
-    process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL &&
-      process.env.GOOGLE_SERVICE_ACCOUNT_KEY
-  );
-}
-
 // O Drive está utilizável para esta loja?
 export async function isDriveAvailable(lodgeId: string) {
   if (!isOAuthAppConfigured()) return false;

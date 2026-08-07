@@ -177,24 +177,6 @@ export async function updatePlatformAsaas(
 
 // Pasta do Google Drive do super admin que recebe os backups automáticos
 // das lojas (compartilhada com a Service Account) — SUPER_ADMIN.
-export async function updatePlatformBackup(
-  _prev: ActionResult,
-  formData: FormData
-): Promise<ActionResult> {
-  await requireRole("SUPER_ADMIN");
-  // Aceita tanto o ID puro quanto o link completo da pasta do Drive.
-  const bruto = String(formData.get("backupDriveFolderId") ?? "").trim();
-  const backupDriveFolderId =
-    (bruto.match(/folders\/([a-zA-Z0-9_-]+)/)?.[1] ?? bruto) || null;
-  await prisma.platformConfig.upsert({
-    where: { id: "platform" },
-    create: { id: "platform", backupDriveFolderId },
-    update: { backupDriveFolderId },
-  });
-  revalidatePath("/admin");
-  return { ok: "Pasta de backup atualizada." };
-}
-
 // Roda agora o backup de todas as lojas para o Drive configurado.
 export async function executarBackupLojas(
   _prev: ActionResult,

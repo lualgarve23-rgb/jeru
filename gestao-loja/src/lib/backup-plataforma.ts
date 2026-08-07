@@ -1,37 +1,51 @@
 import { google } from "googleapis";
 import { prisma } from "@/lib/prisma";
 import { gerarBackupLoja } from "@/lib/backup";
-import { isServiceAccountConfigured } from "@/lib/google-drive";
+import { isOAuthAppConfigured, oauthClient } from "@/lib/google-drive";
 
 // Backup automático de TODAS as lojas para o Google Drive do super admin.
-// O super admin compartilha uma pasta do próprio Drive com a Service Account
-// (GOOGLE_SERVICE_ACCOUNT_EMAIL) e grava o ID dela em /admin; o cron diário
-// (ou o botão "Backup agora") sobe um ZIP por loja dentro de uma subpasta
-// com a data. Lojas de demonstração/teste (9999 e 7777) ficam de fora.
+// O super admin conecta a própria conta Google em /admin (OAuth, escopo
+// drive.file); o app cria a pasta "Backups NoPrumo" no Drive dele e o cron
+// diário (ou o botão "Backup agora") sobe um ZIP por loja dentro de uma
+// subpasta com a data. Lojas de demonstração/teste (9999 e 7777) ficam de
+// fora. Service Account não serve aqui: o Google não dá cota de storage a
+// Service Accounts no "Meu Drive".
 
 const LOJAS_IGNORADAS = ["9999", "7777"];
+const NOME_PASTA_RAIZ = "Backups NoPrumo";
 
-function driveServiceAccount() {
-  const auth = new google.auth.JWT({
-    email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    key: process.env.GOOGLE_SERVICE_ACCOUNT_KEY!.replace(/\\n/g, "\n"),
-    scopes: ["https://www.googleapis.com/auth/drive"],
-  });
-  return google.drive({ version: "v3", auth });
+function driveSuperAdmin(refreshToken: string) {
+  const client = oauthClient("");
+  client.setCredentials({ refresh_token: refreshToken });
+  return google.drive({ version: "v3", auth: client });
 }
 
-export async function backupConfigurado(): Promise<{
-  folderId: string | null;
-  serviceAccount: boolean;
-}> {
-  const config = await prisma.platformConfig.findUnique({
-    where: { id: "platform" },
-    select: { backupDriveFolderId: true },
+// Garante (e memoriza) a pasta raiz de backups no Drive do super admin.
+async function ensureBackupFolder(
+  drive: ReturnType<typeof google.drive>,
+  folderId: string | null
+): Promise<string> {
+  if (folderId) {
+    try {
+      await drive.files.get({ fileId: folderId, fields: "id" });
+      return folderId;
+    } catch {
+      // pasta apagada ou de uma conta anterior → recriar
+    }
+  }
+  const res = await drive.files.create({
+    requestBody: {
+      name: NOME_PASTA_RAIZ,
+      mimeType: "application/vnd.google-apps.folder",
+    },
+    fields: "id",
   });
-  return {
-    folderId: config?.backupDriveFolderId ?? null,
-    serviceAccount: isServiceAccountConfigured(),
-  };
+  const id = res.data.id!;
+  await prisma.platformConfig.update({
+    where: { id: "platform" },
+    data: { backupDriveFolderId: id },
+  });
+  return id;
 }
 
 export async function backupTodasLojas(): Promise<{
@@ -39,19 +53,18 @@ export async function backupTodasLojas(): Promise<{
   falhas: { loja: string; erro: string }[];
   pasta: string;
 }> {
-  const { folderId, serviceAccount } = await backupConfigurado();
-  if (!folderId) {
+  const config = await prisma.platformConfig.findUnique({
+    where: { id: "platform" },
+    select: { backupGoogleRefreshToken: true, backupDriveFolderId: true },
+  });
+  if (!config?.backupGoogleRefreshToken || !isOAuthAppConfigured()) {
     throw new Error(
-      "Pasta de backup não configurada — informe o ID da pasta do Drive em /admin."
-    );
-  }
-  if (!serviceAccount) {
-    throw new Error(
-      "Service Account do Google não configurada no servidor (GOOGLE_SERVICE_ACCOUNT_EMAIL/KEY)."
+      "Conta Google de backup não conectada — use \"Conectar Google Drive\" em /admin."
     );
   }
 
-  const drive = driveServiceAccount();
+  const drive = driveSuperAdmin(config.backupGoogleRefreshToken);
+  const raizId = await ensureBackupFolder(drive, config.backupDriveFolderId);
   const { Readable } = await import("stream");
 
   // Subpasta com a data da rodada (fuso de São Paulo), ex.: backup-2026-08-07
@@ -63,7 +76,7 @@ export async function backupTodasLojas(): Promise<{
     requestBody: {
       name: nomePasta,
       mimeType: "application/vnd.google-apps.folder",
-      parents: [folderId],
+      parents: [raizId],
     },
     fields: "id",
   });

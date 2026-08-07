@@ -3,7 +3,6 @@ import { requireRole } from "@/lib/session";
 import {
   createLodge,
   updatePlatformAsaas,
-  updatePlatformBackup,
   executarBackupLojas,
   criarLojaDemo,
   restaurarBackup,
@@ -13,6 +12,7 @@ import { ActionForm } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -307,39 +307,33 @@ export default async function AdminPage() {
           <CardHeader>
             <CardTitle>Backup automático das lojas</CardTitle>
             <CardDescription>
-              Guarda um ZIP de backup de cada loja em uma pasta do seu Google
-              Drive.{" "}
-              {platformConfig?.backupDriveFolderId ? (
-                <Badge variant="success">Configurado</Badge>
+              Guarda um ZIP de backup de cada loja na pasta &quot;Backups
+              NoPrumo&quot;, criada automaticamente no seu Google Drive.{" "}
+              {platformConfig?.backupGoogleRefreshToken ? (
+                <Badge variant="success">
+                  Conectado{platformConfig.backupGoogleEmail
+                    ? `: ${platformConfig.backupGoogleEmail}`
+                    : ""}
+                </Badge>
               ) : (
-                <Badge variant="warning">Não configurado</Badge>
+                <Badge variant="warning">Não conectado</Badge>
               )}{" "}
-              Compartilhe a pasta com a Service Account do servidor
-              {process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
-                ? ` (${process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL})`
-                : ""}{" "}
-              como Editor e cole abaixo o ID da pasta (o trecho final da URL
-              do Drive). O cron diário do servidor
-              (/api/cron/backup) cria uma subpasta por dia; o botão roda uma
-              rodada agora. Lojas 9999 (demo) e 7777 (testes) ficam de fora.
+              O cron diário do servidor (/api/cron/backup) cria uma subpasta
+              por dia; o botão roda uma rodada agora. Lojas 9999 (demo) e 7777
+              (testes) ficam de fora.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <ActionForm action={updatePlatformBackup} submitLabel="Salvar">
-              <div className="space-y-1">
-                <Label htmlFor="backupDriveFolderId">ID da pasta no Drive</Label>
-                <Input
-                  id="backupDriveFolderId"
-                  name="backupDriveFolderId"
-                  defaultValue={platformConfig?.backupDriveFolderId ?? ""}
-                  placeholder="1AbC..."
-                  autoComplete="off"
-                />
-              </div>
-            </ActionForm>
+            <Button asChild variant="outline">
+              <a href="/api/google/connect?destino=platform">
+                {platformConfig?.backupGoogleRefreshToken
+                  ? "Trocar conta Google"
+                  : "Conectar Google Drive"}
+              </a>
+            </Button>
             <ActionForm action={executarBackupLojas} submitLabel="Backup agora">
               <p className="text-xs text-muted-foreground">
-                Gera e envia agora um ZIP por loja para a pasta configurada.
+                Gera e envia agora um ZIP por loja para o Drive conectado.
               </p>
             </ActionForm>
           </CardContent>

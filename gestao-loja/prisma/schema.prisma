@@ -21,9 +21,11 @@ model PlatformConfig {
   id                String   @id @default("platform")
   asaasApiKey       String?
   asaasWebhookToken String? // conferido no header asaas-access-token do webhook
-  // Backup automático das lojas: pasta no Google Drive do super admin
-  // (compartilhada com a Service Account) que recebe os ZIPs de cada loja
-  backupDriveFolderId String?
+  // Backup automático das lojas: conta Google do super admin conectada via
+  // OAuth; o app cria a pasta "Backups NoPrumo" e guarda o id dela
+  backupDriveFolderId      String?
+  backupGoogleRefreshToken String?
+  backupGoogleEmail        String?
   updatedAt         DateTime @updatedAt
 
   @@map("platform_config")

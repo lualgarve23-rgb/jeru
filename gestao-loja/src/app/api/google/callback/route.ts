@@ -4,19 +4,26 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { oauthClient } from "@/lib/google-drive";
 
-// Callback do OAuth: guarda o refresh token na Loja do usuário logado.
+// Callback do OAuth: guarda o refresh token na Loja do usuário logado, ou —
+// quando o state é "platform" — na configuração da plataforma (backup do
+// super admin).
 export async function GET(req: NextRequest) {
   const baseUrl = process.env.APP_URL ?? req.url;
   const session = await auth();
   const role = session?.user?.role;
-  if (!session?.user || !["VENERAVEL_MESTRE", "SECRETARIO"].includes(role!)) {
+  const platform = req.nextUrl.searchParams.get("state") === "platform";
+  const volta = platform ? "/admin" : "/dashboard/loja";
+  const autorizado = platform
+    ? role === "SUPER_ADMIN"
+    : ["VENERAVEL_MESTRE", "SECRETARIO"].includes(role!);
+  if (!session?.user || !autorizado) {
     return NextResponse.redirect(new URL("/login", baseUrl));
   }
 
   const code = req.nextUrl.searchParams.get("code");
   if (!code) {
     return NextResponse.redirect(
-      new URL("/dashboard/loja?erro=google-negado", baseUrl)
+      new URL(`${volta}?erro=google-negado`, baseUrl)
     );
   }
 
@@ -38,29 +45,45 @@ export async function GET(req: NextRequest) {
     // conexão fica inútil (uploads falham com "insufficient scopes").
     if (!tokens.scope?.includes("https://www.googleapis.com/auth/drive.file")) {
       return NextResponse.redirect(
-        new URL("/dashboard/loja?erro=sem-permissao-drive", baseUrl)
+        new URL(`${volta}?erro=sem-permissao-drive`, baseUrl)
       );
     }
 
     if (!tokens.refresh_token) {
       return NextResponse.redirect(
-        new URL("/dashboard/loja?erro=sem-refresh-token", baseUrl)
+        new URL(`${volta}?erro=sem-refresh-token`, baseUrl)
       );
     }
 
-    await prisma.lodge.update({
-      where: { id: session.user.lodgeId },
-      data: {
-        googleRefreshToken: tokens.refresh_token,
-        googleEmail: email,
-        driveFolderId: null, // nova conta → recriar a pasta da Loja
-      },
-    });
+    if (platform) {
+      await prisma.platformConfig.upsert({
+        where: { id: "platform" },
+        create: {
+          id: "platform",
+          backupGoogleRefreshToken: tokens.refresh_token,
+          backupGoogleEmail: email,
+        },
+        update: {
+          backupGoogleRefreshToken: tokens.refresh_token,
+          backupGoogleEmail: email,
+          backupDriveFolderId: null, // nova conta → recriar a pasta de backups
+        },
+      });
+    } else {
+      await prisma.lodge.update({
+        where: { id: session.user.lodgeId },
+        data: {
+          googleRefreshToken: tokens.refresh_token,
+          googleEmail: email,
+          driveFolderId: null, // nova conta → recriar a pasta da Loja
+        },
+      });
+    }
   } catch {
     return NextResponse.redirect(
-      new URL("/dashboard/loja?erro=google-falhou", baseUrl)
+      new URL(`${volta}?erro=google-falhou`, baseUrl)
     );
   }
 
-  return NextResponse.redirect(new URL("/dashboard/loja?ok=1", baseUrl));
+  return NextResponse.redirect(new URL(`${volta}?ok=1`, baseUrl));
 }
