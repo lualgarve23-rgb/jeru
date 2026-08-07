@@ -230,12 +230,22 @@ export async function restaurarBackup(
   if (!file || file.size === 0) {
     return { error: "Selecione o arquivo ZIP do backup." };
   }
+  return restaurarZipConfirmado(
+    Buffer.from(await file.arrayBuffer()),
+    confirmNumber
+  );
+}
+
+// Valida a confirmação do número e restaura o ZIP (comum aos dois caminhos:
+// upload manual e arquivo escolhido no Google Drive do super admin).
+async function restaurarZipConfirmado(
+  zipBuffer: Buffer,
+  confirmNumber: string
+): Promise<ActionResult> {
   if (!confirmNumber) {
     return { error: "Digite o número da loja para confirmar a restauração." };
   }
-
   try {
-    const zipBuffer = Buffer.from(await file.arrayBuffer());
     // Confirma o número ANTES de qualquer alteração
     const { restaurarBackupLoja } = await import("@/lib/restore");
     const JSZip = (await import("jszip")).default;
@@ -257,6 +267,44 @@ export async function restaurarBackup(
   } catch (e) {
     return {
       error: `Falha na restauração — nada foi alterado (${e instanceof Error ? e.message : "erro"}).`,
+    };
+  }
+}
+
+// Lista os ZIPs de backup disponíveis no Google Drive conectado em /admin
+// (mesma conta do backup automático) — chamada sob demanda pelo formulário.
+export async function listarBackupsDoDrive(): Promise<
+  | { error: string }
+  | { backups: import("@/lib/backup-plataforma").BackupNoDrive[] }
+> {
+  await requireRole("SUPER_ADMIN");
+  try {
+    const { listarBackupsDrive } = await import("@/lib/backup-plataforma");
+    return { backups: await listarBackupsDrive() };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Falha ao listar backups." };
+  }
+}
+
+// Restaura o backup baixando o ZIP escolhido direto do Google Drive.
+export async function restaurarBackupDoDrive(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  await requireRole("SUPER_ADMIN");
+
+  const driveFileId = String(formData.get("driveFileId") ?? "").trim();
+  const confirmNumber = String(formData.get("confirmNumber") ?? "").trim();
+  if (!driveFileId) {
+    return { error: "Escolha o arquivo de backup no Google Drive." };
+  }
+  try {
+    const { baixarBackupDrive } = await import("@/lib/backup-plataforma");
+    const zipBuffer = await baixarBackupDrive(driveFileId);
+    return await restaurarZipConfirmado(zipBuffer, confirmNumber);
+  } catch (e) {
+    return {
+      error: `Falha ao baixar o backup do Drive (${e instanceof Error ? e.message : "erro"}).`,
     };
   }
 }

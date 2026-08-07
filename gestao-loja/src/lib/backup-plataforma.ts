@@ -48,6 +48,67 @@ async function ensureBackupFolder(
   return id;
 }
 
+// Drive do super admin conectado em /admin (ou erro claro se não houver).
+async function driveConectado() {
+  const config = await prisma.platformConfig.findUnique({
+    where: { id: "platform" },
+    select: { backupGoogleRefreshToken: true, backupDriveFolderId: true },
+  });
+  if (!config?.backupGoogleRefreshToken || !isOAuthAppConfigured()) {
+    throw new Error(
+      "Conta Google de backup não conectada — use \"Conectar Google Drive\" em /admin."
+    );
+  }
+  return driveSuperAdmin(config.backupGoogleRefreshToken);
+}
+
+export type BackupNoDrive = {
+  id: string;
+  nome: string;
+  pasta: string | null;
+  criadoEm: string | null;
+  tamanho: number | null;
+};
+
+// Lista os ZIPs de backup no Drive do super admin (escopo drive.file só
+// enxerga arquivos criados pelo próprio app), com o nome da subpasta diária.
+export async function listarBackupsDrive(): Promise<BackupNoDrive[]> {
+  const drive = await driveConectado();
+  const [pastas, zips] = await Promise.all([
+    drive.files.list({
+      q: "mimeType='application/vnd.google-apps.folder' and trashed=false",
+      fields: "files(id, name)",
+      pageSize: 1000,
+    }),
+    drive.files.list({
+      q: "mimeType='application/zip' and trashed=false",
+      fields: "files(id, name, parents, createdTime, size)",
+      orderBy: "createdTime desc",
+      pageSize: 1000,
+    }),
+  ]);
+  const nomePasta = new Map(
+    (pastas.data.files ?? []).map((p) => [p.id!, p.name ?? ""])
+  );
+  return (zips.data.files ?? []).map((f) => ({
+    id: f.id!,
+    nome: f.name ?? "backup.zip",
+    pasta: nomePasta.get(f.parents?.[0] ?? "") ?? null,
+    criadoEm: f.createdTime ?? null,
+    tamanho: f.size ? Number(f.size) : null,
+  }));
+}
+
+// Baixa um ZIP de backup do Drive do super admin.
+export async function baixarBackupDrive(fileId: string): Promise<Buffer> {
+  const drive = await driveConectado();
+  const res = await drive.files.get(
+    { fileId, alt: "media" },
+    { responseType: "arraybuffer" }
+  );
+  return Buffer.from(res.data as ArrayBuffer);
+}
+
 export async function backupTodasLojas(): Promise<{
   ok: number;
   falhas: { loja: string; erro: string }[];

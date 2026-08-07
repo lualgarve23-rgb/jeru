@@ -8,6 +8,7 @@ import {
   restaurarBackup,
 } from "./actions";
 import { LodgeActions } from "./lodge-actions";
+import { RestoreFromDrive } from "./restore-drive";
 import { ActionForm } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -378,7 +379,15 @@ export default async function AdminPage() {
               por &quot;Esqueci a senha&quot;.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {platformConfig?.backupGoogleRefreshToken && (
+              <>
+                <RestoreFromDrive />
+                <p className="text-xs text-muted-foreground">
+                  Ou envie o arquivo manualmente:
+                </p>
+              </>
+            )}
             <ActionForm action={restaurarBackup} submitLabel="Restaurar backup">
               <div className="space-y-1">
                 <Label htmlFor="backupZip">Arquivo do backup (.zip)</Label>
