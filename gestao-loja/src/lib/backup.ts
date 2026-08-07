@@ -65,6 +65,7 @@ export async function gerarBackupLoja(lodgeId: string): Promise<{
     donations,
     charityEvents,
     processosAdmissao,
+    candidatoAnexos,
     quittePlacets,
     processosProgressao,
   ] = await Promise.all([
@@ -103,6 +104,7 @@ export async function gerarBackupLoja(lodgeId: string): Promise<{
     prisma.donation.findMany(porLoja),
     prisma.charityEvent.findMany(porLoja),
     prisma.processoAdmissao.findMany(porLoja),
+    prisma.candidatoAnexo.findMany({ where: { processo: { lodgeId } } }),
     prisma.quittePlacet.findMany(porLoja),
     prisma.processoProgressao.findMany(porLoja),
   ]);
@@ -151,6 +153,7 @@ export async function gerarBackupLoja(lodgeId: string): Promise<{
   dados.file("doacoes.json", toJson(donations));
   dados.file("eventos-beneficentes.json", toJson(charityEvents));
   dados.file("processos-admissao.json", toJson(processosAdmissao));
+  dados.file("candidato-anexos.json", toJson(candidatoAnexos, ["arquivo"]));
   dados.file("quitte-placets.json", toJson(quittePlacets));
   dados.file("processos-progressao.json", toJson(processosProgressao));
 
@@ -249,11 +252,18 @@ export async function gerarBackupLoja(lodgeId: string): Promise<{
       );
     }
   }
+  // Prefixo com o id para a restauração casar arquivo ↔ registro com precisão
   for (const item of biblioteca) {
     const ext = item.mimeType === "application/pdf" ? "pdf" : "bin";
     arquivos.file(
-      `biblioteca/${nomeArquivoSeguro(item.titulo) || item.id}.${ext}`,
+      `biblioteca/${item.id}__${nomeArquivoSeguro(item.titulo) || "item"}.${ext}`,
       Buffer.from(item.arquivo)
+    );
+  }
+  for (const anexo of candidatoAnexos) {
+    arquivos.file(
+      `candidatos/${anexo.id}__${nomeArquivoSeguro(anexo.nome) || "anexo"}`,
+      Buffer.from(anexo.arquivo)
     );
   }
   if (lodge.certFundoPdf) {

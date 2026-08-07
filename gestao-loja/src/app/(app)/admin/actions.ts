@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { CARGOS_PADRAO } from "@/lib/cargos";
 import { getPlatformAsaas } from "@/lib/platform-config";
+import { deleteLodgeData } from "@/lib/lodge-delete";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
@@ -193,6 +194,51 @@ export async function criarLojaDemo(
   }
 }
 
+// Restaura o backup de uma loja a partir do ZIP gerado em /api/backup.
+// DESTRUTIVO: substitui todos os dados da loja de mesmo número. Exige
+// digitar o número da loja como confirmação.
+export async function restaurarBackup(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  await requireRole("SUPER_ADMIN");
+
+  const file = formData.get("backupZip") as File | null;
+  const confirmNumber = String(formData.get("confirmNumber") ?? "").trim();
+  if (!file || file.size === 0) {
+    return { error: "Selecione o arquivo ZIP do backup." };
+  }
+  if (!confirmNumber) {
+    return { error: "Digite o número da loja para confirmar a restauração." };
+  }
+
+  try {
+    const zipBuffer = Buffer.from(await file.arrayBuffer());
+    // Confirma o número ANTES de qualquer alteração
+    const { restaurarBackupLoja } = await import("@/lib/restore");
+    const JSZip = (await import("jszip")).default;
+    const zip = await JSZip.loadAsync(zipBuffer);
+    const lojaJson = zip.file("dados/loja.json");
+    if (!lojaJson) {
+      return { error: "ZIP inválido — use um backup gerado pelo sistema (contém dados/loja.json)." };
+    }
+    const [loja] = JSON.parse(await lojaJson.async("string"));
+    if (String(loja?.number) !== confirmNumber) {
+      return {
+        error: `Confirmação incorreta: o backup é da loja nº ${loja?.number}, mas você digitou "${confirmNumber}".`,
+      };
+    }
+
+    const { ok, avisos } = await restaurarBackupLoja(zipBuffer);
+    revalidatePath("/admin");
+    return { ok: [ok, ...avisos].join(" • ") };
+  } catch (e) {
+    return {
+      error: `Falha na restauração — nada foi alterado (${e instanceof Error ? e.message : "erro"}).`,
+    };
+  }
+}
+
 // Atualiza dados cadastrais de uma loja (SUPER_ADMIN)
 export async function updateLodge(
   _prev: ActionResult,
@@ -252,31 +298,10 @@ export async function deleteLodge(
     return { error: "Confirmação incorreta — digite o número da loja." };
   }
 
-  // Sem onDelete: Cascade no schema, então removemos filhos antes dos pais
-  const where = { lodgeId: id };
-  await prisma.$transaction([
-    prisma.notification.deleteMany({ where }),
-    prisma.instrucao.deleteMany({ where }),
-    prisma.processoProgressao.deleteMany({ where }),
-    prisma.processoAdmissao.deleteMany({ where }),
-    prisma.quittePlacet.deleteMany({ where }),
-    prisma.transaction.deleteMany({ where }),
-    prisma.invoice.deleteMany({ where }),
-    prisma.expense.deleteMany({ where }),
-    prisma.categoriaFinanceira.deleteMany({ where }),
-    prisma.donation.deleteMany({ where }),
-    prisma.charityEvent.deleteMany({ where }),
-    prisma.attendance.deleteMany({ where }),
-    prisma.ata.deleteMany({ where }),
-    prisma.lodgeSession.deleteMany({ where }),
-    prisma.prancha.deleteMany({ where }),
-    prisma.document.deleteMany({ where }),
-    prisma.degreeHistory.deleteMany({ where }),
-    prisma.roleHistory.deleteMany({ where }),
-    prisma.cargoRito.deleteMany({ where }),
-    prisma.user.deleteMany({ where }),
-    prisma.lodge.delete({ where: { id } }),
-  ]);
+  // Sem onDelete: Cascade no schema — a ordem certa está em deleteLodgeData
+  await prisma.$transaction((tx) => deleteLodgeData(tx, id), {
+    timeout: 60_000,
+  });
 
   revalidatePath("/admin");
   return { ok: `Loja "${lodge.name}" nº ${lodge.number} excluída com todos os dados.` };

@@ -1,6 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
-import { createLodge, updatePlatformAsaas, criarLojaDemo } from "./actions";
+import {
+  createLodge,
+  updatePlatformAsaas,
+  criarLojaDemo,
+  restaurarBackup,
+} from "./actions";
 import { LodgeActions } from "./lodge-actions";
 import { ActionForm } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
@@ -319,6 +324,45 @@ export default async function AdminPage() {
                 <code>demo-a2</code> (obreiros) — senha <code>demo123</code>{" "}
                 para todos.
               </p>
+            </ActionForm>
+          </CardContent>
+        </Card>
+
+        <Card className="h-fit">
+          <CardHeader>
+            <CardTitle>Restaurar backup de loja</CardTitle>
+            <CardDescription>
+              Restaura o ZIP gerado em Configurações da Loja → Backup.{" "}
+              <strong>Substitui todos os dados</strong> da loja de mesmo
+              número (ou a recria, se foi excluída). Credenciais da loja
+              (Asaas, Google, Gmail) e senhas dos membros atuais são
+              preservadas; membros que não existem mais recuperam o acesso
+              por &quot;Esqueci a senha&quot;.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ActionForm action={restaurarBackup} submitLabel="Restaurar backup">
+              <div className="space-y-1">
+                <Label htmlFor="backupZip">Arquivo do backup (.zip)</Label>
+                <Input
+                  id="backupZip"
+                  name="backupZip"
+                  type="file"
+                  accept=".zip,application/zip"
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="confirmNumber">
+                  Confirme o número da loja
+                </Label>
+                <Input
+                  id="confirmNumber"
+                  name="confirmNumber"
+                  placeholder="ex.: 1234"
+                  required
+                />
+              </div>
             </ActionForm>
           </CardContent>
         </Card>

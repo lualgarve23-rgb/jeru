@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { CARGOS_PADRAO } from "@/lib/cargos";
+import { deleteLodgeData } from "@/lib/lodge-delete";
 
 // Loja de DEMONSTRAÇÃO (nº 9999) com dados fictícios, para os usuários
 // conhecerem o sistema sem tocar em dados reais. Recriável a qualquer momento
@@ -41,32 +42,9 @@ export async function recreateDemoLodge(): Promise<{ logins: string }> {
     where: { number: DEMO_LODGE_NUMBER },
   });
   if (existing) {
-    const where = { lodgeId: existing.id };
-    await prisma.$transaction([
-      prisma.notification.deleteMany({ where }),
-      prisma.instrucao.deleteMany({ where }),
-      prisma.visitaExterna.deleteMany({ where }),
-      prisma.bibliotecaItem.deleteMany({ where }),
-      prisma.processoProgressao.deleteMany({ where }),
-      prisma.processoAdmissao.deleteMany({ where }),
-      prisma.quittePlacet.deleteMany({ where }),
-      prisma.transaction.deleteMany({ where }),
-      prisma.invoice.deleteMany({ where }),
-      prisma.expense.deleteMany({ where }),
-      prisma.categoriaFinanceira.deleteMany({ where }),
-      prisma.donation.deleteMany({ where }),
-      prisma.charityEvent.deleteMany({ where }),
-      prisma.attendance.deleteMany({ where }),
-      prisma.ata.deleteMany({ where }),
-      prisma.lodgeSession.deleteMany({ where }),
-      prisma.prancha.deleteMany({ where }),
-      prisma.document.deleteMany({ where }),
-      prisma.degreeHistory.deleteMany({ where }),
-      prisma.roleHistory.deleteMany({ where }),
-      prisma.cargoRito.deleteMany({ where }),
-      prisma.user.deleteMany({ where }),
-      prisma.lodge.delete({ where: { id: existing.id } }),
-    ]);
+    await prisma.$transaction((tx) => deleteLodgeData(tx, existing.id), {
+      timeout: 60_000,
+    });
   }
 
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
