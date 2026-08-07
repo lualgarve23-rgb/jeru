@@ -182,8 +182,10 @@ export async function updatePlatformBackup(
   formData: FormData
 ): Promise<ActionResult> {
   await requireRole("SUPER_ADMIN");
+  // Aceita tanto o ID puro quanto o link completo da pasta do Drive.
+  const bruto = String(formData.get("backupDriveFolderId") ?? "").trim();
   const backupDriveFolderId =
-    String(formData.get("backupDriveFolderId") ?? "").trim() || null;
+    (bruto.match(/folders\/([a-zA-Z0-9_-]+)/)?.[1] ?? bruto) || null;
   await prisma.platformConfig.upsert({
     where: { id: "platform" },
     create: { id: "platform", backupDriveFolderId },

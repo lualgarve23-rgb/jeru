@@ -3,10 +3,12 @@ import type { Lodge } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 // Integração Google Drive.
-// Preferência: conta Google conectada pela própria Loja via OAuth
-// (Configurações da Loja → "Conectar Google Drive"). Fallback: Service
-// Account global (GOOGLE_SERVICE_ACCOUNT_EMAIL / GOOGLE_SERVICE_ACCOUNT_KEY,
-// com GOOGLE_DRIVE_ROOT_FOLDER_ID opcional).
+// Arquivos da Loja: exclusivamente a conta Google conectada pela própria
+// Loja via OAuth (Configurações da Loja → "Conectar Google Drive") — a
+// Service Account não serve de fallback aqui porque não tem cota de
+// storage para uploads no "Meu Drive". A Service Account global
+// (GOOGLE_SERVICE_ACCOUNT_EMAIL / GOOGLE_SERVICE_ACCOUNT_KEY) é usada
+// apenas pelo backup da plataforma (backup-plataforma.ts).
 
 export function isOAuthAppConfigured() {
   return Boolean(
@@ -23,7 +25,6 @@ export function isServiceAccountConfigured() {
 
 // O Drive está utilizável para esta loja?
 export async function isDriveAvailable(lodgeId: string) {
-  if (isServiceAccountConfigured()) return true;
   if (!isOAuthAppConfigured()) return false;
   const lodge = await prisma.lodge.findUnique({
     where: { id: lodgeId },
@@ -48,14 +49,6 @@ function driveClientFor(lodge: Pick<Lodge, "googleRefreshToken">) {
     );
     client.setCredentials({ refresh_token: lodge.googleRefreshToken });
     return google.drive({ version: "v3", auth: client });
-  }
-  if (isServiceAccountConfigured()) {
-    const auth = new google.auth.JWT({
-      email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      key: process.env.GOOGLE_SERVICE_ACCOUNT_KEY!.replace(/\\n/g, "\n"),
-      scopes: ["https://www.googleapis.com/auth/drive"],
-    });
-    return google.drive({ version: "v3", auth });
   }
   throw new Error(
     "Google Drive não conectado — conecte a conta Google da Loja em Configurações da Loja."
