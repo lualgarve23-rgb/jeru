@@ -57,6 +57,21 @@ export default async function NovoMembroPage() {
             <Input id="initiationDate" name="initiationDate" type="date" />
           </div>
         </div>
+        <div className="flex items-start gap-2">
+          <input
+            id="filiado"
+            name="filiado"
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 accent-primary"
+          />
+          <div>
+            <Label htmlFor="filiado">Obreiro filiado</Label>
+            <p className="text-xs text-muted-foreground">
+              Membro do quadro de outra Loja: não recolhe mensalidade e fica de
+              fora da geração de cobranças.
+            </p>
+          </div>
+        </div>
         <p className="text-xs text-muted-foreground">
           A senha inicial do membro é o próprio CPF (somente números).
         </p>

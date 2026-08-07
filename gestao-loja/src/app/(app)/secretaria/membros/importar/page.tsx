@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/session";
 import { ImportMetaForm } from "./import-form";
+import { ImportPlanilhaForm } from "./planilha-form";
 import {
   Card,
   CardContent,
@@ -44,6 +45,31 @@ export default async function ImportarMembrosPage() {
         </CardHeader>
         <CardContent>
           <ImportMetaForm />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Outras potências (GLESP, COMAB…) — planilha</CardTitle>
+          <CardDescription>
+            Lojas de potências sem portal integrado importam o quadro por
+            planilha CSV.{" "}
+            <a
+              href="/secretaria/membros/importar/modelo"
+              className="font-medium underline underline-offset-2"
+            >
+              Baixe o modelo
+            </a>
+            , preencha no Excel (uma linha por obreiro) e envie abaixo. Casa
+            pelo CIM: existente tem a ficha atualizada; novo entra com senha
+            provisória igual ao CPF (troca obrigatória no primeiro acesso).
+            Grau: APRENDIZ, COMPANHEIRO ou MESTRE · status: ATIVO, IRREGULAR,
+            LICENCIADO ou EX-MEMBRO · filiado: sim/não (obreiro filiado não
+            recolhe mensalidade) · data de iniciação: dd/mm/aaaa.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ImportPlanilhaForm />
         </CardContent>
       </Card>
     </div>

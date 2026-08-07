@@ -283,3 +283,172 @@ export async function importarMembrosMeta(
     simulacao,
   };
 }
+
+// ───────────── Importação por planilha (outras potências) ─────────────
+// Lojas de potências sem portal integrado (GLESP, COMAB etc.) importam o
+// quadro por CSV no modelo baixável em /secretaria/membros/importar/modelo.
+
+const GRAUS_PLANILHA: Record<string, "APRENDIZ" | "COMPANHEIRO" | "MESTRE"> = {
+  APRENDIZ: "APRENDIZ",
+  COMPANHEIRO: "COMPANHEIRO",
+  MESTRE: "MESTRE",
+};
+
+const STATUS_PLANILHA: Record<string, "ATIVO" | "IRREGULAR" | "LICENCIADO" | "EX_MEMBRO"> = {
+  ATIVO: "ATIVO",
+  IRREGULAR: "IRREGULAR",
+  LICENCIADO: "LICENCIADO",
+  "EX-MEMBRO": "EX_MEMBRO",
+  EX_MEMBRO: "EX_MEMBRO",
+};
+
+// Normaliza para casar cabeçalhos e valores: sem acentos, maiúsculas
+function chave(v: string): string {
+  return v
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+}
+
+export async function importarMembrosPlanilha(
+  _prev: ImportResult,
+  formData: FormData
+): Promise<ImportResult> {
+  const user = await requireRole("VENERAVEL_MESTRE", "SECRETARIO");
+  const simulacao = formData.get("simulacao") === "on";
+  const arquivo = formData.get("planilha") as File | null;
+  if (!arquivo || arquivo.size === 0) {
+    return { error: "Envie o arquivo CSV no modelo." };
+  }
+  if (arquivo.size > 2_000_000) {
+    return { error: "Arquivo muito grande — use um CSV de até 2 MB." };
+  }
+
+  const texto = (await arquivo.text()).replace(/^\uFEFF/, "");
+  const linhasTexto = texto.split(/\r?\n/).filter((l) => l.trim() !== "");
+  if (linhasTexto.length < 2) {
+    return { error: "Planilha vazia — a primeira linha é o cabeçalho, as demais são os membros." };
+  }
+  // Delimitador: o que mais aparece no cabeçalho (Excel BR exporta com ";")
+  const sep = (linhasTexto[0].match(/;/g) ?? []).length >=
+    (linhasTexto[0].match(/,/g) ?? []).length ? ";" : ",";
+  const cabecalho = linhasTexto[0].split(sep).map(chave);
+  const indice = new Map(cabecalho.map((c, i) => [c, i]));
+  for (const col of ["CIM", "CPF", "NOME"]) {
+    if (!indice.has(col)) {
+      return { error: `Coluna obrigatória "${col.toLowerCase()}" não encontrada no cabeçalho. Baixe o modelo e preencha a partir dele.` };
+    }
+  }
+
+  const existentes = await prisma.user.findMany({
+    where: { lodgeId: user.lodgeId },
+    select: { id: true, cim: true },
+  });
+  const porCim = new Map(existentes.map((u) => [u.cim, u]));
+  const bcrypt = (await import("bcryptjs")).default;
+
+  const linhas: LinhaImportacao[] = [];
+  let criados = 0;
+  let atualizados = 0;
+
+  for (const linha of linhasTexto.slice(1)) {
+    const celulas = linha.split(sep).map((c) => c.replace(/^"|"$/g, "").trim());
+    const campo = (nome: string) => celulas[indice.get(nome) ?? -1] ?? "";
+
+    const cim = campo("CIM");
+    const cpf = campo("CPF").replace(/\D/g, "");
+    const nome = campo("NOME");
+    const grau = GRAUS_PLANILHA[chave(campo("GRAU"))] ?? "APRENDIZ";
+    const status = STATUS_PLANILHA[chave(campo("STATUS"))] ?? "ATIVO";
+    const filiado = ["SIM", "S", "X", "1", "TRUE"].includes(chave(campo("FILIADO")));
+    const dataIniciacao = campo("DATA_INICIACAO");
+    // aceita dd/mm/aaaa (Excel BR) e aaaa-mm-dd
+    const br = dataIniciacao.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    const iniciacao = dataIniciacao
+      ? new Date(br ? `${br[3]}-${br[2]}-${br[1]}` : dataIniciacao)
+      : null;
+
+    const base = {
+      cim,
+      nome,
+      grau,
+      status,
+      meta: filiado ? "obreiro filiado (sem mensalidade)" : undefined,
+    };
+
+    if (!cim || !nome) {
+      linhas.push({ ...base, cim: cim || "—", nome: nome || "—", acao: "pular", motivo: "linha sem CIM ou nome" });
+      continue;
+    }
+
+    const dados = {
+      name: nome,
+      phone: campo("TELEFONE") || null,
+      profession: campo("PROFISSAO") || null,
+      degree: grau,
+      status,
+      filiado,
+      initiationDate: iniciacao && !isNaN(iniciacao.getTime()) ? iniciacao : null,
+    };
+
+    const existente = porCim.get(cim);
+    if (existente) {
+      linhas.push({ ...base, acao: "atualizar" });
+      if (!simulacao) {
+        await prisma.user.update({ where: { id: existente.id }, data: dados });
+        atualizados++;
+      }
+      continue;
+    }
+
+    if (!cpf) {
+      linhas.push({ ...base, acao: "pular", motivo: "novo membro sem CPF" });
+      continue;
+    }
+    const email = campo("EMAIL").toLowerCase() || `cim${cim}@importado.local`;
+    linhas.push({ ...base, acao: "criar" });
+    if (!simulacao) {
+      try {
+        const criado = await prisma.user.create({
+          data: {
+            ...dados,
+            lodgeId: user.lodgeId,
+            cim,
+            cpf,
+            email,
+            passwordHash: await bcrypt.hash(cpf, 10),
+            mustChangePassword: true,
+          },
+        });
+        if (dados.initiationDate) {
+          await prisma.degreeHistory.create({
+            data: {
+              lodgeId: user.lodgeId,
+              userId: criado.id,
+              degree: "APRENDIZ",
+              date: dados.initiationDate,
+            },
+          });
+        }
+        criados++;
+      } catch {
+        const l = linhas[linhas.length - 1];
+        l.acao = "pular";
+        l.motivo = "CIM, CPF ou e-mail já cadastrado em outra loja";
+      }
+    }
+  }
+
+  if (!simulacao) revalidatePath("/secretaria/membros");
+  const pulados = linhas.filter((l) => l.acao === "pular").length;
+  return {
+    ok: simulacao
+      ? `Simulação: ${linhas.filter((l) => l.acao === "criar").length} a criar, ` +
+        `${linhas.filter((l) => l.acao === "atualizar").length} a atualizar, ${pulados} pulado(s). Nada foi gravado.`
+      : `Importação concluída: ${criados} criado(s), ${atualizados} atualizado(s), ${pulados} pulado(s).`,
+    contexto: "planilha",
+    linhas,
+    simulacao,
+  };
+}

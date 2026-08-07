@@ -42,7 +42,8 @@ export async function updatePixKey(
 
 // ─────────────── Mensalidades (capitações) ───────────────
 
-// Gera as mensalidades do mês para todos os membros ATIVOS,
+// Gera as mensalidades do mês para todos os membros ATIVOS (exceto
+// obreiros filiados, que não recolhem capitação),
 // já com txid e payload Pix Copia e Cola / QR Code dinâmico.
 export async function generateInvoices(
   _prev: ActionResult,
@@ -66,7 +67,7 @@ export async function generateInvoices(
   }
 
   const members = await prisma.user.findMany({
-    where: { lodgeId: user.lodgeId, status: "ATIVO" },
+    where: { lodgeId: user.lodgeId, status: "ATIVO", filiado: false },
   });
 
   let created = 0;
@@ -234,7 +235,12 @@ export async function enableAsaasSubscriptions(
   try {
     const lodge = await requireAsaasLodge(user.lodgeId);
     const members = await prisma.user.findMany({
-      where: { lodgeId: user.lodgeId, status: "ATIVO", asaasSubscriptionId: null },
+      where: {
+        lodgeId: user.lodgeId,
+        status: "ATIVO",
+        filiado: false,
+        asaasSubscriptionId: null,
+      },
     });
     if (members.length === 0) {
       return { error: "Todos os membros ativos já têm assinatura." };

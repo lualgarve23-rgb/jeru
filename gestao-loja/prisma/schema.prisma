@@ -21,6 +21,9 @@ model PlatformConfig {
   id                String   @id @default("platform")
   asaasApiKey       String?
   asaasWebhookToken String? // conferido no header asaas-access-token do webhook
+  // Backup automático das lojas: pasta no Google Drive do super admin
+  // (compartilhada com a Service Account) que recebe os ZIPs de cada loja
+  backupDriveFolderId String?
   updatedAt         DateTime @updatedAt
 
   @@map("platform_config")
@@ -174,6 +177,9 @@ model User {
   // Foto do membro (data URI, upload pelo próprio usuário em /dashboard/perfil)
   photoUrl       String?
   status         MemberStatus @default(ATIVO)
+  // Obreiro filiado (quadro de outra loja): não recolhe capitação — fica de
+  // fora da geração de mensalidades e das assinaturas recorrentes do Asaas
+  filiado        Boolean      @default(false)
   initiationDate DateTime? // data de iniciação (base do interstício)
   // Data de instalação como Venerável (Mestre Instalado) — importada do METAGOB
   installationDate DateTime?

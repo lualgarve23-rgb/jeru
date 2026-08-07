@@ -90,6 +90,11 @@ export default async function MembrosPage() {
                   <Badge variant={memberStatusTone(m.status)}>
                     {memberStatusLabels[m.status] ?? m.status}
                   </Badge>
+                  {m.filiado && (
+                    <Badge variant="outline" className="ml-1">
+                      Filiado
+                    </Badge>
+                  )}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {canSeeContact ? (

@@ -181,6 +181,22 @@ export default async function MembroPage({
                   <option value="EX_MEMBRO">Ex-membro</option>
                 </select>
               </div>
+              <div className="flex items-start gap-2 sm:col-span-2">
+                <input
+                  id="filiado"
+                  name="filiado"
+                  type="checkbox"
+                  defaultChecked={member.filiado}
+                  className="mt-0.5 h-4 w-4 accent-primary"
+                />
+                <div>
+                  <Label htmlFor="filiado">Obreiro filiado</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Membro do quadro de outra Loja: não recolhe mensalidade e
+                    fica de fora da geração de cobranças.
+                  </p>
+                </div>
+              </div>
             </div>
             {(["VENERAVEL_MESTRE", "SECRETARIO"].includes(member.currentRole) ||
               cargoCorresponde(member.cargoRito, "Orador")) && (

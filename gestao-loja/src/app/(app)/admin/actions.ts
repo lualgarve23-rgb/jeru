@@ -175,6 +175,44 @@ export async function updatePlatformAsaas(
   return { ok: "Conta Asaas da plataforma atualizada." };
 }
 
+// Pasta do Google Drive do super admin que recebe os backups automáticos
+// das lojas (compartilhada com a Service Account) — SUPER_ADMIN.
+export async function updatePlatformBackup(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  await requireRole("SUPER_ADMIN");
+  const backupDriveFolderId =
+    String(formData.get("backupDriveFolderId") ?? "").trim() || null;
+  await prisma.platformConfig.upsert({
+    where: { id: "platform" },
+    create: { id: "platform", backupDriveFolderId },
+    update: { backupDriveFolderId },
+  });
+  revalidatePath("/admin");
+  return { ok: "Pasta de backup atualizada." };
+}
+
+// Roda agora o backup de todas as lojas para o Drive configurado.
+export async function executarBackupLojas(
+  _prev: ActionResult,
+  _formData: FormData
+): Promise<ActionResult> {
+  await requireRole("SUPER_ADMIN");
+  try {
+    const { backupTodasLojas } = await import("@/lib/backup-plataforma");
+    const r = await backupTodasLojas();
+    const falhas = r.falhas.length
+      ? ` Falhas: ${r.falhas.map((f) => `${f.loja} (${f.erro})`).join("; ")}.`
+      : "";
+    return {
+      ok: `${r.ok} backup(s) enviados para a pasta "${r.pasta}" no Drive.${falhas}`,
+    };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Falha no backup." };
+  }
+}
+
 // Cria (ou recria do zero) a Loja de Demonstração nº 9999 com dados
 // fictícios — ambiente de testes dos usuários, sem tocar em dados reais.
 export async function criarLojaDemo(

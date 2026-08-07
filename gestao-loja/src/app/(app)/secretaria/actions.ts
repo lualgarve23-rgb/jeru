@@ -71,6 +71,7 @@ export async function createMember(
     phone: (formData.get("phone") as string) || null,
     profession: (formData.get("profession") as string) || null,
     degree: formData.get("degree") as Degree,
+    filiado: formData.get("filiado") === "on",
     initiationDate: formData.get("initiationDate")
       ? new Date(String(formData.get("initiationDate")))
       : null,
@@ -137,6 +138,7 @@ export async function updateMember(
       nomeMae: (formData.get("nomeMae") as string) || null,
       tipoSanguineo: (formData.get("tipoSanguineo") as string) || null,
       status: formData.get("status") as never,
+      filiado: formData.get("filiado") === "on",
       ...(signatureUrl ? { signatureUrl } : {}),
     },
   });
