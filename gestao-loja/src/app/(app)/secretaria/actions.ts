@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
-  AtaStatus,
   Degree,
   Role,
   SessionType,
@@ -13,7 +12,12 @@ import {
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import { canWriteSecretaria, INTERSTICE_MONTHS } from "@/lib/permissions";
+import { canWriteSecretaria } from "@/lib/permissions";
+import { validarProgressao, dataMinimaProgressao } from "@/lib/intersticio";
+import {
+  ataFechadaParaPresencas,
+  ERRO_PRESENCAS_TRAVADAS,
+} from "@/lib/ata-regras";
 import { cargoCorresponde, type CargoPadrao } from "@/lib/cargos";
 import { appUrl } from "@/lib/utils";
 import { criarFamiliar, atualizarFamiliar } from "@/lib/familiares";
@@ -155,23 +159,10 @@ export async function elevateDegree(
     include: { degreeHistory: { orderBy: { date: "desc" }, take: 1 } },
   });
 
-  const order = [Degree.APRENDIZ, Degree.COMPANHEIRO, Degree.MESTRE];
-  if (order.indexOf(newDegree) !== order.indexOf(member.degree) + 1) {
-    return { error: `Progressão inválida: ${member.degree} → ${newDegree}.` };
-  }
-
   const lastDate =
     member.degreeHistory[0]?.date ?? member.initiationDate ?? null;
-  const minMonths = INTERSTICE_MONTHS[newDegree] ?? 0;
-  if (lastDate) {
-    const minDate = new Date(lastDate);
-    minDate.setMonth(minDate.getMonth() + minMonths);
-    if (date < minDate) {
-      return {
-        error: `Interstício não cumprido: mínimo de ${minMonths} meses no grau atual (permitido a partir de ${minDate.toLocaleDateString("pt-BR")}).`,
-      };
-    }
-  }
+  const valida = validarProgressao(member.degree, newDegree, lastDate, date);
+  if ("error" in valida) return valida;
 
   await prisma.$transaction([
     prisma.user.update({
@@ -2077,11 +2068,10 @@ async function intersticeEligibleDate(
       select: { initiationDate: true },
     }),
   ]);
-  const base = lastDegree?.date ?? member.initiationDate;
-  if (!base) return null;
-  const eligible = new Date(base);
-  eligible.setMonth(eligible.getMonth() + INTERSTICE_MONTHS[grauAlvo]);
-  return eligible;
+  return dataMinimaProgressao(
+    grauAlvo,
+    lastDegree?.date ?? member.initiationDate ?? null
+  );
 }
 
 export async function createProcessoProgressao(
@@ -2585,30 +2575,6 @@ export async function removerAnexoCandidato(
 }
 
 // ─────────── Ausências justificadas no Livro de Presenças ───────────
-
-// Trava comum às alterações de presença: a partir da liberação da ata,
-// o livro de presenças daquela sessão não pode mais mudar. Definição única
-// da regra — toda mutação de presença deve passar por aqui.
-const ERRO_PRESENCAS_TRAVADAS =
-  "A ata desta sessão já foi liberada para assinaturas — as presenças não podem mais ser alteradas.";
-
-function ataFechadaParaPresencas(
-  ata: {
-    status: AtaStatus;
-    signedByMasterId: string | null;
-    signedBySecId: string | null;
-    govbrUploadedAt: Date | null;
-  } | null
-) {
-  if (!ata) return false;
-  return (
-    ata.status === "AGUARDANDO_ASSINATURAS" ||
-    ata.status === "ASSINADA" ||
-    Boolean(ata.signedByMasterId) ||
-    Boolean(ata.signedBySecId) ||
-    Boolean(ata.govbrUploadedAt)
-  );
-}
 
 async function ataTravaPresencas(sessionId: string) {
   const ata = await prisma.ata.findUnique({
