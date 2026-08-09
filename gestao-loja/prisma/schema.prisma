@@ -139,10 +139,13 @@ enum MemberStatus {
 model User {
   id             String       @id @default(cuid())
   lodgeId        String
-  cim            String       @unique // Cadastro de Identificação Maçônica
-  cpf            String       @unique
+  // #16: cim/cpf/email únicos POR LOJA (@@unique no fim do modelo) — o mesmo
+  // irmão pode ter filiação em mais de uma loja; o login por CIM pede a
+  // escolha da loja quando há mais de uma (auth.ts).
+  cim            String // Cadastro de Identificação Maçônica
+  cpf            String
   name           String
-  email          String       @unique
+  email          String
   phone          String?
   address        String?
   birthDate      DateTime?
@@ -224,7 +227,11 @@ model User {
   metaRegistros         MetaRegistro[]
   candidatosApadrinhados ProcessoAdmissao[] @relation("AdmissaoPadrinho")
 
+  @@unique([lodgeId, cim])
+  @@unique([lodgeId, cpf])
+  @@unique([lodgeId, email])
   @@index([lodgeId])
+  @@index([cim])
   @@map("users")
 }
 
@@ -913,4 +920,48 @@ model Notification {
   @@unique([lodgeId, sourceKey])
   @@index([lodgeId])
   @@map("notifications")
+}
+
+// Trilha de auditoria: quem alterou o quê (membros, baixas, configs, roles).
+// Sem FK de propósito — a trilha sobrevive à exclusão da loja/usuário.
+model AuditEvent {
+  id         String   @id @default(cuid())
+  lodgeId    String? // null = evento de plataforma (super admin)
+  userId     String? // null = sistema (webhook, cron)
+  userName   String // snapshot do ator no momento (nome, "Webhook Asaas"…)
+  acao       String // slug, ex.: "membro.criar", "mensalidade.baixa"
+  entidade   String? // tipo do alvo, ex.: "User", "Invoice"
+  entidadeId String?
+  detalhes   Json? // campos relevantes (nunca segredos)
+  createdAt  DateTime @default(now())
+
+  @@index([lodgeId, createdAt])
+  @@map("audit_events")
+}
+
+// Fila persistente de tarefas (#13): envios de e-mail em massa e outros
+// trabalhos lentos saem do request e ganham retry. Worker: /api/cron/fila.
+// Sem FK de propósito — jobs sobrevivem a exclusões e não travam deletes.
+model Job {
+  id            String    @id @default(cuid())
+  tipo          String // handler registrado em lib/fila.ts, ex.: "sessao.convites"
+  payload       Json // parâmetros do handler (ids, nunca blobs)
+  status        JobStatus @default(PENDENTE)
+  tentativas    Int       @default(0)
+  maxTentativas Int       @default(5)
+  executarEm    DateTime  @default(now()) // backoff reagenda para o futuro
+  ultimoErro    String?
+  lodgeId       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status, executarEm])
+  @@map("jobs")
+}
+
+enum JobStatus {
+  PENDENTE
+  PROCESSANDO
+  OK
+  FALHOU
 }

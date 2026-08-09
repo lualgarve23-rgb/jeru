@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { logInfo } from "@/lib/log";
 import { getPlatformAsaas } from "@/lib/platform-config";
 
 // Webhook do Asaas da PLATAFORMA (licenças do SaaS) — configurar na conta
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
           : new Date(),
       },
     });
+    logInfo("webhook.asaas-plataforma", { lodgeId: lodge.id, event, result: "paga" });
     return Response.json({ result: "paga" });
   }
   if (event === "PAYMENT_OVERDUE") {
@@ -57,6 +59,7 @@ export async function POST(request: Request) {
         data: { licencaStatus: "VENCIDA" },
       });
     }
+    logInfo("webhook.asaas-plataforma", { lodgeId: lodge.id, event, result: "vencida" });
     return Response.json({ result: "vencida" });
   }
   return Response.json({ result: "ignored" });

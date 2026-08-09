@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { gerarAtaPdf } from "@/lib/ata-pdf";
+import { resolveParaDataUri } from "@/lib/media";
 
 // Monta o PDF final da ata com as assinaturas registradas
 export async function gerarPdfAtaAssinada(ataId: string, lodgeId: string) {
@@ -21,6 +22,11 @@ export async function gerarPdfAtaAssinada(ataId: string, lodgeId: string) {
         })
       : null,
   ]);
+  // ata-pdf embute a assinatura como data URI — resolve chaves de media
+  const [assinaturaMaster, assinaturaSec] = await Promise.all([
+    resolveParaDataUri(master?.signatureUrl),
+    resolveParaDataUri(sec?.signatureUrl),
+  ]);
   const pdf = await gerarAtaPdf({
     lodgeName: ata.lodge.name,
     lodgeNumber: ata.lodge.number,
@@ -35,13 +41,13 @@ export async function gerarPdfAtaAssinada(ataId: string, lodgeId: string) {
         name: master.name,
         cargo: "Venerável Mestre",
         signedAt: ata.signedByMasterAt,
-        signatureUrl: master.signatureUrl,
+        signatureUrl: assinaturaMaster,
       },
       sec && {
         name: sec.name,
         cargo: "Secretário",
         signedAt: ata.signedBySecAt,
-        signatureUrl: sec.signatureUrl,
+        signatureUrl: assinaturaSec,
       },
     ].filter((s) => s !== null),
   });

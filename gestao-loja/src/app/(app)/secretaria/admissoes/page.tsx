@@ -1,3 +1,4 @@
+import { mediaSrc } from "@/lib/media-url";
 import { InfoDica } from "@/components/info-dica";
 import { AJUDA } from "@/lib/ajuda";
 import { prisma } from "@/lib/prisma";
@@ -13,8 +14,9 @@ import { appUrl } from "@/lib/utils";
 import { CandidatosLista } from "./candidatos-lista";
 
 export default async function AdmissoesPage() {
-  // Todos os irmãos veem os candidatos e podem apadrinhar uma indicação;
-  // mover o pipeline e validar certidões continua com a Secretaria/VM.
+  // Qualquer irmão pode indicar (apadrinhar). Dados sensíveis do candidato
+  // (e-mail, telefone, link/token, anexos, observações) só para Secretaria/VM
+  // ou o padrinho daquele processo.
   const user = await requireUser();
   const isWriter = canWriteSecretaria(user.role);
   const processos = await prisma.processoAdmissao.findMany({
@@ -47,6 +49,35 @@ export default async function AdmissoesPage() {
   });
   const baseUrl = appUrl();
 
+  const listaDetalhada = processos
+    .filter((p) => isWriter || p.padrinhoId === user.id)
+    .map((p) => ({
+      id: p.id,
+      nomeCandidato: p.nomeCandidato,
+      status: p.status,
+      email: p.email,
+      phone: p.phone,
+      observacoes: p.observacoes,
+      createdAt: p.createdAt,
+      anexos: p.anexos,
+      padrinhoNome: p.padrinho?.name ?? null,
+      linkCandidato: `${baseUrl}/candidato/${p.token}`,
+      souPadrinho: p.padrinhoId === user.id,
+    }));
+
+  // Kanban: demais irmãos veem só nome/status (sem e-mail/foto/PII)
+  const kanbanProcessos = processos.map((p) => {
+    const podeVerPii = isWriter || p.padrinhoId === user.id;
+    return {
+      id: p.id,
+      nomeCandidato: p.nomeCandidato,
+      status: p.status,
+      certidoesValidas: p.certidoesValidas,
+      email: podeVerPii ? p.email : null,
+      fotoUrl: podeVerPii ? mediaSrc(p.fotoUrl) : null,
+    };
+  });
+
   return (
     <div className="space-y-6">
       <div>
@@ -55,8 +86,9 @@ export default async function AdmissoesPage() {
           <InfoDica titulo="Pipeline de Admissão" texto={AJUDA.admissoes} />
         </h1>
         <p className="text-sm text-muted-foreground">
-          Qualquer irmão pode indicar (apadrinhar) um candidato. O pipeline é
-          conduzido pela Secretaria.
+          Qualquer irmão pode indicar (apadrinhar) um candidato. Contato, link
+          dos formulários e anexos ficam visíveis só para a Secretaria e o
+          padrinho. O pipeline é conduzido pela Secretaria.
         </p>
       </div>
 
@@ -114,24 +146,9 @@ export default async function AdmissoesPage() {
         </CardContent>
       </Card>
 
-      <CandidatosLista
-        // Campos explícitos: nada além do que a lista exibe atravessa a
-        // fronteira de serialização (fotos data URI ficam só no kanban)
-        processos={processos.map((p) => ({
-          id: p.id,
-          nomeCandidato: p.nomeCandidato,
-          status: p.status,
-          email: p.email,
-          phone: p.phone,
-          observacoes: p.observacoes,
-          createdAt: p.createdAt,
-          anexos: p.anexos,
-          padrinhoNome: p.padrinho?.name ?? null,
-          linkCandidato: `${baseUrl}/candidato/${p.token}`,
-          souPadrinho: p.padrinhoId === user.id,
-        }))}
-        isWriter={isWriter}
-      />
+      {(isWriter || listaDetalhada.length > 0) && (
+        <CandidatosLista processos={listaDetalhada} isWriter={isWriter} />
+      )}
 
       <div>
         <h2 className="mb-2 text-lg font-semibold">Pipeline de Admissão</h2>
@@ -140,17 +157,7 @@ export default async function AdmissoesPage() {
             ? "Arraste os cards entre as etapas do processo de iniciação."
             : "Acompanhamento das etapas — a movimentação é feita pela Secretaria."}
         </p>
-        <AdmissaoKanban
-          processos={processos.map((p) => ({
-            id: p.id,
-            nomeCandidato: p.nomeCandidato,
-            status: p.status,
-            certidoesValidas: p.certidoesValidas,
-            email: p.email,
-            fotoUrl: p.fotoUrl,
-          }))}
-          readOnly={!isWriter}
-        />
+        <AdmissaoKanban processos={kanbanProcessos} readOnly={!isWriter} />
       </div>
     </div>
   );

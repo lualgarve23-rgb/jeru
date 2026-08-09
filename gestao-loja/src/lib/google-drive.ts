@@ -1,6 +1,7 @@
 import { google } from "googleapis";
 import type { Lodge } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { openSecret } from "@/lib/secrets";
 
 // Integração Google Drive.
 // Arquivos da Loja: exclusivamente a conta Google conectada pela própria
@@ -35,12 +36,13 @@ export function oauthClient(redirectUri: string) {
 }
 
 function driveClientFor(lodge: Pick<Lodge, "googleRefreshToken">) {
-  if (lodge.googleRefreshToken && isOAuthAppConfigured()) {
+  const refreshToken = openSecret(lodge.googleRefreshToken);
+  if (refreshToken && isOAuthAppConfigured()) {
     const client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET
     );
-    client.setCredentials({ refresh_token: lodge.googleRefreshToken });
+    client.setCredentials({ refresh_token: refreshToken });
     return google.drive({ version: "v3", auth: client });
   }
   throw new Error(

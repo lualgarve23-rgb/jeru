@@ -2,16 +2,35 @@ import { cargoCorresponde } from "@/lib/cargos";
 
 // Segregação de funções (loja.md §3):
 // CONSELHO_CONTAS nunca tem escrita em Secretaria ou Tesouraria.
+// Leitura administrativa (pipeline, visitas, cargos): VM + Secretário + Conselho.
 
 export const SECRETARIA_WRITERS = ["SECRETARIO", "VENERAVEL_MESTRE"];
+export const SECRETARIA_READERS = [
+  "SECRETARIO",
+  "VENERAVEL_MESTRE",
+  "CONSELHO_CONTAS",
+];
 export const TESOURARIA_WRITERS = ["TESOUREIRO", "VENERAVEL_MESTRE"];
+export const TESOURARIA_READERS = [
+  "TESOUREIRO",
+  "VENERAVEL_MESTRE",
+  "CONSELHO_CONTAS",
+];
 
 export function canWriteSecretaria(role: string) {
   return SECRETARIA_WRITERS.includes(role);
 }
 
+export function canReadSecretariaAdmin(role: string) {
+  return SECRETARIA_READERS.includes(role);
+}
+
 export function canWriteTesouraria(role: string) {
   return TESOURARIA_WRITERS.includes(role);
+}
+
+export function canReadTesouraria(role: string) {
+  return TESOURARIA_READERS.includes(role);
 }
 
 // Interstícios mínimos em meses (ajuste conforme o Regulamento da Potência)

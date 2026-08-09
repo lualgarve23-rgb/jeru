@@ -379,9 +379,18 @@ export default async function LojaConfigPage({
           <CardDescription>
             Conta de e-mail usada para enviar atas, pranchas, certificados e
             lembretes, e para ler a caixa de entrada em Secretaria → E-mails.
-            Use uma <em>senha de app</em> do Google (myaccount.google.com →
-            Segurança → Verificação em duas etapas → Senhas de app), não a
-            senha normal da conta.
+            Use uma <em>senha de app</em> do Google, não a senha normal da
+            conta: após habilitar a verificação em duas etapas na conta
+            Google, acesse{" "}
+            <a
+              href="https://myaccount.google.com/apppasswords"
+              target="_blank"
+              rel="noreferrer"
+              className="underline"
+            >
+              myaccount.google.com/apppasswords
+            </a>{" "}
+            para gerar a senha de app.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

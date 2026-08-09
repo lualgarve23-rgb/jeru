@@ -79,7 +79,7 @@ export default async function VerificarCarteirinhaPage({
             {member.photoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={member.photoUrl}
+                src={`/api/verificar/foto/${token}`}
                 alt={`Foto de ${member.name}`}
                 className="h-20 w-20 rounded-full border object-cover"
               />

@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
-import { settleInvoice } from "@/app/(app)/tesouraria/actions";
+import { settleInvoice } from "@/lib/settle-invoice";
+import { auditar } from "@/lib/audit";
+import { logInfo } from "@/lib/log";
 
 // Webhook do PSP Pix: confirmação de pagamento → baixa automática.
 // Autenticação por segredo compartilhado no header `x-webhook-secret`
@@ -10,7 +12,7 @@ import { settleInvoice } from "@/app/(app)/tesouraria/actions";
 // ou simplesmente { "txid": "..." }
 
 export async function POST(request: Request) {
-  const secret = process.env.PIX_WEBHOOK_SECRET;
+  const secret = process.env.PIX_WEBHOOK_SECRET?.trim();
   if (!secret || request.headers.get("x-webhook-secret") !== secret) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
@@ -40,8 +42,16 @@ export async function POST(request: Request) {
       results[txid] = "not_found";
       continue;
     }
-    await settleInvoice(invoice.id, "PIX"); // idempotente
+    await settleInvoice(invoice.id, "PIX", { lodgeId: invoice.lodgeId }); // idempotente
+    await auditar({
+      lodgeId: invoice.lodgeId,
+      ator: "webhook",
+      acao: "mensalidade.baixa-pix",
+      entidade: "Invoice",
+      entidadeId: invoice.id,
+    });
     results[txid] = "settled";
   }
+  logInfo("webhook.pix", { results });
   return Response.json({ ok: true, results });
 }

@@ -3,10 +3,12 @@
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { auditar } from "@/lib/audit";
 import { requireRole } from "@/lib/session";
 import { CARGOS_PADRAO } from "@/lib/cargos";
 import { getPlatformAsaas } from "@/lib/platform-config";
 import { deleteLodgeData } from "@/lib/lodge-delete";
+import { deleteLodgeMedia } from "@/lib/media";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
@@ -30,7 +32,7 @@ export async function createLodge(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  await requireRole("SUPER_ADMIN");
+  const admin = await requireRole("SUPER_ADMIN");
 
   const name = String(formData.get("name") ?? "").trim();
   const number = String(formData.get("number") ?? "").trim();
@@ -69,14 +71,10 @@ export async function createLodge(
   const logo = await readLogo(formData);
   if (logo && typeof logo === "object") return logo;
 
-  const [lodgeExists, userExists] = await Promise.all([
-    prisma.lodge.findUnique({ where: { number } }),
-    prisma.user.findFirst({
-      where: { OR: [{ cim: vmCim }, { cpf: vmCpf }, { email: vmEmail }] },
-    }),
-  ]);
+  // #16: CIM/CPF/e-mail são únicos POR loja — o VM da loja nova pode ser
+  // irmão já cadastrado em outra loja (filiação múltipla)
+  const lodgeExists = await prisma.lodge.findUnique({ where: { number } });
   if (lodgeExists) return { error: `Já existe loja com o número ${number}.` };
-  if (userExists) return { error: "Já existe usuário com esse CIM, CPF ou e-mail." };
 
   await prisma.lodge.create({
     data: {
@@ -147,6 +145,13 @@ export async function createLodge(
     }
   }
 
+  await auditar({
+    lodgeId: null,
+    ator: admin,
+    acao: "admin.criar-loja",
+    entidade: "Lodge",
+    detalhes: { nome: name, numero: number, cobrarLicenca },
+  });
   revalidatePath("/admin");
   return {
     ok: `Loja "${name}" criada. VM ${vmName} acessa com CIM ${vmCim} e senha inicial igual ao CPF (somente dígitos).${licencaMsg}`,
@@ -154,23 +159,45 @@ export async function createLodge(
 }
 
 // Salva as credenciais Asaas da PLATAFORMA (licenças) — SUPER_ADMIN.
-// Campo vazio limpa o valor gravado (volta a valer o .env, se houver).
+// Campos em branco mantêm o valor já gravado (formulário mascarado).
 export async function updatePlatformAsaas(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  await requireRole("SUPER_ADMIN");
+  const admin = await requireRole("SUPER_ADMIN");
 
-  const asaasApiKey = String(formData.get("asaasApiKey") ?? "").trim() || null;
-  const asaasWebhookToken =
+  let asaasApiKey = String(formData.get("asaasApiKey") ?? "").trim() || null;
+  let asaasWebhookToken =
     String(formData.get("asaasWebhookToken") ?? "").trim() || null;
 
+  // Campos mascarados: em branco mantém o que já está no banco
+  if (!asaasApiKey || !asaasWebhookToken) {
+    const atual = await prisma.platformConfig.findUnique({
+      where: { id: "platform" },
+    });
+    if (!asaasApiKey) asaasApiKey = atual?.asaasApiKey ?? null;
+    if (!asaasWebhookToken) asaasWebhookToken = atual?.asaasWebhookToken ?? null;
+  }
+
+  const { sealSecret } = await import("@/lib/secrets");
   await prisma.platformConfig.upsert({
     where: { id: "platform" },
-    create: { id: "platform", asaasApiKey, asaasWebhookToken },
-    update: { asaasApiKey, asaasWebhookToken },
+    create: {
+      id: "platform",
+      asaasApiKey: sealSecret(asaasApiKey),
+      asaasWebhookToken,
+    },
+    update: {
+      asaasApiKey: sealSecret(asaasApiKey),
+      asaasWebhookToken,
+    },
   });
 
+  await auditar({
+    lodgeId: null,
+    ator: admin,
+    acao: "admin.config-asaas-plataforma",
+  });
   revalidatePath("/admin");
   return { ok: "Conta Asaas da plataforma atualizada." };
 }
@@ -223,7 +250,7 @@ export async function restaurarBackup(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  await requireRole("SUPER_ADMIN");
+  const admin = await requireRole("SUPER_ADMIN");
 
   const file = formData.get("backupZip") as File | null;
   const confirmNumber = String(formData.get("confirmNumber") ?? "").trim();
@@ -232,7 +259,8 @@ export async function restaurarBackup(
   }
   return restaurarZipConfirmado(
     Buffer.from(await file.arrayBuffer()),
-    confirmNumber
+    confirmNumber,
+    admin
   );
 }
 
@@ -240,7 +268,8 @@ export async function restaurarBackup(
 // upload manual e arquivo escolhido no Google Drive do super admin).
 async function restaurarZipConfirmado(
   zipBuffer: Buffer,
-  confirmNumber: string
+  confirmNumber: string,
+  admin: { id: string; name: string }
 ): Promise<ActionResult> {
   if (!confirmNumber) {
     return { error: "Digite o número da loja para confirmar a restauração." };
@@ -262,6 +291,14 @@ async function restaurarZipConfirmado(
     }
 
     const { ok, avisos } = await restaurarBackupLoja(zipBuffer);
+    await auditar({
+      lodgeId: String(loja.id),
+      ator: admin,
+      acao: "admin.restaurar-backup",
+      entidade: "Lodge",
+      entidadeId: String(loja.id),
+      detalhes: { numero: String(loja.number), resultado: ok },
+    });
     revalidatePath("/admin");
     return { ok: [ok, ...avisos].join(" • ") };
   } catch (e) {
@@ -291,7 +328,7 @@ export async function restaurarBackupDoDrive(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  await requireRole("SUPER_ADMIN");
+  const admin = await requireRole("SUPER_ADMIN");
 
   const driveFileId = String(formData.get("driveFileId") ?? "").trim();
   const confirmNumber = String(formData.get("confirmNumber") ?? "").trim();
@@ -301,7 +338,7 @@ export async function restaurarBackupDoDrive(
   try {
     const { baixarBackupDrive } = await import("@/lib/backup-plataforma");
     const zipBuffer = await baixarBackupDrive(driveFileId);
-    return await restaurarZipConfirmado(zipBuffer, confirmNumber);
+    return await restaurarZipConfirmado(zipBuffer, confirmNumber, admin);
   } catch (e) {
     return {
       error: `Falha ao baixar o backup do Drive (${e instanceof Error ? e.message : "erro"}).`,
@@ -314,7 +351,7 @@ export async function updateLodge(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  await requireRole("SUPER_ADMIN");
+  const admin = await requireRole("SUPER_ADMIN");
 
   const id = String(formData.get("lodgeId") ?? "");
   const name = String(formData.get("name") ?? "").trim();
@@ -345,6 +382,14 @@ export async function updateLodge(
     data: { name, number, potencia, oriente, address, ...(logo ? { logoUrl: logo } : {}) },
   });
 
+  await auditar({
+    lodgeId: id,
+    ator: admin,
+    acao: "admin.editar-loja",
+    entidade: "Lodge",
+    entidadeId: id,
+    detalhes: { nome: name, numero: number },
+  });
   revalidatePath("/admin");
   return { ok: `Loja "${name}" atualizada.` };
 }
@@ -355,7 +400,7 @@ export async function deleteLodge(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  await requireRole("SUPER_ADMIN");
+  const admin = await requireRole("SUPER_ADMIN");
 
   const id = String(formData.get("lodgeId") ?? "");
   const confirmNumber = String(formData.get("confirmNumber") ?? "").trim();
@@ -372,7 +417,17 @@ export async function deleteLodge(
   await prisma.$transaction((tx) => deleteLodgeData(tx, id), {
     timeout: 60_000,
   });
+  // Fora da transação: fotos/assinaturas em disco (lib/media)
+  await deleteLodgeMedia(id);
 
+  await auditar({
+    lodgeId: id,
+    ator: admin,
+    acao: "admin.excluir-loja",
+    entidade: "Lodge",
+    entidadeId: id,
+    detalhes: { nome: lodge.name, numero: lodge.number },
+  });
   revalidatePath("/admin");
   return { ok: `Loja "${lodge.name}" nº ${lodge.number} excluída com todos os dados.` };
 }
@@ -401,7 +456,7 @@ export async function gerarCobrancaLicenca(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  await requireRole("SUPER_ADMIN");
+  const admin = await requireRole("SUPER_ADMIN");
 
   const lodgeId = String(formData.get("lodgeId") ?? "");
   const valor = Number(
@@ -464,6 +519,14 @@ export async function gerarCobrancaLicenca(
     };
   }
 
+  await auditar({
+    lodgeId,
+    ator: admin,
+    acao: "admin.cobranca-licenca",
+    entidade: "Lodge",
+    entidadeId: lodgeId,
+    detalhes: { valor },
+  });
   revalidatePath("/admin");
   return {
     ok: `Cobrança de R$ ${valor.toFixed(2).replace(".", ",")} gerada para ${lodge.name} — link disponível na tabela.`,

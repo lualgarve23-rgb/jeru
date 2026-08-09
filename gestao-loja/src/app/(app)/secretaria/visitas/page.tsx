@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/session";
+import { requireRole } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
 import {
   registrarVisitaExterna,
@@ -27,7 +27,12 @@ import {
 } from "@/components/ui/card";
 
 export default async function VisitasPage() {
-  const user = await requireUser();
+  // Alinha com o menu: só VM / Secretário / Conselho (leitura admin)
+  const user = await requireRole(
+    "SECRETARIO",
+    "VENERAVEL_MESTRE",
+    "CONSELHO_CONTAS"
+  );
   const isWriter = canWriteSecretaria(user.role);
 
   const [membros, visitas] = await Promise.all([

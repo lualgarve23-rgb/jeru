@@ -5,6 +5,7 @@ import { randomInt } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { passwordRuleError } from "@/lib/password";
 import { sendLodgeEmail, isGmailConfigured } from "@/lib/gmail";
+import { contasPorCim } from "@/lib/contas";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
@@ -20,25 +21,13 @@ function maskEmail(email: string) {
   return `${local.slice(0, 2)}${"*".repeat(Math.max(local.length - 2, 2))}@${domain}`;
 }
 
+// #16: o mesmo CIM+CPF pode ter conta em mais de uma loja (filiação
+// múltipla) — o reset vale para todas as contas do titular de uma vez.
 async function findByCimCpf(cim: string, cpf: string) {
-  const digitado = cim.trim();
-  let user = await prisma.user.findUnique({ where: { cim: digitado } });
-  // CIMs do GOB costumam ter zero à esquerda que o irmão não digita
-  if (!user && /^\d+$/.test(digitado)) {
-    const semZeros = digitado.replace(/^0+/, "");
-    if (semZeros) {
-      const candidatos = await prisma.user.findMany({
-        where: { cim: { endsWith: semZeros } },
-      });
-      const iguais = candidatos.filter(
-        (u) => u.cim.replace(/^0+/, "") === semZeros
-      );
-      if (iguais.length === 1) user = iguais[0];
-    }
-  }
-  if (!user) return null;
-  if (user.cpf.replace(/\D/g, "") !== cpf.replace(/\D/g, "")) return null;
-  return user;
+  const contas = await contasPorCim(cim);
+  return contas.filter(
+    (u) => u.cpf.replace(/\D/g, "") === cpf.replace(/\D/g, "")
+  );
 }
 
 // Passo 1 — gera o código 2FA e envia por e-mail
@@ -50,8 +39,9 @@ export async function requestPasswordReset(
   const cpf = String(formData.get("cpf") ?? "");
   if (!cim || !cpf) return { error: "Informe CIM e CPF." };
 
-  const user = await findByCimCpf(cim, cpf);
-  if (!user) return { ok: GENERIC_OK }; // resposta idêntica ao sucesso
+  const contas = await findByCimCpf(cim, cpf);
+  if (!contas.length) return { ok: GENERIC_OK }; // resposta idêntica ao sucesso
+  const user = contas[0];
 
   if (!(await isGmailConfigured(user.lodgeId))) {
     return {
@@ -60,25 +50,29 @@ export async function requestPasswordReset(
     };
   }
 
+  // O mesmo código serve para todas as filiações do titular
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
-  await prisma.user.update({
-    where: { id: user.id },
+  const codeHash = await bcrypt.hash(code, 10);
+  await prisma.user.updateMany({
+    where: { id: { in: contas.map((u) => u.id) } },
     data: {
-      resetCodeHash: await bcrypt.hash(code, 10),
+      resetCodeHash: codeHash,
       resetCodeExpiresAt: new Date(Date.now() + CODE_TTL_MINUTES * 60_000),
       resetCodeAttempts: 0,
     },
   });
-  await sendLodgeEmail({
-    lodgeId: user.lodgeId,
-    to: user.email,
-    subject: "Código de recuperação de senha — Gestão NoPrumo",
-    text:
-      `Olá, ${user.name}.\n\n` +
-      `Seu código de verificação é: ${code}\n\n` +
-      `Ele vale por ${CODE_TTL_MINUTES} minutos. Se você não pediu a ` +
-      `recuperação de senha, ignore este e-mail.`,
-  });
+  for (const email of new Set(contas.map((u) => u.email))) {
+    await sendLodgeEmail({
+      lodgeId: user.lodgeId,
+      to: email,
+      subject: "Código de recuperação de senha — Gestão NoPrumo",
+      text:
+        `Olá, ${user.name}.\n\n` +
+        `Seu código de verificação é: ${code}\n\n` +
+        `Ele vale por ${CODE_TTL_MINUTES} minutos. Se você não pediu a ` +
+        `recuperação de senha, ignore este e-mail.`,
+    });
+  }
   return { ok: `${GENERIC_OK} (${maskEmail(user.email)})` };
 }
 
@@ -93,9 +87,10 @@ export async function resetPasswordWithCode(
   const next = String(formData.get("next") ?? "");
   const confirm = String(formData.get("confirm") ?? "");
 
-  const user = await findByCimCpf(cim, cpf);
+  const contas = await findByCimCpf(cim, cpf);
   // mensagem única para dados errados/código inválido
   const invalid = { error: "Código inválido ou expirado." };
+  const user = contas[0];
   if (!user || !user.resetCodeHash || !user.resetCodeExpiresAt) return invalid;
 
   if (user.resetCodeExpiresAt < new Date()) return invalid;
@@ -121,8 +116,9 @@ export async function resetPasswordWithCode(
     return { error: "A nova senha não pode ser o seu CPF." };
   }
 
-  await prisma.user.update({
-    where: { id: user.id },
+  // A nova senha vale para todas as filiações do titular
+  await prisma.user.updateMany({
+    where: { id: { in: contas.map((u) => u.id) } },
     data: {
       passwordHash: await bcrypt.hash(next, 10),
       mustChangePassword: false,

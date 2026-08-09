@@ -73,6 +73,10 @@ function StatusBadge({ status, tone }: { status: string; tone: BadgeTone }) {
   return <Badge variant={tone}>{status}</Badge>;
 }
 
+function diasAtras(dias: number) {
+  return new Date(Date.now() - dias * 24 * 60 * 60 * 1000);
+}
+
 function monthRange(d = new Date()) {
   return {
     start: new Date(d.getFullYear(), d.getMonth(), 1),
@@ -593,7 +597,7 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
       lodgeId,
       status: "COMUNICACAO_POS_CERIMONIA",
       comunicadoEnviado: false,
-      dataCerimonia: { lt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000) },
+      dataCerimonia: { lt: diasAtras(15) },
     },
     include: { user: { select: { name: true } } },
   });

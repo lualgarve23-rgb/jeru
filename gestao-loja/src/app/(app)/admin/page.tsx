@@ -279,9 +279,12 @@ export default async function AdminPage() {
                   id="asaasApiKey"
                   name="asaasApiKey"
                   type="password"
-                  defaultValue={platformConfig?.asaasApiKey ?? ""}
-                  placeholder="$aact_..."
                   autoComplete="off"
+                  placeholder={
+                    platformConfig?.asaasApiKey
+                      ? "•••••••• (deixe em branco para manter)"
+                      : "$aact_..."
+                  }
                 />
               </div>
               <div className="space-y-1">
@@ -290,14 +293,18 @@ export default async function AdminPage() {
                   id="asaasWebhookToken"
                   name="asaasWebhookToken"
                   type="password"
-                  defaultValue={platformConfig?.asaasWebhookToken ?? ""}
                   autoComplete="off"
+                  placeholder={
+                    platformConfig?.asaasWebhookToken
+                      ? "•••••••• (deixe em branco para manter)"
+                      : "token do webhook"
+                  }
                 />
                 <p className="text-xs text-muted-foreground">
                   Configure na conta Asaas um webhook apontando para
                   /api/webhooks/asaas-plataforma com este token de
-                  autenticação. Campos vazios voltam a valer o que estiver no
-                  servidor (.env).
+                  autenticação. Em branco mantém o valor já salvo (ou o
+                  fallback do servidor .env).
                 </p>
               </div>
             </ActionForm>

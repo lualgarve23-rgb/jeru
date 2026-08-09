@@ -5,8 +5,10 @@ import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { canWriteTesouraria } from "@/lib/permissions";
+import { auditar } from "@/lib/audit";
 import { buildPixPayload } from "@/lib/pix";
 import { syncInadimplencia } from "@/lib/inadimplencia";
+import { settleInvoice } from "@/lib/settle-invoice";
 import {
   AsaasError,
   ensureCustomer,
@@ -35,6 +37,13 @@ export async function updatePixKey(
   await prisma.lodge.update({
     where: { id: user.lodgeId },
     data: { pixKey: String(formData.get("pixKey")).trim() || null },
+  });
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "tesouraria.pix-key",
+    entidade: "Lodge",
+    entidadeId: user.lodgeId,
   });
   revalidatePath("/tesouraria/mensalidades");
   return { ok: "Chave Pix da Loja atualizada." };
@@ -107,6 +116,12 @@ export async function generateInvoices(
     });
     created++;
   }
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "mensalidade.gerar",
+    detalhes: { referencia: `${referenceMonth}/${referenceYear}`, geradas: created, valorCents: amountCents },
+  });
   revalidatePath("/tesouraria/mensalidades");
   return { ok: `${created} cobrança(s) gerada(s) para ${members.length} membro(s) ativo(s).` };
 }
@@ -118,39 +133,17 @@ export async function markInvoicePaid(invoiceId: string): Promise<ActionResult> 
     where: { id: invoiceId, lodgeId: user.lodgeId },
   });
   if (invoice.status === "PAGA") return { error: "Cobrança já está paga." };
-  await settleInvoice(invoice.id, "MANUAL");
+  await settleInvoice(invoice.id, "MANUAL", { lodgeId: user.lodgeId });
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "mensalidade.baixa-manual",
+    entidade: "Invoice",
+    entidadeId: invoice.id,
+    detalhes: { referencia: `${invoice.referenceMonth}/${invoice.referenceYear}`, valorCents: invoice.amountCents },
+  });
   revalidatePath("/tesouraria/mensalidades");
   return { ok: "Baixa manual registrada." };
-}
-
-// Baixa + lançamento no livro-caixa (usada também pelo webhook Pix)
-export async function settleInvoice(
-  invoiceId: string,
-  method: "PIX" | "MANUAL" | "CARTAO" | "BOLETO"
-) {
-  const invoice = await prisma.invoice.findUniqueOrThrow({
-    where: { id: invoiceId },
-  });
-  if (invoice.status === "PAGA") return; // idempotente
-  await prisma.$transaction([
-    prisma.invoice.update({
-      where: { id: invoiceId },
-      data: { status: "PAGA", paidAt: new Date(), paidMethod: method },
-    }),
-    prisma.transaction.create({
-      data: {
-        lodgeId: invoice.lodgeId,
-        type: "RECEITA",
-        description: invoice.description,
-        amountCents: invoice.amountCents,
-        date: new Date(),
-        category: "Capitação",
-        invoiceId: invoice.id,
-      },
-    }),
-  ]);
-  // pagamento pode regularizar o membro (inadimplência automática)
-  await syncInadimplencia(invoice.lodgeId);
 }
 
 // ─────────────── Gateway Asaas (cartão/boleto recorrente) ───────────────
@@ -160,12 +153,36 @@ export async function updateAsaasConfig(
   formData: FormData
 ): Promise<ActionResult> {
   const user = await requireTesourariaWriter();
+  let asaasApiKey =
+    String(formData.get("asaasApiKey")).trim() || null;
+  let asaasWebhookToken =
+    String(formData.get("asaasWebhookToken")).trim() || null;
+
+  // Campos mascarados na UI: em branco mantém o valor já salvo
+  if (!asaasApiKey || !asaasWebhookToken) {
+    const atual = await prisma.lodge.findUniqueOrThrow({
+      where: { id: user.lodgeId },
+      select: { asaasApiKey: true, asaasWebhookToken: true },
+    });
+    if (!asaasApiKey) asaasApiKey = atual.asaasApiKey;
+    if (!asaasWebhookToken) asaasWebhookToken = atual.asaasWebhookToken;
+  }
+
+  const { sealSecret } = await import("@/lib/secrets");
   await prisma.lodge.update({
     where: { id: user.lodgeId },
     data: {
-      asaasApiKey: String(formData.get("asaasApiKey")).trim() || null,
-      asaasWebhookToken: String(formData.get("asaasWebhookToken")).trim() || null,
+      asaasApiKey: sealSecret(asaasApiKey),
+      // token do webhook fica em claro — usado em lookup `where: { asaasWebhookToken }`
+      asaasWebhookToken,
     },
+  });
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "tesouraria.config-asaas",
+    entidade: "Lodge",
+    entidadeId: user.lodgeId,
   });
   revalidatePath("/tesouraria/mensalidades");
   return { ok: "Configuração do gateway Asaas atualizada." };
@@ -173,12 +190,14 @@ export async function updateAsaasConfig(
 
 async function requireAsaasLodge(lodgeId: string) {
   const lodge = await prisma.lodge.findUniqueOrThrow({ where: { id: lodgeId } });
-  if (!lodge.asaasApiKey) {
+  const { openSecret } = await import("@/lib/secrets");
+  const asaasApiKey = openSecret(lodge.asaasApiKey);
+  if (!asaasApiKey) {
     throw new AsaasError(
       "Configure a API key do Asaas antes de usar o gateway."
     );
   }
-  return lodge as typeof lodge & { asaasApiKey: string };
+  return { ...lodge, asaasApiKey };
 }
 
 // Gera o link de pagamento (boleto/cartão/Pix à escolha do pagador)
@@ -408,6 +427,14 @@ export async function approveExpense(expenseId: string): Promise<ActionResult> {
     where: { id: expenseId, lodgeId: user.lodgeId },
     data,
   });
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "despesa.aprovar",
+    entidade: "Expense",
+    entidadeId: expenseId,
+    detalhes: { aprovacaoCompleta: data.status === "APROVADA" },
+  });
   revalidatePath("/tesouraria/despesas");
   return {
     ok:
@@ -425,6 +452,13 @@ export async function rejectExpense(expenseId: string): Promise<ActionResult> {
   await prisma.expense.update({
     where: { id: expenseId, lodgeId: user.lodgeId, status: "PENDENTE_APROVACAO" },
     data: { status: "REJEITADA" },
+  });
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "despesa.rejeitar",
+    entidade: "Expense",
+    entidadeId: expenseId,
   });
   revalidatePath("/tesouraria/despesas");
   return { ok: "Despesa rejeitada." };
@@ -456,6 +490,14 @@ export async function payExpense(expenseId: string): Promise<ActionResult> {
       },
     }),
   ]);
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "despesa.pagar",
+    entidade: "Expense",
+    entidadeId: expenseId,
+    detalhes: { valorCents: expense.amountCents },
+  });
   revalidatePath("/tesouraria/despesas");
   return { ok: "Despesa paga e lançada no livro-caixa." };
 }

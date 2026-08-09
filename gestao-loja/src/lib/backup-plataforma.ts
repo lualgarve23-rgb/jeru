@@ -2,6 +2,7 @@ import { google } from "googleapis";
 import { prisma } from "@/lib/prisma";
 import { gerarBackupLoja } from "@/lib/backup";
 import { isOAuthAppConfigured, oauthClient } from "@/lib/google-drive";
+import { openSecret } from "@/lib/secrets";
 
 // Backup automático de TODAS as lojas para o Google Drive do super admin.
 // O super admin conecta a própria conta Google em /admin (OAuth, escopo
@@ -54,12 +55,13 @@ async function driveConectado() {
     where: { id: "platform" },
     select: { backupGoogleRefreshToken: true, backupDriveFolderId: true },
   });
-  if (!config?.backupGoogleRefreshToken || !isOAuthAppConfigured()) {
+  const refreshToken = openSecret(config?.backupGoogleRefreshToken);
+  if (!refreshToken || !isOAuthAppConfigured()) {
     throw new Error(
       "Conta Google de backup não conectada — use \"Conectar Google Drive\" em /admin."
     );
   }
-  return driveSuperAdmin(config.backupGoogleRefreshToken);
+  return driveSuperAdmin(refreshToken);
 }
 
 export type BackupNoDrive = {
@@ -118,14 +120,18 @@ export async function backupTodasLojas(): Promise<{
     where: { id: "platform" },
     select: { backupGoogleRefreshToken: true, backupDriveFolderId: true },
   });
-  if (!config?.backupGoogleRefreshToken || !isOAuthAppConfigured()) {
+  const refreshToken = openSecret(config?.backupGoogleRefreshToken);
+  if (!refreshToken || !isOAuthAppConfigured()) {
     throw new Error(
       "Conta Google de backup não conectada — use \"Conectar Google Drive\" em /admin."
     );
   }
 
-  const drive = driveSuperAdmin(config.backupGoogleRefreshToken);
-  const raizId = await ensureBackupFolder(drive, config.backupDriveFolderId);
+  const drive = driveSuperAdmin(refreshToken);
+  const raizId = await ensureBackupFolder(
+    drive,
+    config?.backupDriveFolderId ?? null
+  );
   const { Readable } = await import("stream");
 
   // Subpasta com a data da rodada (fuso de São Paulo), ex.: backup-2026-08-07

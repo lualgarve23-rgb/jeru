@@ -68,18 +68,23 @@ export type NavItem = {
 
 export function SidebarNav({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
-  let lastSection: string | undefined;
+  // seção anterior de cada item, para mostrar o cabeçalho só na primeira ocorrência
+  const secaoAnterior = items.map((_, i) => {
+    for (let j = i - 1; j >= 0; j--) {
+      if (items[j].section) return items[j].section;
+    }
+    return undefined;
+  });
 
   return (
     <nav className="space-y-0.5">
-      {items.map((item) => {
+      {items.map((item, i) => {
         const Icon = icons[item.icon] ?? LayoutDashboard;
         const active =
           item.href === "/dashboard"
             ? pathname === "/dashboard"
             : pathname.startsWith(item.href);
-        const showSection = item.section && item.section !== lastSection;
-        lastSection = item.section ?? lastSection;
+        const showSection = item.section && item.section !== secaoAnterior[i];
         return (
           <div key={item.href}>
             {showSection && (

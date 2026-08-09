@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
-import { settleInvoice } from "@/app/(app)/tesouraria/actions";
+import { settleInvoice } from "@/lib/settle-invoice";
+import { auditar } from "@/lib/audit";
+import { logInfo } from "@/lib/log";
 
 // Webhook do Asaas — configurar na conta da Loja apontando para
 // https://<host>/api/webhooks/asaas com o token de autenticação
@@ -27,10 +29,14 @@ const methodByBillingType: Record<string, "PIX" | "CARTAO" | "BOLETO"> = {
 };
 
 export async function POST(request: Request) {
-  const token = request.headers.get("asaas-access-token");
-  const lodge = token
-    ? await prisma.lodge.findFirst({ where: { asaasWebhookToken: token } })
-    : null;
+  const token = request.headers.get("asaas-access-token")?.trim() || "";
+  // Token vazio nunca autentica (evita match acidental com lodges sem token)
+  if (!token) {
+    return Response.json({ error: "unauthorized" }, { status: 401 });
+  }
+  const lodge = await prisma.lodge.findFirst({
+    where: { asaasWebhookToken: token },
+  });
   if (!lodge) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
@@ -83,6 +89,7 @@ export async function POST(request: Request) {
         gatewayInvoiceUrl: payment.invoiceUrl ?? null,
       },
     });
+    logInfo("webhook.asaas", { lodgeId: lodge.id, event, result: "invoice_upserted" });
     return Response.json({ ok: true, result: "invoice_upserted" });
   }
 
@@ -99,8 +106,17 @@ export async function POST(request: Request) {
     if (!invoice) return Response.json({ ok: true, result: "invoice_not_found" });
     await settleInvoice(
       invoice.id,
-      methodByBillingType[payment.billingType ?? ""] ?? "MANUAL"
-    ); // idempotente
+      methodByBillingType[payment.billingType ?? ""] ?? "MANUAL",
+      { lodgeId: lodge.id }
+    );
+    await auditar({
+      lodgeId: lodge.id,
+      ator: "webhook",
+      acao: "mensalidade.baixa-asaas",
+      entidade: "Invoice",
+      entidadeId: invoice.id,
+    }); // idempotente
+    logInfo("webhook.asaas", { lodgeId: lodge.id, event, result: "settled" });
     return Response.json({ ok: true, result: "settled" });
   }
 

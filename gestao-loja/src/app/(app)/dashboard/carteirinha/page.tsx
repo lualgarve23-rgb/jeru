@@ -1,3 +1,4 @@
+import { mediaSrc } from "@/lib/media-url";
 import QRCode from "qrcode";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
@@ -78,7 +79,7 @@ export default async function CarteirinhaPage() {
           {me.photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={me.photoUrl}
+              src={mediaSrc(me.photoUrl)!}
               alt={`Foto de ${me.name}`}
               className="h-28 w-24 shrink-0 rounded-lg border object-cover"
             />

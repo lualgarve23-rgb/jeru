@@ -49,7 +49,7 @@ async function main() {
 
   for (const { role, ...u } of users) {
     await prisma.user.upsert({
-      where: { cim: u.cim },
+      where: { lodgeId_cim: { lodgeId: u.lodgeId, cim: u.cim } },
       update: {},
       create: {
         ...u,
@@ -68,7 +68,7 @@ async function main() {
     create: { name: "Administração do Sistema", number: "0000" },
   });
   await prisma.user.upsert({
-    where: { cim: "999999" },
+    where: { lodgeId_cim: { lodgeId: adminLodge.id, cim: "999999" } },
     update: { currentRole: "SUPER_ADMIN" },
     create: {
       lodgeId: adminLodge.id,

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { openSecret } from "@/lib/secrets";
 
 // Credenciais Asaas da PLATAFORMA (licenças do SaaS) — o valor gravado pelo
 // super admin em /admin tem prioridade; o .env fica como fallback para
@@ -11,7 +12,11 @@ export async function getPlatformAsaas(): Promise<{
     where: { id: "platform" },
   });
   return {
-    apiKey: config?.asaasApiKey || process.env.ASAAS_PLATFORM_API_KEY || null,
+    apiKey:
+      openSecret(config?.asaasApiKey) ||
+      process.env.ASAAS_PLATFORM_API_KEY ||
+      null,
+    // webhook token permanece em claro (lookup por igualdade no header)
     webhookToken:
       config?.asaasWebhookToken ||
       process.env.ASAAS_PLATFORM_WEBHOOK_TOKEN ||

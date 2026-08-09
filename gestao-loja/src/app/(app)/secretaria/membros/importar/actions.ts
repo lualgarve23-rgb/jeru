@@ -4,6 +4,35 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { buscarMembrosMeta, mapGrau, mapStatus, type MetaMember } from "@/lib/meta-gob";
+import { saveUserImageBytes, deleteMedia } from "@/lib/media";
+
+// Foto do Meta chega como data URI — grava em disco (lib/media) e devolve a
+// chave para o banco; retorna undefined quando não há foto ou o formato é
+// inesperado (mantém a foto atual).
+async function gravaFotoImportada(
+  lodgeId: string,
+  userId: string,
+  foto: string | null,
+  fotoAtual: string | null
+): Promise<string | undefined> {
+  if (!foto) return undefined;
+  const [, mime, base64] =
+    foto.match(/^data:(image\/[\w.+-]+);base64,(.+)$/) ?? [];
+  if (!base64) return undefined;
+  try {
+    const key = await saveUserImageBytes(
+      lodgeId,
+      userId,
+      "photo",
+      mime,
+      Buffer.from(base64, "base64")
+    );
+    await deleteMedia(fotoAtual);
+    return key;
+  } catch {
+    return undefined; // mime fora de png/jpg/webp — não trava a importação
+  }
+}
 
 // Histórico de graus a partir das datas do Meta (iniciação/elevação/exaltação)
 function graus(m: MetaMember): { degree: "APRENDIZ" | "COMPANHEIRO" | "MESTRE"; date: Date }[] {
@@ -123,9 +152,11 @@ export async function importarMembrosMeta(
     return { error: `Nenhum membro visível no Meta para ${contexto}.` };
   }
 
+  // #16: a filiação é por loja — só interessa o quadro DESTA loja; o mesmo
+  // CIM em outra loja não bloqueia mais a criação aqui
   const existentes = await prisma.user.findMany({
-    where: { cim: { in: membros.map((m) => m.cim) } },
-    select: { id: true, cim: true, lodgeId: true, email: true },
+    where: { lodgeId: user.lodgeId, cim: { in: membros.map((m) => m.cim) } },
+    select: { id: true, cim: true, lodgeId: true, email: true, photoUrl: true },
   });
   const porCim = new Map(existentes.map((u) => [u.cim, u]));
   const bcrypt = (await import("bcryptjs")).default;
@@ -154,11 +185,6 @@ export async function importarMembrosMeta(
     };
     const existente = porCim.get(m.cim);
 
-    if (existente && existente.lodgeId !== user.lodgeId) {
-      linhas.push({ ...base, acao: "pular", motivo: "CIM já cadastrado em outra loja" });
-      continue;
-    }
-
     if (existente) {
       linhas.push({ ...base, acao: "atualizar" });
       if (!simulacao) {
@@ -166,7 +192,10 @@ export async function importarMembrosMeta(
         const emailLivre =
           m.email &&
           m.email !== existente.email &&
-          !(await prisma.user.findUnique({ where: { email: m.email }, select: { id: true } }));
+          !(await prisma.user.findUnique({
+            where: { lodgeId_email: { lodgeId: user.lodgeId, email: m.email } },
+            select: { id: true },
+          }));
         await prisma.user.update({
           where: { id: existente.id },
           data: {
@@ -186,7 +215,12 @@ export async function importarMembrosMeta(
             nomePai: m.nomePai ?? undefined,
             nomeMae: m.nomeMae ?? undefined,
             tipoSanguineo: m.tipoSanguineo ?? undefined,
-            photoUrl: m.foto ?? undefined,
+            photoUrl: await gravaFotoImportada(
+              user.lodgeId,
+              existente.id,
+              m.foto,
+              existente.photoUrl
+            ),
             ...(emailLivre ? { email: m.email! } : {}),
           },
         });
@@ -242,13 +276,25 @@ export async function importarMembrosMeta(
             nomePai: m.nomePai,
             nomeMae: m.nomeMae,
             tipoSanguineo: m.tipoSanguineo,
-            photoUrl: m.foto,
             degree: grau,
             status,
             passwordHash: await bcrypt.hash(m.cpf, 10),
             mustChangePassword: true,
           },
         });
+        // A chave de media inclui o id do usuário — só dá para gravar depois do create
+        const fotoKey = await gravaFotoImportada(
+          user.lodgeId,
+          criado.id,
+          m.foto,
+          null
+        );
+        if (fotoKey) {
+          await prisma.user.update({
+            where: { id: criado.id },
+            data: { photoUrl: fotoKey },
+          });
+        }
         const historico = graus(m);
         if (historico.length) {
           await prisma.degreeHistory.createMany({

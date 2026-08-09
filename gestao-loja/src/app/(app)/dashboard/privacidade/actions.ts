@@ -34,3 +34,42 @@ export async function updatePrivacy(
   revalidatePath("/secretaria/membros");
   return { ok: "Preferências de privacidade atualizadas." };
 }
+
+// LGPD (#15): o titular pede a exclusão dos seus dados; a Secretaria e o
+// Venerável recebem a solicitação na central de notificações e atendem via
+// "Anonimizar dados" na ficha do membro (após desligamento do quadro).
+export async function solicitarExclusaoDados(
+  _prev: ActionResult,
+  _formData: FormData
+): Promise<ActionResult> {
+  const user = await requireUser();
+  await prisma.notification.upsert({
+    where: {
+      lodgeId_sourceKey: {
+        lodgeId: user.lodgeId,
+        sourceKey: `lgpd-exclusao:${user.id}`,
+      },
+    },
+    create: {
+      lodgeId: user.lodgeId,
+      type: "MISSING_DATA",
+      sourceKey: `lgpd-exclusao:${user.id}`,
+      title: `LGPD: ${user.name} solicitou exclusão dos dados pessoais`,
+      description:
+        "Atender em até 15 dias: concluir pendências do membro, desligá-lo do quadro (status Ex-membro) e usar \"Anonimizar dados (LGPD)\" na ficha.",
+      link: `/secretaria/membros/${user.id}`,
+    },
+    update: { isRead: false, createdAt: new Date() },
+  });
+  const { auditar } = await import("@/lib/audit");
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "lgpd.solicitar-exclusao",
+    entidade: "User",
+    entidadeId: user.id,
+  });
+  return {
+    ok: "Solicitação registrada — a Secretaria fará o atendimento em até 15 dias.",
+  };
+}

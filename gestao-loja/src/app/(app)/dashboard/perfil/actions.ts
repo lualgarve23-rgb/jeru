@@ -4,30 +4,30 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { criarFamiliar, atualizarFamiliar } from "@/lib/familiares";
+import { saveUserImage, deleteMedia, validarImagem } from "@/lib/media";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
-// Upload da foto do próprio usuário (data URI, até 500 KB)
+// Upload da foto do próprio usuário (disco local via lib/media, até 500 KB)
 export async function updateMyPhoto(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
   const user = await requireUser();
   const photo = formData.get("photo") as File | null;
-  if (!photo || photo.size === 0) {
-    return { error: "Selecione uma imagem." };
-  }
-  if (!photo.type.startsWith("image/")) {
-    return { error: "A foto deve ser uma imagem (PNG, JPG...)." };
-  }
-  if (photo.size > 500_000) {
-    return { error: "Foto muito grande — use uma imagem de até 500 KB." };
-  }
-  const buf = Buffer.from(await photo.arrayBuffer());
+  const v = validarImagem(photo, "A foto");
+  if (v.vazio) return { error: "Selecione uma imagem." };
+  if (v.error) return { error: v.error };
+  const key = await saveUserImage(user.lodgeId, user.id, "photo", photo!);
+  const antes = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { photoUrl: true },
+  });
   await prisma.user.update({
     where: { id: user.id },
-    data: { photoUrl: `data:${photo.type};base64,${buf.toString("base64")}` },
+    data: { photoUrl: key },
   });
+  await deleteMedia(antes?.photoUrl);
   revalidatePath("/dashboard/perfil");
   return { ok: "Foto atualizada." };
 }
@@ -86,10 +86,15 @@ export async function removeMeuFamiliar(
 
 export async function removeMyPhoto(): Promise<ActionResult> {
   const user = await requireUser();
+  const antes = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { photoUrl: true },
+  });
   await prisma.user.update({
     where: { id: user.id },
     data: { photoUrl: null },
   });
+  await deleteMedia(antes?.photoUrl);
   revalidatePath("/dashboard/perfil");
   return { ok: "Foto removida." };
 }

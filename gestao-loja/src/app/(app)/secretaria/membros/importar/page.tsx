@@ -54,6 +54,8 @@ export default async function ImportarMembrosPage() {
           <CardDescription>
             Lojas de potências sem portal integrado importam o quadro por
             planilha CSV.{" "}
+            {/* download de arquivo servido por route handler — <a> é o correto aqui */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
             <a
               href="/secretaria/membros/importar/modelo"
               className="font-medium underline underline-offset-2"

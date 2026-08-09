@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import { prisma } from "@/lib/prisma";
 import { toCsv, brlCsv } from "@/lib/csv";
+import { listLodgeMedia, readMedia, MEDIA_PREFIX } from "@/lib/media";
 
 // Backup completo dos dados da Loja (export por tenant), acionado pelo
 // Venerável ou Secretário em Configurações da Loja. Gera um ZIP com:
@@ -300,6 +301,14 @@ export async function gerarBackupLoja(lodgeId: string): Promise<{
       "(campos driveFileId / certificadoDriveId). Faça também o backup dessa pasta.",
     ].join("\n")
   );
+
+  // ── media/ — fotos e assinaturas dos membros (disco local, lib/media) ──
+  // O JSON de membros guarda as chaves "media:..."; os bytes vão aqui.
+  const pastaMedia = zip.folder("media")!;
+  for (const key of await listLodgeMedia(lodgeId)) {
+    const m = await readMedia(key);
+    if (m) pastaMedia.file(key.slice(MEDIA_PREFIX.length), m.bytes);
+  }
 
   const buffer = await zip.generateAsync({
     type: "nodebuffer",

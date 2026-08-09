@@ -160,8 +160,12 @@ export default async function MensalidadesPage() {
                     id="asaasApiKey"
                     name="asaasApiKey"
                     type="password"
-                    defaultValue={lodge.asaasApiKey ?? ""}
-                    placeholder="$aact_..."
+                    autoComplete="off"
+                    placeholder={
+                      lodge.asaasApiKey
+                        ? "•••••••• (deixe em branco para manter)"
+                        : "$aact_..."
+                    }
                   />
                 </div>
                 <div className="space-y-1">
@@ -169,8 +173,13 @@ export default async function MensalidadesPage() {
                   <Input
                     id="asaasWebhookToken"
                     name="asaasWebhookToken"
-                    defaultValue={lodge.asaasWebhookToken ?? ""}
-                    placeholder="token secreto conferido no webhook"
+                    type="password"
+                    autoComplete="off"
+                    placeholder={
+                      lodge.asaasWebhookToken
+                        ? "•••••••• (deixe em branco para manter)"
+                        : "token secreto conferido no webhook"
+                    }
                   />
                 </div>
               </ActionForm>

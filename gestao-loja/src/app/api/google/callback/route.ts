@@ -3,6 +3,7 @@ import { google } from "googleapis";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { oauthClient } from "@/lib/google-drive";
+import { sealSecret } from "@/lib/secrets";
 
 // Callback do OAuth: guarda o refresh token na Loja do usuário logado, ou —
 // quando o state é "platform" — na configuração da plataforma (backup do
@@ -56,15 +57,16 @@ export async function GET(req: NextRequest) {
     }
 
     if (platform) {
+      const sealed = sealSecret(tokens.refresh_token);
       await prisma.platformConfig.upsert({
         where: { id: "platform" },
         create: {
           id: "platform",
-          backupGoogleRefreshToken: tokens.refresh_token,
+          backupGoogleRefreshToken: sealed,
           backupGoogleEmail: email,
         },
         update: {
-          backupGoogleRefreshToken: tokens.refresh_token,
+          backupGoogleRefreshToken: sealed,
           backupGoogleEmail: email,
           backupDriveFolderId: null, // nova conta → recriar a pasta de backups
         },
@@ -73,13 +75,14 @@ export async function GET(req: NextRequest) {
       await prisma.lodge.update({
         where: { id: session.user.lodgeId },
         data: {
-          googleRefreshToken: tokens.refresh_token,
+          googleRefreshToken: sealSecret(tokens.refresh_token),
           googleEmail: email,
           driveFolderId: null, // nova conta → recriar a pasta da Loja
         },
       });
     }
-  } catch {
+  } catch (err) {
+    console.error("[google/callback] falha ao conectar conta Google:", err);
     return NextResponse.redirect(
       new URL(`${volta}?erro=google-falhou`, baseUrl)
     );

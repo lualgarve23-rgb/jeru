@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { PenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,12 +30,15 @@ export function InlineSignDialog({
   action: (prev: ActionResult, formData: FormData) => Promise<ActionResult>;
 }) {
   const [open, setOpen] = useState(false);
-  const [state, formAction, pending] = useActionState(action, undefined);
-
   // fecha o diálogo quando a assinatura é registrada com sucesso
-  useEffect(() => {
-    if (state?.ok) setOpen(false);
-  }, [state]);
+  const [state, formAction, pending] = useActionState(
+    async (prev: ActionResult, formData: FormData) => {
+      const result = await action(prev, formData);
+      if (result?.ok) setOpen(false);
+      return result;
+    },
+    undefined
+  );
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

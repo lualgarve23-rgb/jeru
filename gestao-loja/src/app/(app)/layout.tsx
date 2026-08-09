@@ -45,6 +45,7 @@ function navFor(role: string, cargoRito: string | null, unread: number): NavItem
     { href: "/tesouraria/despesas", label: "Despesas", icon: "despesas", section: "Tesouraria", roles: tesouraria },
     { href: "/tesouraria/balancete", label: "Balancete", icon: "balancete", section: "Tesouraria", roles: tesouraria },
     { href: "/dashboard/loja", label: "Configurações da Loja", icon: "loja", section: "Configurações", roles: gestaoLoja },
+    { href: "/dashboard/loja/auditoria", label: "Auditoria", icon: "documentos", section: "Configurações", roles: gestaoLoja },
     { href: "/dashboard/perfil", label: "Meu perfil", icon: "perfil", section: "Minha conta" },
     { href: "/dashboard/privacidade", label: "Privacidade (LGPD)", icon: "privacidade", section: "Minha conta" },
     { href: "/dashboard/senha", label: "Alterar senha", icon: "senha", section: "Minha conta" },
@@ -69,10 +70,21 @@ export default async function AppLayout({
   const [lodge, unread] = await Promise.all([
     prisma.lodge.findUnique({
       where: { id: user.lodgeId },
-      select: { logoUrl: true, name: true, number: true, oriente: true },
+      select: {
+        logoUrl: true,
+        name: true,
+        number: true,
+        oriente: true,
+        licencaStatus: true,
+      },
     }),
     user.role === "SUPER_ADMIN" ? Promise.resolve(0) : unreadCount(user),
   ]);
+
+  // Licença do sistema vencida bloqueia toda a loja (menos o super admin)
+  if (lodge?.licencaStatus === "VENCIDA" && user.role !== "SUPER_ADMIN") {
+    redirect("/licenca-vencida");
+  }
 
   async function handleSignOut() {
     "use server";

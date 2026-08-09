@@ -3,6 +3,7 @@
 import { prisma } from "../src/lib/prisma";
 import { gerarBackupLoja } from "../src/lib/backup";
 import { restaurarBackupLoja } from "../src/lib/restore";
+import { sealSecret, openSecret, isEncryptedSecret } from "../src/lib/secrets";
 
 async function contagens(lodgeId: string) {
   const where = { lodgeId };
@@ -28,6 +29,15 @@ async function main() {
   })).passwordHash;
 
   console.log("Antes:", antes);
+
+  // Segredo cifrado (AES-256-GCM) gravado antes do ciclo — deve sobreviver ao
+  // restore intacto (o backup não o contém; o restore preserva da loja atual).
+  const SEGREDO = "senha-app-gmail-de-teste";
+  await prisma.lodge.update({
+    where: { id: lodge.id },
+    data: { gmailAppPassword: sealSecret(SEGREDO) },
+  });
+
   const { zip, fileName } = await gerarBackupLoja(lodge.id);
   console.log(`Backup gerado: ${fileName} (${(zip.length / 1024).toFixed(0)} KB)`);
 
@@ -56,10 +66,32 @@ async function main() {
   const senhaDepois = (await prisma.user.findFirstOrThrow({
     where: { lodgeId: lodge.id, cim: "teste-01" },
   })).passwordHash;
+  const lodgeDepois = await prisma.lodge.findUniqueOrThrow({
+    where: { number: "7777" },
+  });
+  const segredoOk =
+    !!lodgeDepois.gmailAppPassword &&
+    isEncryptedSecret(lodgeDepois.gmailAppPassword) &&
+    openSecret(lodgeDepois.gmailAppPassword) === SEGREDO;
+  // Backup não pode conter o segredo (nem cifrado)
+  const JSZip = (await import("jszip")).default;
+  const zipLido = await JSZip.loadAsync(zip);
+  const lojaNoZip = await zipLido.file("dados/loja.json")!.async("string");
+  const zipSemSegredo =
+    !lojaNoZip.includes(SEGREDO) && !lojaNoZip.includes("gmailAppPassword");
+
   console.log("Contagens idênticas:", igual);
   console.log("Nome do teste-10 restaurado:", nome !== "NOME ERRADO", `(${nome})`);
   console.log("Senha do teste-01 preservada:", senhaDepois === senhaAntes);
-  if (!igual || nome === "NOME ERRADO" || senhaDepois !== senhaAntes) {
+  console.log("Segredo cifrado sobreviveu e decifra:", segredoOk);
+  console.log("ZIP não contém o segredo:", zipSemSegredo);
+  if (
+    !igual ||
+    nome === "NOME ERRADO" ||
+    senhaDepois !== senhaAntes ||
+    !segredoOk ||
+    !zipSemSegredo
+  ) {
     process.exit(1);
   }
 }

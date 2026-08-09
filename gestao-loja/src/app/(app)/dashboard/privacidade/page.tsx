@@ -8,7 +8,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { updatePrivacy } from "./actions";
+import { updatePrivacy, solicitarExclusaoDados } from "./actions";
+import { Button } from "@/components/ui/button";
 
 const fields = [
   { name: "showEmail", label: "E-mail", key: "email" },
@@ -84,6 +85,47 @@ export default async function PrivacidadePage() {
                 </label>
               ))}
             </div>
+          </ActionForm>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Baixar meus dados</CardTitle>
+          <CardDescription>
+            Portabilidade (LGPD, art. 18): um ZIP com todos os seus dados
+            registrados pela loja — perfil, familiares, históricos, presenças,
+            mensalidades, foto e assinatura.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline">
+            <a href="/api/meus-dados" download>
+              Baixar meus dados (ZIP)
+            </a>
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Solicitar exclusão dos meus dados</CardTitle>
+          <CardDescription>
+            A Secretaria recebe a solicitação e atende em até 15 dias. Os dados
+            pessoais são removidos após o desligamento do quadro; registros
+            institucionais (atas, presenças, lançamentos financeiros)
+            permanecem, de forma anonimizada, por obrigação de guarda.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ActionForm
+            action={solicitarExclusaoDados}
+            submitLabel="Solicitar exclusão"
+          >
+            <p className="text-xs text-muted-foreground">
+              Você continuará com acesso normal até o atendimento da
+              solicitação pela Secretaria.
+            </p>
           </ActionForm>
         </CardContent>
       </Card>

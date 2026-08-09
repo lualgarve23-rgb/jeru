@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { prisma } from "@/lib/prisma";
+import { openSecret } from "@/lib/secrets";
 
 // Envio pelo Gmail da Loja (SMTP com App Password).
 // As credenciais ficam no cadastro da Loja (Lodge.gmailUser/gmailAppPassword);
@@ -17,8 +18,9 @@ export async function getGmailAuth(lodgeId: string): Promise<GmailAuth | null> {
     where: { id: lodgeId },
     select: { gmailUser: true, gmailAppPassword: true },
   });
-  if (lodge?.gmailUser && lodge?.gmailAppPassword) {
-    return { user: lodge.gmailUser, pass: lodge.gmailAppPassword };
+  const pass = openSecret(lodge?.gmailAppPassword);
+  if (lodge?.gmailUser && pass) {
+    return { user: lodge.gmailUser, pass };
   }
   if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
     return { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD };

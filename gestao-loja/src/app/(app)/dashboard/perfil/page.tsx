@@ -1,3 +1,4 @@
+import { mediaSrc } from "@/lib/media-url";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import {
@@ -61,7 +62,7 @@ export default async function PerfilPage() {
             <div className="flex items-center gap-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={me.photoUrl}
+                src={mediaSrc(me.photoUrl)!}
                 alt={`Foto de ${me.name}`}
                 className="h-24 w-24 rounded-full border object-cover"
               />

@@ -1,3 +1,4 @@
+import { mediaSrc } from "@/lib/media-url";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
@@ -64,6 +65,11 @@ export default async function AtaPage({
     },
   });
   if (!ata) notFound();
+
+  // Rascunho: só Secretaria/VM abrem; demais irmãos entram na validação em diante
+  if (ata.status === "RASCUNHO" && !canWriteSecretaria(user.role)) {
+    notFound();
+  }
 
   const editable =
     canWriteSecretaria(user.role) &&
@@ -289,7 +295,7 @@ export default async function AtaPage({
                         {signer.signatureUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
-                            src={signer.signatureUrl}
+                            src={mediaSrc(signer.signatureUrl)!}
                             alt={`Assinatura de ${signer.name}`}
                             className="mx-auto h-16 object-contain"
                           />

@@ -58,9 +58,16 @@ export default async function SessaoPage({
 
   const isWriter = canWriteSecretaria(user.role);
   const baseUrl = process.env.APP_URL ?? "http://localhost:3100";
-  const checkinUrl = `${baseUrl}/checkin/${session.qrToken}`;
-  const qrDataUrl = await QRCode.toDataURL(checkinUrl, { width: 240 });
-  const inviteUrl = `${baseUrl}/convite/${session.inviteToken}`;
+  // Tokens de check-in/convite só para quem opera a sessão (não vazam no RSC)
+  const checkinUrl = isWriter
+    ? `${baseUrl}/checkin/${session.qrToken}`
+    : null;
+  const inviteUrl = isWriter
+    ? `${baseUrl}/convite/${session.inviteToken}`
+    : null;
+  const qrDataUrl = checkinUrl
+    ? await QRCode.toDataURL(checkinUrl, { width: 240 })
+    : null;
 
   // RSVP pelo convite: confirmados (antes do dia) e total do Ágape
   const confirmados = session.attendances.filter((a) => a.rsvpAt);
@@ -193,7 +200,7 @@ export default async function SessaoPage({
               </div>
             </ActionForm>
             <div className="flex flex-wrap items-center gap-3">
-              <CopyButton text={inviteUrl} label="Copiar link do convite" />
+              <CopyButton text={inviteUrl!} label="Copiar link do convite" />
               <ActionButton
                 action={dispararConvitesEmail.bind(null, session.id)}
                 label="Disparar convites por e-mail"
@@ -216,11 +223,13 @@ export default async function SessaoPage({
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
+        {isWriter && checkinUrl && qrDataUrl && (
         <Card>
           <CardHeader>
             <CardTitle>Check-in via QR Code</CardTitle>
             <CardDescription>
-              Membros e visitantes escaneiam para registrar presença.
+              Exiba este QR no salão — membros e visitantes escaneiam para
+              registrar presença. O link não fica visível para obreiros comuns.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -229,6 +238,7 @@ export default async function SessaoPage({
             <p className="break-all text-xs text-muted-foreground">{checkinUrl}</p>
           </CardContent>
         </Card>
+        )}
 
         {isWriter && (
           <Card>

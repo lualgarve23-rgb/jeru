@@ -1,3 +1,4 @@
+import { mediaSrc } from "@/lib/media-url";
 import { InfoDica } from "@/components/info-dica";
 import { AJUDA } from "@/lib/ajuda";
 import Link from "next/link";
@@ -24,9 +25,26 @@ import {
 export default async function MembrosPage() {
   const user = await requireUser();
   const isSecretaria = canWriteSecretaria(user.role);
+  // Nunca carregar hash de senha / CPF / tokens na listagem do quadro
   const members = await prisma.user.findMany({
     where: { lodgeId: user.lodgeId },
     orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      cim: true,
+      degree: true,
+      cargoRito: true,
+      currentRole: true,
+      status: true,
+      filiado: true,
+      photoUrl: true,
+      email: true,
+      phone: true,
+      isDataPublic: true,
+      showEmail: true,
+      showPhone: true,
+    },
   });
 
   return (
@@ -69,7 +87,7 @@ export default async function MembrosPage() {
                     {m.photoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={m.photoUrl}
+                        src={mediaSrc(m.photoUrl)!}
                         alt=""
                         className="h-8 w-8 shrink-0 rounded-full border object-cover"
                       />

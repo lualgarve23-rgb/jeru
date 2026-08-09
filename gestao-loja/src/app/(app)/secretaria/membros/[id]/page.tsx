@@ -1,3 +1,4 @@
+import { mediaSrc } from "@/lib/media-url";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
@@ -9,6 +10,7 @@ import {
   addFamiliar,
   updateFamiliar,
   removeFamiliar,
+  anonimizarMembro,
 } from "../../actions";
 import { FamiliaresCard } from "@/components/familiares-card";
 import { cargoCorresponde } from "@/lib/cargos";
@@ -72,7 +74,7 @@ export default async function MembroPage({
         {member.photoUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={member.photoUrl}
+            src={mediaSrc(member.photoUrl)!}
             alt={`Foto de ${member.name}`}
             className="h-14 w-14 rounded-full border object-cover"
           />
@@ -211,7 +213,7 @@ export default async function MembroPage({
                 {member.signatureUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={member.signatureUrl}
+                    src={mediaSrc(member.signatureUrl)!}
                     alt={`Assinatura de ${member.name}`}
                     className="h-16 rounded-md border bg-white object-contain p-1"
                   />
@@ -483,6 +485,33 @@ export default async function MembroPage({
               Espelho da ficha no METAGOB, atualizado a cada importação — não é
               editável aqui.
             </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {member.status === "EX_MEMBRO" && (
+        <Card className="border-destructive/40">
+          <CardHeader>
+            <CardTitle>Anonimizar dados (LGPD)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Atende à solicitação de exclusão do titular: remove nome, CPF,
+              contatos, familiares, foto e assinatura, e revoga o acesso.
+              Presenças, mensalidades e atas permanecem, anonimizadas.
+              <strong> Irreversível.</strong>
+            </p>
+            <ActionForm
+              action={anonimizarMembro.bind(null, member.id)}
+              submitLabel="Anonimizar definitivamente"
+            >
+              <div className="space-y-1">
+                <Label htmlFor="confirmar">
+                  Digite ANONIMIZAR para confirmar
+                </Label>
+                <Input id="confirmar" name="confirmar" autoComplete="off" />
+              </div>
+            </ActionForm>
           </CardContent>
         </Card>
       )}

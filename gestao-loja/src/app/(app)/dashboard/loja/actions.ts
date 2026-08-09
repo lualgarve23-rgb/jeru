@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
+import { auditar } from "@/lib/audit";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
@@ -12,6 +13,13 @@ export async function disconnectGoogle(): Promise<ActionResult> {
   await prisma.lodge.update({
     where: { id: user.lodgeId },
     data: { googleRefreshToken: null, googleEmail: null },
+  });
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "loja.desconectar-google",
+    entidade: "Lodge",
+    entidadeId: user.lodgeId,
   });
   revalidatePath("/dashboard/loja");
   return { ok: "Conta Google desconectada." };
@@ -235,6 +243,14 @@ export async function updateLimiteInadimplencia(
     where: { id: user.lodgeId },
     data: { limiteInadimplencia: value },
   });
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "loja.limite-inadimplencia",
+    entidade: "Lodge",
+    entidadeId: user.lodgeId,
+    detalhes: { limite: value },
+  });
   revalidatePath("/dashboard/loja");
   revalidatePath("/tesouraria/mensalidades");
   return { ok: `Membros ficam irregulares com ${value} capitação(ões) vencida(s).` };
@@ -268,9 +284,21 @@ export async function updateGmailLoja(
     }
   }
   if (!gmailUser) gmailAppPassword = null;
+  const { sealSecret } = await import("@/lib/secrets");
   await prisma.lodge.update({
     where: { id: user.lodgeId },
-    data: { gmailUser, gmailAppPassword },
+    data: {
+      gmailUser,
+      gmailAppPassword: sealSecret(gmailAppPassword),
+    },
+  });
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "loja.config-gmail",
+    entidade: "Lodge",
+    entidadeId: user.lodgeId,
+    detalhes: { gmailUser },
   });
   revalidatePath("/dashboard/loja");
   revalidatePath("/secretaria/emails");

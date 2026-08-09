@@ -1,12 +1,33 @@
 import type { NextAuthConfig } from "next-auth";
 
+const isProd = process.env.NODE_ENV === "production";
+
 // Config base sem Prisma — usada também no middleware (Edge runtime).
 export const authConfig = {
   trustHost: true,
+  // Em produção: cookies só via HTTPS (Secure) + SameSite=lax
+  useSecureCookies: isProd,
   pages: {
     signIn: "/login",
   },
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+    // Sessão expira em 8h de inatividade relativa (maxAge absoluto)
+    maxAge: 8 * 60 * 60,
+  },
+  cookies: isProd
+    ? {
+        sessionToken: {
+          name: "__Secure-authjs.session-token",
+          options: {
+            httpOnly: true,
+            sameSite: "lax",
+            path: "/",
+            secure: true,
+          },
+        },
+      }
+    : undefined,
   callbacks: {
     authorized({ auth, request }) {
       const isLoggedIn = !!auth?.user;
