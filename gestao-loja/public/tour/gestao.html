@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gestão da Loja · Tour Gestão NoPrumo</title>
+<style>
+:root{--navy:#1c3a5e;--navy2:#2a5286;--gold:#b98a2e;--gold-l:#f0c86e;--paper:#f7f5f0}
+*{box-sizing:border-box;margin:0}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#10203a;color:#fff;min-height:100vh;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:12px;padding:14px 20px;background:linear-gradient(135deg,var(--navy),var(--navy2))}
+header .logo{width:36px;height:36px;border-radius:50%;background:var(--gold);display:grid;place-items:center;font-weight:700;color:#10203a}
+header h1{font-size:1rem;font-weight:600}
+header p{font-size:.75rem;opacity:.75}
+.stage{flex:1;display:grid;place-items:center;padding:16px;position:relative}
+.stage img{max-width:100%;max-height:70vh;border-radius:12px;box-shadow:0 12px 40px rgb(0 0 0/.45);cursor:pointer}
+.cap{max-width:960px;margin:0 auto;padding:0 20px 8px;text-align:center}
+.cap .t{color:var(--gold-l);font-weight:700;font-size:1.05rem;margin-bottom:4px}
+.cap .l{font-size:1rem;line-height:1.5;opacity:.95;min-height:3em}
+.controls{display:flex;align-items:center;gap:10px;justify-content:center;padding:10px 20px 6px}
+button{background:rgb(255 255 255/.12);border:0;color:#fff;border-radius:999px;width:44px;height:44px;font-size:1.1rem;cursor:pointer}
+button:hover{background:rgb(255 255 255/.25)}
+button.play{background:var(--gold);color:#10203a;font-weight:700}
+.segs{display:flex;gap:6px;justify-content:center;padding:0 20px 18px;flex-wrap:wrap}
+.seg{height:6px;width:44px;border-radius:3px;background:rgb(255 255 255/.2);cursor:pointer;position:relative;overflow:hidden}
+.seg i{position:absolute;inset:0;width:0;background:var(--gold);border-radius:3px}
+.seg.done i{width:100%}
+.seg.cur i{animation:fill var(--dur) linear forwards}
+.paused .seg.cur i{animation-play-state:paused}
+@keyframes fill{from{width:0}to{width:100%}}
+.count{font-size:.8rem;opacity:.7;min-width:64px;text-align:center}
+footer{padding:10px;text-align:center;font-size:.72rem;opacity:.55}
+</style></head><body class="">
+<header><div class="logo">NP</div><div><h1>Gestão da Loja</h1><p>Tour interativo · Gestão NoPrumo — prefere ouvir? Veja o vídeo narrado</p></div></header>
+<main class="stage"><img id="shot" alt="Tela do sistema" title="Clique para avançar"></main>
+<div class="cap"><div class="t" id="ct"></div><div class="l" id="cl"></div></div>
+<div class="controls">
+  <button id="prev" title="Anterior">‹</button>
+  <button id="play" class="play" title="Reproduzir/Pausar">⏸</button>
+  <button id="next" title="Próximo">›</button>
+  <span class="count" id="count"></span>
+</div>
+<div class="segs" id="segs"></div>
+<footer>Gestão NoPrumo · noprumo.ia.br</footer>
+<script>
+const slides=[{"img": "img/gestao-00.jpg", "t": "Gestão da Loja", "l": "Ferramentas de gestão e transparência: documentos no Google Drive, configurações, instruções de grau e auditoria."}, {"img": "img/gestao-01.jpg", "t": "Documentos no Google Drive", "l": "Upload direto para a pasta da loja no Google Drive, organizado por tipo. Os arquivos continuam sendo da loja, sempre."}, {"img": "img/gestao-02.jpg", "t": "Configurações da Loja", "l": "Logo, cabeçalho institucional das atas, conexão Google, e-mail oficial e exigências de instrução para progressão."}, {"img": "img/gestao-03.jpg", "t": "Instruções de Grau", "l": "Check-in das instruções ministradas pelos Vigilantes — contam como requisito na progressão de grau."}, {"img": "img/gestao-04.jpg", "t": "Auditoria", "l": "Trilha imutável de quem alterou o quê — registros automáticos que não podem ser editados nem removidos."}];const DUR=6000;
+document.documentElement.style.setProperty('--dur',DUR+'ms');
+let i=0,playing=true,timer=null;
+const img=document.getElementById('shot'),ct=document.getElementById('ct'),cl=document.getElementById('cl'),
+count=document.getElementById('count'),segs=document.getElementById('segs'),play=document.getElementById('play');
+slides.forEach((s,k)=>{const d=document.createElement('div');d.className='seg';d.innerHTML='<i></i>';
+d.title=s.t;d.onclick=()=>go(k,true);segs.appendChild(d);});
+function render(){img.src=slides[i].img;ct.textContent=slides[i].t;cl.textContent=slides[i].l;
+count.textContent=(i+1)+' / '+slides.length;
+[...segs.children].forEach((d,k)=>{d.className='seg'+(k<i?' done':k===i?' cur':'');
+if(k===i){const b=d.firstChild;b.style.animation='none';void b.offsetWidth;b.style.animation='';}});}
+function schedule(){clearTimeout(timer);if(playing)timer=setTimeout(()=>go(i+1),DUR);}
+function go(k,manual){i=(k+slides.length)%slides.length;render();schedule();}
+function toggle(){playing=!playing;play.textContent=playing?'⏸':'▶';
+document.body.classList.toggle('paused',!playing);schedule();}
+document.getElementById('prev').onclick=()=>go(i-1,true);
+document.getElementById('next').onclick=()=>go(i+1,true);
+img.onclick=()=>go(i+1,true);play.onclick=toggle;
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight')go(i+1,true);
+if(e.key==='ArrowLeft')go(i-1,true);if(e.key===' '){e.preventDefault();toggle();}});
+slides.forEach(s=>{const p=new Image();p.src=s.img;});
+go(0);
+</script></body></html>
