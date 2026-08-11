@@ -6,10 +6,13 @@
    preto com texto escuro em dispositivos em modo escuro. */
 @custom-variant dark (&:is(.dark *));
 
-/* Paleta "Livro de Atas": creme de fundo, navy institucional e dourado
-   de apoio — espelha o modelo Gestao da Loja - Standalone.html */
+/* Paleta "Livro de Atas" (redesign 2026 — opção C "Navy & Dourado"):
+   creme de fundo, navy institucional como estrutura, dourado como acento
+   de recompensa. Regra de uso: navy = estrutura, dourado = destaque
+   (gradientes, selos, item ativo), creme = respiro. O dourado puro NUNCA
+   como texto pequeno sobre fundo claro — usar --gold-text (AA). */
 :root {
-  --background: #faf8f4;
+  --background: #faf8f3;
   --foreground: #1e2733;
   --card: #ffffff;
   --card-foreground: #1e2733;
@@ -21,14 +24,33 @@
   --secondary-foreground: #1e2733;
   --muted: #f2efe8;
   --muted-foreground: #5b6472;
-  --accent: #eef2f8;
+  --accent: #f3ecdc;
   --accent-foreground: #1c3a5e;
   --destructive: #b3261e;
   --destructive-foreground: #ffffff;
   --border: #e6e1d6;
   --input: #e6e1d6;
   --ring: #1c3a5e;
-  --radius: 0.75rem;
+  --radius: 1rem;
+
+  /* Acento dourado */
+  --gold: #b98a2e;          /* superfícies/ícones, nunca texto pequeno em claro */
+  --gold-text: #8a6a1f;     /* variante AA para texto sobre fundo claro */
+  --gold-soft: #f3ecdc;     /* chips e fundos de ícone */
+  --gold-bright: #e3b95c;   /* dourado claro p/ ícones e realces sobre navy */
+
+  /* Estados semânticos */
+  --success: #1c7a4d;
+  --success-soft: #e4f3ea;
+  --warning: #9a6b0f;
+  --warning-soft: #faf0da;
+
+  /* Gradiente-herói (cards de destaque) */
+  --hero-gradient: linear-gradient(135deg, #1c3a5e 0%, #2a5286 60%, #b98a2e 140%);
+
+  /* Elevação suave (estilo app) */
+  --shadow-card: 0 1px 4px rgb(30 39 51 / 0.06);
+  --shadow-raised: 0 4px 16px rgb(30 39 51 / 0.10);
 }
 
 @theme inline {
@@ -51,8 +73,23 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-gold: var(--gold);
+  --color-gold-text: var(--gold-text);
+  --color-gold-soft: var(--gold-soft);
+  --color-gold-bright: var(--gold-bright);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --shadow-card: var(--shadow-card);
+  --shadow-raised: var(--shadow-raised);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+/* Utilitário para o card-herói do redesign */
+.bg-hero-gradient {
+  background: var(--hero-gradient);
 }
 
 :root {

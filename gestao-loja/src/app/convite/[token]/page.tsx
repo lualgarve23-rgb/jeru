@@ -19,6 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { PublicHero } from "@/components/public-shell";
 
 function CampoJustificativa() {
   return (
@@ -75,12 +76,13 @@ export default async function ConvitePage({
           className="w-full rounded-lg border shadow-sm"
         />
       ) : (
-        <div className="space-y-1 text-center">
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">
-            Convite
-          </p>
-          <h1 className="text-xl font-bold">{session.lodge.name}</h1>
-        </div>
+        <PublicHero
+          logoUrl={session.lodge.logoUrl}
+          logoAlt={`Logo da Loja ${session.lodge.name}`}
+          eyebrow="Convite"
+          title={session.lodge.name}
+          subtitle={`Loja nº ${session.lodge.number}`}
+        />
       )}
 
       <Card>
@@ -105,13 +107,13 @@ export default async function ConvitePage({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-600">
+          <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
             {renderFrase(session.lodge, session)}
           </p>
           {session.pauta && !fraseCitaPauta(session.lodge.conviteFrase) && (
-            <div className="rounded-md border bg-neutral-50 p-3 text-sm">
+            <div className="rounded-md border bg-secondary p-3 text-sm">
               <p className="mb-1 font-semibold">Pauta do dia</p>
-              <p className="whitespace-pre-line text-neutral-600">
+              <p className="whitespace-pre-line text-muted-foreground">
                 {session.pauta}
               </p>
             </div>

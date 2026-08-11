@@ -77,7 +77,7 @@ export default async function CobrancaPixPage({
             </>
           )}
           {invoice.status === "PAGA" && (
-            <p className="text-sm text-green-700">
+            <p className="text-sm text-success">
               Pago em {invoice.paidAt?.toLocaleString("pt-BR")} (
               {invoice.paidMethod}).
             </p>

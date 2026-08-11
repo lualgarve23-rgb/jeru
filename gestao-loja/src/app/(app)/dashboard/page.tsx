@@ -27,6 +27,27 @@ import {
   type BadgeTone,
 } from "@/lib/labels";
 import { InlineSignDialog } from "@/components/inline-sign-dialog";
+import { cn } from "@/lib/utils";
+import {
+  AlertTriangle,
+  Award,
+  Bell,
+  CalendarCheck,
+  CheckCircle2,
+  CircleUserRound,
+  CreditCard,
+  FileSignature,
+  FileText,
+  Receipt,
+  ScrollText,
+  ShieldCheck,
+  TrendingDown,
+  TrendingUp,
+  Users,
+  UserX,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
 import { signAtaInline, signQuittePlacetInline } from "./sign-actions";
 
 function brl(cents: number) {
@@ -36,9 +57,12 @@ function brl(cents: number) {
   });
 }
 
-const statValueTone: Record<"danger" | "success", string> = {
-  danger: "text-red-700",
-  success: "text-green-700",
+const statTone: Record<
+  "danger" | "success",
+  { value: string; chip: string }
+> = {
+  danger: { value: "text-destructive", chip: "bg-destructive/10 text-destructive" },
+  success: { value: "text-success", chip: "bg-success-soft text-success" },
 };
 
 function Stat({
@@ -46,31 +70,79 @@ function Stat({
   value,
   hint,
   tone,
+  icon: Icon,
 }: {
   label: string;
   value: string;
   hint?: string;
   tone?: "danger" | "success";
+  icon?: LucideIcon;
 }) {
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardDescription>{label}</CardDescription>
-        <CardTitle className={`text-2xl ${tone ? statValueTone[tone] : ""}`}>
-          {value}
-        </CardTitle>
-      </CardHeader>
-      {hint && (
-        <CardContent className="pt-0 text-sm text-muted-foreground">
-          {hint}
-        </CardContent>
+    <div className="shadow-card rounded-2xl border border-border bg-card p-4">
+      {Icon && (
+        <span
+          className={cn(
+            "mb-2 flex h-9 w-9 items-center justify-center rounded-full",
+            tone ? statTone[tone].chip : "bg-gold-soft text-gold-text"
+          )}
+        >
+          <Icon className="h-5 w-5" />
+        </span>
       )}
-    </Card>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p
+        className={cn(
+          "text-xl font-bold leading-tight tabular-nums",
+          tone && statTone[tone].value
+        )}
+      >
+        {value}
+      </p>
+      {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
+    </div>
   );
 }
 
 function StatusBadge({ status, tone }: { status: string; tone: BadgeTone }) {
   return <Badge variant={tone}>{status}</Badge>;
+}
+
+/* Faixa-herói dos cargos de gestão: saudação + cargo, no mesmo gradiente
+   do dashboard do Obreiro, mas mais baixa (foco desktop). */
+function GestorHero({
+  userName,
+  roleLabel,
+  subtitle,
+}: {
+  userName: string;
+  roleLabel: string;
+  subtitle: string;
+}) {
+  const firstName = userName.split(" ")[0];
+  const hoje = new Date().toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  return (
+    <section className="bg-hero-gradient shadow-raised flex flex-wrap items-center justify-between gap-3 rounded-2xl p-5 text-white sm:p-6">
+      <div className="min-w-0">
+        <p className="text-sm text-white/80">Olá,</p>
+        <h1 className="flex items-center gap-1.5 truncate text-2xl font-bold leading-tight">
+          {firstName}
+          <InfoDica titulo="Dashboard" texto={AJUDA.dashboard} />
+        </h1>
+        <p className="mt-0.5 text-xs text-white/70">{subtitle}</p>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-1.5">
+        <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
+          {roleLabel}
+        </span>
+        <span className="text-xs capitalize text-white/70">{hoje}</span>
+      </div>
+    </section>
+  );
 }
 
 function diasAtras(dias: number) {
@@ -109,13 +181,13 @@ function MemberManagementCard() {
       <CardContent className="flex flex-wrap gap-4 text-sm">
         <Link
           href="/secretaria/membros"
-          className="font-medium underline underline-offset-4"
+          className="font-medium text-primary hover:underline"
         >
           Ver e gerenciar membros →
         </Link>
         <Link
           href="/secretaria/membros/novo"
-          className="font-medium underline underline-offset-4"
+          className="font-medium text-primary hover:underline"
         >
           Cadastrar novo membro →
         </Link>
@@ -129,9 +201,13 @@ function MemberManagementCard() {
 async function MemberDashboard({
   userId,
   lodgeId,
+  userName,
+  roleLabel,
 }: {
   userId: string;
   lodgeId: string;
+  userName: string;
+  roleLabel: string;
 }) {
   const yearStart = new Date(new Date().getFullYear(), 0, 1);
   const [me, openInvoices, lastDegree, sessionsYear, myAttendances] =
@@ -192,33 +268,89 @@ async function MemberDashboard({
       ? `${Math.round((myAttendances / sessionsYear) * 100)}%`
       : "—";
 
+  const firstName = userName.split(" ")[0];
+  const regular = me.status !== "IRREGULAR";
+
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Stat
+      {/* Card-herói: saudação + resumo financeiro, estilo app de banco */}
+      <section className="bg-hero-gradient shadow-raised rounded-2xl p-5 text-white sm:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm text-white/80">Olá,</p>
+            <h1 className="truncate text-2xl font-bold leading-tight">
+              {firstName}
+            </h1>
+            <p className="mt-0.5 text-xs text-white/70">
+              {roleLabel} · {degreeLabels[me.degree] ?? me.degree}
+            </p>
+          </div>
+          <span
+            className={cn(
+              "shrink-0 rounded-full px-3 py-1 text-xs font-semibold",
+              regular
+                ? "bg-white/15 text-white"
+                : "bg-destructive text-white"
+            )}
+          >
+            {memberStatusLabels[me.status] ?? me.status}
+          </span>
+        </div>
+
+        <div className="mt-5">
+          <p className="text-xs uppercase tracking-wide text-white/70">
+            Mensalidades em aberto
+          </p>
+          <p className="text-3xl font-bold tabular-nums">
+            {openInvoices.length === 0 ? "R$ 0,00" : brl(emAberto)}
+          </p>
+          <p className="mt-0.5 text-xs text-white/80">
+            {openInvoices.length === 0
+              ? "Tudo em dia. Nenhuma pendência!"
+              : vencidas > 0
+                ? `${vencidas} vencida(s) de ${openInvoices.length} pendente(s)`
+                : `${openInvoices.length} pendente(s)`}
+          </p>
+        </div>
+      </section>
+
+      {/* Atalhos rápidos */}
+      <div className="grid grid-cols-4 gap-2 sm:max-w-md">
+        <QuickAction
+          href="/dashboard/carteirinha"
+          icon={<CreditCard className="h-5 w-5" />}
+          label="Carteirinha"
+        />
+        <QuickAction
+          href="/dashboard/notificacoes"
+          icon={<Bell className="h-5 w-5" />}
+          label="Avisos"
+        />
+        <QuickAction
+          href="/dashboard/perfil"
+          icon={<CircleUserRound className="h-5 w-5" />}
+          label="Perfil"
+        />
+        <QuickAction
+          href="/dashboard/privacidade"
+          icon={<ShieldCheck className="h-5 w-5" />}
+          label="Privacidade"
+        />
+      </div>
+
+      {/* Tiles de indicadores */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:max-w-2xl">
+        <StatTile
+          icon={<Award className="h-5 w-5" />}
           label="Grau"
           value={degreeLabels[me.degree] ?? me.degree}
           hint={intersticeHint}
         />
-        <Stat
-          label="Situação"
-          value={memberStatusLabels[me.status] ?? me.status}
-          tone={me.status === "IRREGULAR" ? "danger" : undefined}
-        />
-        <Stat
+        <StatTile
+          icon={<CalendarCheck className="h-5 w-5" />}
           label="Frequência no ano"
           value={freq}
           hint={`${myAttendances} presença(s) em ${sessionsYear} sessão(ões)`}
-        />
-        <Stat
-          label="Mensalidades em aberto"
-          value={brl(emAberto)}
-          hint={
-            vencidas > 0
-              ? `${vencidas} vencida(s)`
-              : `${openInvoices.length} pendente(s)`
-          }
-          tone={vencidas > 0 ? "danger" : undefined}
         />
       </div>
 
@@ -228,8 +360,9 @@ async function MemberDashboard({
         </CardHeader>
         <CardContent>
           {openInvoices.length === 0 ? (
-            <p className="text-sm text-green-700">
-              Nenhuma pendência. Tudo em dia!
+            <p className="text-success flex items-center gap-2 text-sm font-medium">
+              <CheckCircle2 className="h-4 w-4" /> Nenhuma pendência. Tudo em
+              dia!
             </p>
           ) : (
             <ul className="space-y-2">
@@ -237,19 +370,26 @@ async function MemberDashboard({
                 <li key={i.id}>
                   <Link
                     href={`/tesouraria/mensalidades/${i.id}`}
-                    className="flex flex-col gap-1 rounded-md border p-3 text-sm transition-colors hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
+                    className="flex items-center gap-3 rounded-xl border border-border bg-background p-3 text-sm transition-colors hover:bg-muted/50"
                   >
-                    <span className="flex min-w-0 flex-wrap items-center gap-2">
-                      <span>
-                        {i.description} — vence em{" "}
-                        {i.dueDate.toLocaleDateString("pt-BR")}
-                      </span>
-                      <StatusBadge
-                        status={invoiceStatusLabels[i.status] ?? i.status}
-                        tone={invoiceStatusTone(i.status)}
-                      />
+                    <span className="bg-gold-soft text-gold-text flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
+                      <Wallet className="h-5 w-5" />
                     </span>
-                    <span className="shrink-0 font-medium">{brl(i.amountCents)}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">
+                        {i.description}
+                      </span>
+                      <span className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        Vence em {i.dueDate.toLocaleDateString("pt-BR")}
+                        <StatusBadge
+                          status={invoiceStatusLabels[i.status] ?? i.status}
+                          tone={invoiceStatusTone(i.status)}
+                        />
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-right font-semibold tabular-nums">
+                      {brl(i.amountCents)}
+                    </span>
                   </Link>
                 </li>
               ))}
@@ -257,24 +397,56 @@ async function MemberDashboard({
           )}
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Privacidade (LGPD)</CardTitle>
-          <CardDescription>
-            Controle quais dados de contato os demais membros podem ver.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/dashboard/privacidade"
-            className="text-sm font-medium underline underline-offset-4"
-          >
-            Abrir Painel de Privacidade →
-          </Link>
-        </CardContent>
-      </Card>
     </>
+  );
+}
+
+function QuickAction({
+  href,
+  icon,
+  label,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="shadow-card flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-card px-1 py-3 text-center transition-colors hover:bg-accent"
+    >
+      <span className="bg-gold-soft text-gold-text flex h-10 w-10 items-center justify-center rounded-full">
+        {icon}
+      </span>
+      <span className="max-w-full truncate text-[11px] font-medium leading-tight">
+        {label}
+      </span>
+    </Link>
+  );
+}
+
+function StatTile({
+  icon,
+  label,
+  value,
+  hint,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  hint?: string;
+}) {
+  return (
+    <div className="shadow-card rounded-2xl border border-border bg-card p-4">
+      <span className="bg-accent text-accent-foreground mb-2 flex h-9 w-9 items-center justify-center rounded-full">
+        {icon}
+      </span>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-lg font-bold leading-tight">{value}</p>
+      {hint && (
+        <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
+      )}
+    </div>
   );
 }
 
@@ -335,17 +507,19 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
     <>
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat
+          icon={Users}
           label="Membros ativos"
           value={String(count("ATIVO"))}
           hint={degreeSummary || undefined}
         />
         <Stat
+          icon={UserX}
           label="Irregulares"
           value={String(irregulares)}
           tone={irregulares > 0 ? "danger" : undefined}
         />
-        <Stat label="Atas pendentes" value={String(pendingAtasCount)} />
-        <Stat label="Pranchas no ano" value={String(pranchasYear)} />
+        <Stat icon={ScrollText} label="Atas pendentes" value={String(pendingAtasCount)} />
+        <Stat icon={FileText} label="Pranchas no ano" value={String(pranchasYear)} />
       </div>
 
       <MemberManagementCard />
@@ -364,7 +538,7 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
                   <li key={a.id}>
                     <Link
                       href={`/secretaria/atas/${a.id}`}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 transition-colors hover:bg-muted/50"
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background p-3 transition-colors hover:bg-muted/50"
                     >
                       <span className="min-w-0">
                         Ata nº {a.number} —{" "}
@@ -386,7 +560,7 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
             )}
             <Link
               href="/secretaria/atas"
-              className="mt-3 block text-sm underline underline-offset-4"
+              className="mt-3 block text-sm font-medium text-primary hover:underline"
             >
               Ver todas as atas →
             </Link>
@@ -407,7 +581,7 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
                 {nextSessions.map((s) => (
                   <li
                     key={s.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background p-3"
                   >
                     <span className="min-w-0">
                       {s.date.toLocaleDateString("pt-BR")} —{" "}
@@ -422,7 +596,7 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
             )}
             <Link
               href="/secretaria/sessoes"
-              className="mt-3 block text-sm underline underline-offset-4"
+              className="mt-3 block text-sm font-medium text-primary hover:underline"
             >
               Gerenciar sessões →
             </Link>
@@ -459,14 +633,16 @@ async function TesoureiroDashboard({ lodgeId }: { lodgeId: string }) {
   return (
     <>
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Stat label="Receitas do mês" value={brl(receitas)} />
-        <Stat label="Despesas do mês" value={brl(despesas)} />
+        <Stat icon={TrendingUp} label="Receitas do mês" value={brl(receitas)} />
+        <Stat icon={TrendingDown} label="Despesas do mês" value={brl(despesas)} />
         <Stat
+          icon={Wallet}
           label="Saldo do mês"
           value={brl(saldo)}
-          tone={saldo < 0 ? "danger" : undefined}
+          tone={saldo < 0 ? "danger" : "success"}
         />
         <Stat
+          icon={AlertTriangle}
           label="Inadimplência"
           value={brl(inadimplencia)}
           hint={`${overdue.length} mensalidade(s) vencida(s)`}
@@ -488,7 +664,7 @@ async function TesoureiroDashboard({ lodgeId }: { lodgeId: string }) {
                   <li key={i.id}>
                     <Link
                       href={`/tesouraria/mensalidades/${i.id}`}
-                      className="flex flex-col gap-1 rounded-md border p-3 transition-colors hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
+                      className="flex flex-col gap-1 rounded-xl border border-border bg-background p-3 transition-colors hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
                     >
                       <span className="flex min-w-0 flex-wrap items-center gap-2">
                         <span>
@@ -512,7 +688,7 @@ async function TesoureiroDashboard({ lodgeId }: { lodgeId: string }) {
             )}
             <Link
               href="/tesouraria/mensalidades"
-              className="mt-3 block text-sm underline underline-offset-4"
+              className="mt-3 block text-sm font-medium text-primary hover:underline"
             >
               Ver mensalidades →
             </Link>
@@ -534,7 +710,7 @@ async function TesoureiroDashboard({ lodgeId }: { lodgeId: string }) {
                 {pendingExpenses.map((e) => (
                   <li
                     key={e.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background p-3"
                   >
                     <span className="min-w-0 break-words">{e.description}</span>
                     <span className="shrink-0 font-medium">{brl(e.amountCents)}</span>
@@ -544,7 +720,7 @@ async function TesoureiroDashboard({ lodgeId }: { lodgeId: string }) {
             )}
             <Link
               href="/tesouraria/despesas"
-              className="mt-3 block text-sm underline underline-offset-4"
+              className="mt-3 block text-sm font-medium text-primary hover:underline"
             >
               Ver despesas →
             </Link>
@@ -605,18 +781,21 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
   return (
     <>
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Stat label="Membros ativos" value={String(ativos)} />
+        <Stat icon={Users} label="Membros ativos" value={String(ativos)} />
         <Stat
+          icon={Wallet}
           label="Saldo do mês"
           value={brl(saldo)}
-          tone={saldo < 0 ? "danger" : undefined}
+          tone={saldo < 0 ? "danger" : "success"}
         />
         <Stat
+          icon={FileSignature}
           label="Atas p/ assinar"
           value={String(atasToSign.length)}
           tone={atasToSign.length > 0 ? "danger" : undefined}
         />
         <Stat
+          icon={Receipt}
           label="Despesas p/ aprovar"
           value={String(expensesToApprove.length)}
           tone={expensesToApprove.length > 0 ? "danger" : undefined}
@@ -624,18 +803,19 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
       </div>
 
       {comunicacoesVencidas.length > 0 && (
-        <Card className="border-red-300 bg-red-50">
+        <Card className="border-destructive/30 bg-destructive/5">
           <CardHeader>
-            <CardTitle className="text-red-800">
+            <CardTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
               Comunicações de cerimônia em atraso
             </CardTitle>
-            <CardDescription className="text-red-700">
+            <CardDescription className="text-destructive/80">
               O prazo de 15 dias do portal &quot;Sua Sessão no GOB-SP&quot; foi
               ultrapassado.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-1 text-sm text-red-800">
+            <ul className="space-y-1 text-sm text-destructive">
               {comunicacoesVencidas.map((p) => (
                 <li key={p.id}>
                   {p.user.name} — cerimônia em{" "}
@@ -645,7 +825,7 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
             </ul>
             <Link
               href="/secretaria/progressoes"
-              className="mt-3 block text-sm font-medium text-red-800 underline underline-offset-4"
+              className="mt-3 block text-sm font-medium text-destructive hover:underline"
             >
               Cobrar a Secretaria no Kanban de Progressões →
             </Link>
@@ -671,7 +851,7 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
                 {atasToSign.map((a) => (
                   <li
                     key={a.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background p-3"
                   >
                     <Link
                       href={`/secretaria/atas/${a.id}`}
@@ -692,7 +872,7 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
             )}
             <Link
               href="/secretaria/atas"
-              className="mt-3 block text-sm underline underline-offset-4"
+              className="mt-3 block text-sm font-medium text-primary hover:underline"
             >
               Ir para as atas →
             </Link>
@@ -714,7 +894,7 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
                 {placetsToSign.map((p) => (
                   <li
                     key={p.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background p-3"
                   >
                     <span className="min-w-0">
                       {p.user.name} (CIM {p.user.cim}) — solicitado em{" "}
@@ -732,7 +912,7 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
             )}
             <Link
               href="/secretaria/quitte-placets"
-              className="mt-3 block text-sm underline underline-offset-4"
+              className="mt-3 block text-sm font-medium text-primary hover:underline"
             >
               Ir para os Quitte Placets →
             </Link>
@@ -751,7 +931,7 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
                 {expensesToApprove.map((e) => (
                   <li
                     key={e.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background p-3"
                   >
                     <span className="min-w-0 break-words">{e.description}</span>
                     <span className="shrink-0 font-medium">{brl(e.amountCents)}</span>
@@ -761,7 +941,7 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
             )}
             <Link
               href="/tesouraria/despesas"
-              className="mt-3 block text-sm underline underline-offset-4"
+              className="mt-3 block text-sm font-medium text-primary hover:underline"
             >
               Ir para as despesas →
             </Link>
@@ -807,19 +987,18 @@ async function ConselhoDashboard({ lodgeId }: { lodgeId: string }) {
 
   return (
     <>
-      <p className="text-sm text-muted-foreground">
-        Acesso de fiscalização — somente leitura em Secretaria e Tesouraria.
-      </p>
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Stat label="Receitas do mês" value={brl(receitas)} />
-        <Stat label="Despesas do mês" value={brl(despesas)} />
+        <Stat icon={TrendingUp} label="Receitas do mês" value={brl(receitas)} />
+        <Stat icon={TrendingDown} label="Despesas do mês" value={brl(despesas)} />
         <Stat
+          icon={Wallet}
           label="Saldo do mês"
           value={brl(saldo)}
           hint={`Acumulado no ano: ${brl(recYtd - despYtd)}`}
-          tone={saldo < 0 ? "danger" : undefined}
+          tone={saldo < 0 ? "danger" : "success"}
         />
         <Stat
+          icon={AlertTriangle}
           label="Mensalidades vencidas"
           value={String(overdueCount)}
           tone={overdueCount > 0 ? "danger" : undefined}
@@ -841,7 +1020,7 @@ async function ConselhoDashboard({ lodgeId }: { lodgeId: string }) {
           ) : (
             <ul className="space-y-2 text-sm">
               {recentExpenses.map((e) => (
-                <li key={e.id} className="rounded-md border p-3">
+                <li key={e.id} className="rounded-xl border border-border bg-background p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="min-w-0 break-words">{e.description}</span>
                     <span className="shrink-0 font-medium">{brl(e.amountCents)}</span>
@@ -860,7 +1039,7 @@ async function ConselhoDashboard({ lodgeId }: { lodgeId: string }) {
           )}
           <Link
             href="/tesouraria/balancete"
-            className="mt-3 block text-sm underline underline-offset-4"
+            className="mt-3 block text-sm font-medium text-primary hover:underline"
           >
             Ver balancete →
           </Link>
@@ -876,12 +1055,26 @@ export default async function DashboardPage() {
   const user = await requireUser();
   if (user.role === "SUPER_ADMIN") redirect("/admin");
 
+  const isGestor = ["SECRETARIO", "TESOUREIRO", "VENERAVEL_MESTRE", "CONSELHO_CONTAS"].includes(user.role);
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="flex items-center gap-1 text-2xl font-bold">Dashboard<InfoDica titulo="Dashboard" texto={AJUDA.dashboard} /></h1>
-        <Badge variant="secondary">{roleLabels[user.role] ?? user.role}</Badge>
-      </div>
+      {/* O dashboard do Obreiro abre com o card-herói próprio; os cargos de
+          gestão recebem a faixa-herói de saudação com o cargo em destaque */}
+      {isGestor && (
+        <GestorHero
+          userName={user.name}
+          roleLabel={roleLabels[user.role] ?? user.role}
+          subtitle={
+            {
+              SECRETARIO: "Resumo da Secretaria",
+              TESOUREIRO: "Resumo da Tesouraria",
+              VENERAVEL_MESTRE: "Resumo da Loja e pendências de assinatura",
+              CONSELHO_CONTAS: "Fiscalização — somente leitura",
+            }[user.role] ?? "Resumo da Loja"
+          }
+        />
+      )}
 
       {user.role === "SECRETARIO" && (
         <SecretarioDashboard lodgeId={user.lodgeId} />
@@ -896,8 +1089,13 @@ export default async function DashboardPage() {
         <ConselhoDashboard lodgeId={user.lodgeId} />
       )}
       {/* Cargos sem função administrativa (Diáconos, Orador, Guardas, Dir. de Cerimônias...) veem o dashboard de Obreiro */}
-      {!["SECRETARIO", "TESOUREIRO", "VENERAVEL_MESTRE", "CONSELHO_CONTAS"].includes(user.role) && (
-        <MemberDashboard userId={user.id} lodgeId={user.lodgeId} />
+      {!isGestor && (
+        <MemberDashboard
+          userId={user.id}
+          lodgeId={user.lodgeId}
+          userName={user.name}
+          roleLabel={roleLabels[user.role] ?? user.role}
+        />
       )}
     </div>
   );

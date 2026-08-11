@@ -369,7 +369,7 @@ export default async function AtaPage({
                 href={`https://drive.google.com/file/d/${ata.driveFileId}/view`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center text-sm underline underline-offset-2"
+                className="inline-flex items-center text-sm font-medium text-primary hover:underline"
               >
                 Abrir PDF assinado no Drive
               </a>
@@ -434,7 +434,7 @@ export default async function AtaPage({
                 className={
                   govbr === "ok"
                     ? "rounded-md bg-emerald-50 p-2 text-emerald-800"
-                    : "rounded-md bg-amber-50 p-2 text-amber-800"
+                    : "rounded-md bg-warning-soft p-2 text-warning"
                 }
               >
                 {govbrMensagens[govbr] ?? govbrMensagens.falhou}
@@ -466,7 +466,7 @@ export default async function AtaPage({
               {ata.govbrMasterAt || ata.govbrSecAt || ata.govbrUploadedAt ? (
                 <a
                   href={`/api/govbr/pdf?ata=${ata.id}`}
-                  className="inline-flex items-center text-sm underline underline-offset-2"
+                  className="inline-flex items-center text-sm font-medium text-primary hover:underline"
                 >
                   Baixar PDF assinado (gov.br)
                 </a>
@@ -476,7 +476,7 @@ export default async function AtaPage({
                   href={`https://drive.google.com/file/d/${ata.driveFileId}/view`}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center text-sm underline underline-offset-2"
+                  className="inline-flex items-center text-sm font-medium text-primary hover:underline"
                 >
                   Abrir PDF assinado no Drive
                 </a>
@@ -496,7 +496,7 @@ export default async function AtaPage({
 
             {/* Fluxo externo: assinar no assinador.iti.br e subir o PDF */}
             {podeSubirGovbr && (
-              <div className="space-y-3 rounded-md border p-3">
+              <div className="space-y-3 rounded-xl border border-border bg-background p-3">
                 <p className="font-medium">
                   {govbrEtapaVm
                     ? "Sua vez de assinar (Venerável Mestre)"
@@ -506,7 +506,7 @@ export default async function AtaPage({
                   <li>
                     <a
                       href={`/api/atas/pdf?ata=${ata.id}`}
-                      className="underline underline-offset-2"
+                      className="font-medium text-primary hover:underline"
                     >
                       {govbrEtapaVm
                         ? "Baixe o PDF final da ata"
@@ -520,7 +520,7 @@ export default async function AtaPage({
                       href="https://assinador.iti.br"
                       target="_blank"
                       rel="noreferrer"
-                      className="underline underline-offset-2"
+                      className="font-medium text-primary hover:underline"
                     >
                       assinador.iti.br
                     </a>{" "}

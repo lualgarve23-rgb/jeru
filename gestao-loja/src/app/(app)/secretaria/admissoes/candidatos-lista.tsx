@@ -152,7 +152,7 @@ export function CandidatosLista({
                         >
                           <a
                             href={`/secretaria/admissoes/anexo/${a.id}`}
-                            className="min-w-0 break-all underline"
+                            className="min-w-0 break-all text-primary underline"
                           >
                             {a.nome}
                           </a>

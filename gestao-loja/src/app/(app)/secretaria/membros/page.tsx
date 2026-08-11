@@ -62,6 +62,7 @@ export default async function MembrosPage() {
           </div>
         )}
       </div>
+      <div className="shadow-card overflow-hidden rounded-2xl border border-border bg-card">
       <Table>
         <TableHeader>
           <TableRow>
@@ -131,7 +132,7 @@ export default async function MembrosPage() {
                 <TableCell>
                   {isSecretaria && (
                     <Link
-                      className="text-sm underline"
+                      className="text-sm font-medium text-primary hover:underline"
                       href={`/secretaria/membros/${m.id}`}
                     >
                       Gerenciar
@@ -143,6 +144,7 @@ export default async function MembrosPage() {
           })}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 }

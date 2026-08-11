@@ -83,9 +83,9 @@ function Card({
           : undefined,
         opacity: isDragging ? 0.4 : 1,
       }}
-      className={`select-none touch-manipulation space-y-2 rounded-lg border bg-card p-3 text-sm shadow-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
+      className={`select-none touch-manipulation shadow-card space-y-2 rounded-xl border border-border bg-card p-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
         readOnly ? "" : "cursor-grab active:cursor-grabbing"
-      } ${restantes !== null && restantes < 0 ? "border-red-500 bg-red-50" : ""}`}
+      } ${restantes !== null && restantes < 0 ? "border-destructive bg-destructive/5" : ""}`}
     >
       <p className="font-medium">{processo.nome}</p>
       <p className="text-xs text-muted-foreground">
@@ -93,7 +93,7 @@ function Card({
       </p>
 
       {intersticePendente && aptoEm && (
-        <p className="text-xs text-amber-700">
+        <p className="text-xs text-warning">
           🔒 Apto em {aptoEm.toLocaleDateString("pt-BR")}
         </p>
       )}
@@ -101,7 +101,7 @@ function Card({
         <p
           className={`text-xs ${
             processo.freqPct !== null && processo.freqPct < minFreq
-              ? "font-medium text-amber-700"
+              ? "font-medium text-warning"
               : "text-muted-foreground"
           }`}
         >
@@ -114,9 +114,9 @@ function Card({
         <p
           className={`text-xs font-medium ${
             restantes < 0
-              ? "text-red-700"
+              ? "text-destructive"
               : restantes <= 3
-                ? "text-amber-700"
+                ? "text-warning"
                 : "text-muted-foreground"
           }`}
         >
@@ -271,7 +271,7 @@ export function ProgressaoKanban({
         </div>
         <DragOverlay>
           {active ? (
-            <div className="w-64 rounded-lg border bg-card p-3 text-sm shadow-lg">
+            <div className="shadow-raised w-64 rounded-xl border border-border bg-card p-3 text-sm">
               {active.nome}
             </div>
           ) : null}

@@ -47,7 +47,7 @@ function DraggableCard<S extends string, T extends Item<S>>({
           : undefined,
         opacity: isDragging ? 0.4 : 1,
       }}
-      className={`select-none touch-manipulation space-y-2 rounded-lg border bg-card p-3 text-sm shadow-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
+      className={`select-none touch-manipulation shadow-card space-y-2 rounded-xl border border-border bg-card p-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
         readOnly ? "" : "cursor-grab active:cursor-grabbing"
       }`}
     >

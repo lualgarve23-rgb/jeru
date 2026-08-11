@@ -287,14 +287,14 @@ export default async function MensalidadesPage() {
               </TableCell>
               <TableCell className="space-x-3">
                 <Link
-                  className="text-sm underline"
+                  className="text-sm font-medium text-primary hover:underline"
                   href={`/tesouraria/mensalidades/${i.id}`}
                 >
                   Cobrança Pix
                 </Link>
                 {i.gatewayInvoiceUrl ? (
                   <a
-                    className="text-sm underline"
+                    className="text-sm font-medium text-primary hover:underline"
                     href={i.gatewayInvoiceUrl}
                     target="_blank"
                     rel="noreferrer"

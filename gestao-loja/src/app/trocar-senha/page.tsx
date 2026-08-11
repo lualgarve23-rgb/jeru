@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/session";
 import { ActionForm } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AuthShell } from "@/components/public-shell";
 import { forcePasswordChange } from "./actions";
 
 export const metadata = { title: "Trocar senha" };
@@ -18,60 +19,53 @@ export default async function TrocarSenhaPage() {
   if (!dbUser.mustChangePassword) redirect("/dashboard");
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#1c3a5e] p-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#c9973b]">
-            <KeyRound className="h-8 w-8 text-[#c9973b]" />
-          </span>
-          <h1 className="text-2xl font-bold text-white">Defina sua senha</h1>
-          <p className="mt-1 text-sm text-slate-300">
-            Olá, {user.name}. No primeiro acesso é obrigatório trocar a senha
-            provisória antes de entrar no painel.
+    <AuthShell
+      icon={KeyRound}
+      title="Defina sua senha"
+      subtitle={`Olá, ${user.name}. No primeiro acesso é obrigatório trocar a senha provisória antes de entrar no painel.`}
+    >
+      <ActionForm
+        action={forcePasswordChange}
+        submitLabel="Salvar e entrar"
+        className="space-y-4"
+      >
+        <div className="space-y-1">
+          <Label htmlFor="current">Senha provisória (seu CPF)</Label>
+          <Input
+            id="current"
+            name="current"
+            type="password"
+            autoComplete="current-password"
+            required
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="next">Nova senha</Label>
+          <Input
+            id="next"
+            name="next"
+            type="password"
+            autoComplete="new-password"
+            minLength={8}
+            required
+          />
+          <p className="text-xs text-muted-foreground">
+            Mínimo de 8 caracteres, com ao menos uma letra e um número. Não use
+            o seu CPF.
           </p>
         </div>
-
-        <div className="rounded-2xl border bg-white p-6 shadow-2xl">
-          <ActionForm action={forcePasswordChange} submitLabel="Salvar e entrar" className="space-y-4">
-            <div className="space-y-1">
-              <Label htmlFor="current">Senha provisória (seu CPF)</Label>
-              <Input
-                id="current"
-                name="current"
-                type="password"
-                autoComplete="current-password"
-                required
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="next">Nova senha</Label>
-              <Input
-                id="next"
-                name="next"
-                type="password"
-                autoComplete="new-password"
-                minLength={8}
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                Mínimo de 8 caracteres, com ao menos uma letra e um número. Não
-                use o seu CPF.
-              </p>
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="confirm">Confirmar nova senha</Label>
-              <Input
-                id="confirm"
-                name="confirm"
-                type="password"
-                autoComplete="new-password"
-                minLength={8}
-                required
-              />
-            </div>
-          </ActionForm>
+        <div className="space-y-1">
+          <Label htmlFor="confirm">Confirmar nova senha</Label>
+          <Input
+            id="confirm"
+            name="confirm"
+            type="password"
+            autoComplete="new-password"
+            minLength={8}
+            required
+          />
         </div>
-      </div>
-    </main>
+      </ActionForm>
+    </AuthShell>
   );
 }

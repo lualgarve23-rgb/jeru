@@ -89,14 +89,14 @@ export default async function PranchasPage() {
                       {disponivel ? (
                         <Download className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                       ) : (
-                        <FileWarning className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                        <FileWarning className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
                       )}
                       <span>
                         {disponivel ? (
                           <a
                             href={`/formularios-gob/${f.arquivo}`}
                             download
-                            className="font-medium underline underline-offset-2"
+                            className="font-medium text-primary hover:underline"
                           >
                             {f.titulo}
                           </a>
@@ -220,7 +220,7 @@ export default async function PranchasPage() {
                       href={`/api/pranchas/anexo?prancha=${p.id}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="underline"
+                      className="font-medium text-primary hover:underline"
                     >
                       Abrir no aplicativo
                     </a>
@@ -229,7 +229,7 @@ export default async function PranchasPage() {
                         href={`https://drive.google.com/file/d/${p.driveFileId}/view`}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-muted-foreground underline"
+                        className="text-muted-foreground underline hover:text-primary"
                       >
                         Abrir no Drive
                       </a>
@@ -252,7 +252,7 @@ export default async function PranchasPage() {
                         1.{" "}
                         <a
                           href={`/api/pranchas/anexo?prancha=${p.id}`}
-                          className="underline"
+                          className="font-medium text-primary hover:underline"
                         >
                           Baixe o anexo
                         </a>{" "}
@@ -261,7 +261,7 @@ export default async function PranchasPage() {
                           href="https://assinador.iti.br"
                           target="_blank"
                           rel="noreferrer"
-                          className="underline"
+                          className="font-medium text-primary hover:underline"
                         >
                           assinador.iti.br
                         </a>{" "}
@@ -282,7 +282,7 @@ export default async function PranchasPage() {
                       </ActionForm>
                     </div>
                   ) : (
-                    <span className="text-sm text-amber-700">⏳ pendente</span>
+                    <span className="text-sm text-warning">⏳ pendente</span>
                   )
                 ) : (
                   <span className="text-sm text-muted-foreground">
@@ -306,7 +306,7 @@ export default async function PranchasPage() {
       </Table>
       <p className="text-xs text-muted-foreground">
         Envios são feitos pelo Gmail da Loja para {GUARDA_SELOS_EMAIL}.{" "}
-        <Link href="/secretaria/emails" className="text-primary underline">
+        <Link href="/secretaria/emails" className="font-medium text-primary hover:underline">
           Abrir a caixa de e-mails da Loja
         </Link>{" "}
         para conferir respostas.

@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { PublicHero } from "@/components/public-shell";
 
 // Página pública entregue ao candidato (link com token opaco): baixar os
 // formulários de indicação já preenchidos com os dados da Loja e devolver
@@ -46,23 +47,15 @@ export default async function CandidatoPage({
 
   return (
     <main className="mx-auto max-w-2xl space-y-6 p-4 py-8">
-      <div className="flex items-center gap-3">
-        {processo.lodge.logoUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={processo.lodge.logoUrl}
-            alt={processo.lodge.name}
-            className="h-14 w-14 rounded-full border bg-white object-cover"
-          />
-        )}
-        <div>
-          <h1 className="text-xl font-bold">{processo.lodge.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            Loja nº {processo.lodge.number}
-            {processo.lodge.oriente ? ` · Or∴ ${processo.lodge.oriente}` : ""}
-          </p>
-        </div>
-      </div>
+      <PublicHero
+        logoUrl={processo.lodge.logoUrl}
+        logoAlt={processo.lodge.name}
+        eyebrow="Processo de admissão"
+        title={processo.lodge.name}
+        subtitle={`Loja nº ${processo.lodge.number}${
+          processo.lodge.oriente ? ` · Or∴ ${processo.lodge.oriente}` : ""
+        }`}
+      />
 
       <Card>
         <CardHeader>

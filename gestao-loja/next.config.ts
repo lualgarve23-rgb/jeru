@@ -34,6 +34,12 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "20mb",
     },
   },
+  async redirects() {
+    return [
+      // hub dos tours de demonstração (estático em public/tour)
+      { source: "/tour", destination: "/tour/index.html", permanent: false },
+    ];
+  },
   async headers() {
     return [
       {

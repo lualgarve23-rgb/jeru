@@ -53,8 +53,8 @@ export default async function CarteirinhaPage() {
       </div>
 
       {/* Carteirinha — proporção de cartão, imprimível */}
-      <div className="mx-auto w-full max-w-md overflow-hidden rounded-2xl border bg-white shadow-md print:mx-0 print:max-w-sm print:shadow-none">
-        <div className="flex items-center gap-3 bg-primary px-5 py-3 text-primary-foreground">
+      <div className="shadow-raised mx-auto w-full max-w-md overflow-hidden rounded-2xl border bg-white print:mx-0 print:max-w-sm print:shadow-none">
+        <div className="bg-hero-gradient flex items-center gap-3 px-5 py-4 text-white">
           {me.lodge.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -122,8 +122,8 @@ export default async function CarteirinhaPage() {
               className={cn(
                 "inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold",
                 regular
-                  ? "bg-green-100 text-green-800"
-                  : "bg-amber-100 text-amber-800"
+                  ? "bg-success-soft text-success"
+                  : "bg-warning-soft text-warning"
               )}
             >
               {memberStatusLabels[me.status] ?? me.status}

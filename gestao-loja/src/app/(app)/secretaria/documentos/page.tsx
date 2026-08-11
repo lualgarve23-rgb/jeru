@@ -102,7 +102,7 @@ export default async function DocumentosPage() {
               <TableCell>{d.createdAt.toLocaleDateString("pt-BR")}</TableCell>
               <TableCell>
                 <a
-                  className="text-sm underline"
+                  className="text-sm font-medium text-primary hover:underline"
                   href={`https://drive.google.com/file/d/${d.driveFileId}/view`}
                   target="_blank"
                 >

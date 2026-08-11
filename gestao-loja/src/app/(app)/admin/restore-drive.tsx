@@ -40,7 +40,7 @@ export function RestoreFromDrive() {
         >
           {carregando ? "Buscando no Drive..." : "Escolher backup do Google Drive"}
         </Button>
-        {erro && <p className="text-sm text-red-600">{erro}</p>}
+        {erro && <p className="text-sm text-destructive">{erro}</p>}
       </div>
     );
   }
@@ -75,7 +75,7 @@ export function RestoreFromDrive() {
             type="button"
             onClick={carregar}
             disabled={carregando}
-            className="text-xs text-primary underline"
+            className="text-xs font-medium text-primary hover:underline"
           >
             {carregando ? "Atualizando..." : "Atualizar lista"}
           </button>

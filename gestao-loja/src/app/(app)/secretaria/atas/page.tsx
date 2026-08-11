@@ -41,6 +41,7 @@ export default async function AtasPage() {
           ? "Para lavrar uma nova ata, abra a sessão correspondente em “Sessões e Presenças”."
           : "Atas em validação ou já liberadas. Rascunhos são restritos à Secretaria."}
       </p>
+      <div className="shadow-card overflow-hidden rounded-2xl border border-border bg-card">
       <Table>
         <TableHeader>
           <TableRow>
@@ -64,7 +65,7 @@ export default async function AtasPage() {
                 </Badge>
               </TableCell>
               <TableCell>
-                <Link className="text-sm underline" href={`/secretaria/atas/${a.id}`}>
+                <Link className="text-sm font-medium text-primary hover:underline" href={`/secretaria/atas/${a.id}`}>
                   Abrir
                 </Link>
               </TableCell>
@@ -72,6 +73,7 @@ export default async function AtasPage() {
           ))}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 }

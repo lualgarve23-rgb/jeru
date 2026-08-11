@@ -134,7 +134,7 @@ export default async function AdminPage() {
                                 href={l.licencaInvoiceUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="block text-xs text-primary underline"
+                                className="block text-xs font-medium text-primary hover:underline"
                               >
                                 Link de pagamento
                               </a>
@@ -232,7 +232,7 @@ export default async function AdminPage() {
                 <Label htmlFor="vmEmail">E-mail</Label>
                 <Input id="vmEmail" name="vmEmail" type="email" required />
               </div>
-              <div className="space-y-2 rounded-md border p-3">
+              <div className="space-y-2 rounded-xl border border-border bg-background p-3">
                 <label className="flex items-center gap-2 text-sm font-medium">
                   <input type="checkbox" name="cobrarLicenca" />
                   Cobrar licença do sistema

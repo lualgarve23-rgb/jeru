@@ -52,7 +52,7 @@ export function PreencherFormulario({
       <DialogTrigger asChild>
         <button
           type="button"
-          className="inline-flex items-center gap-1 text-xs text-primary underline underline-offset-2"
+          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
           title="Preencher automaticamente com os dados da Loja"
         >
           <Wand2 className="h-3 w-3" /> preencher

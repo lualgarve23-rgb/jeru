@@ -40,11 +40,11 @@ export function ImportPlanilhaForm() {
           Somente conferir (simulação — não grava nada)
         </label>
         {state && "error" in state && state.error && (
-          <p className="text-sm text-red-600" role="alert">
+          <p className="text-sm text-destructive" role="alert">
             {state.error}
           </p>
         )}
-        {resultado && <p className="text-sm text-green-700">{resultado.ok}</p>}
+        {resultado && <p className="text-sm text-success">{resultado.ok}</p>}
         <Button type="submit" disabled={pending}>
           {pending ? "Importando..." : "Importar planilha"}
         </Button>

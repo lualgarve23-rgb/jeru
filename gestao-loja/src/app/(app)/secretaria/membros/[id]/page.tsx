@@ -330,7 +330,7 @@ export default async function MembroPage({
                 </select>
                 <p className="text-xs text-muted-foreground">
                   Cargos do rito não alteram o nível de acesso ao sistema.{" "}
-                  <a href="/secretaria/cargos" className="underline">
+                  <a href="/secretaria/cargos" className="font-medium text-primary hover:underline">
                     Gerenciar cargos do rito
                   </a>
                 </p>
@@ -419,7 +419,7 @@ export default async function MembroPage({
                         href={`https://drive.google.com/file/d/${v.certificadoDriveId}/view`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="underline underline-offset-2"
+                        className="font-medium text-primary hover:underline"
                       >
                         certificado
                       </a>

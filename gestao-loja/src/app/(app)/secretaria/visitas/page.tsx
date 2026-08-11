@@ -185,7 +185,7 @@ export default async function VisitasPage() {
                         href={`https://drive.google.com/file/d/${v.certificadoDriveId}/view`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm underline underline-offset-2"
+                        className="text-sm font-medium text-primary hover:underline"
                       >
                         Ver certificado
                       </a>

@@ -5,13 +5,8 @@ import { qrCheckinMember, qrCheckinVisitor } from "@/app/(app)/secretaria/action
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { PublicHero } from "@/components/public-shell";
 
 export default async function CheckinPage({
   params,
@@ -30,16 +25,16 @@ export default async function CheckinPage({
   const visitorAction = qrCheckinVisitor.bind(null, token);
 
   return (
-    <main className="mx-auto max-w-md space-y-6 p-6">
+    <main className="mx-auto max-w-md space-y-4 p-4 py-6">
+      <PublicHero
+        logoUrl={session.lodge.logoUrl}
+        logoAlt={`Logo da Loja ${session.lodge.name}`}
+        eyebrow="Check-in de presença"
+        title={session.lodge.name}
+        subtitle={`Sessão ${session.type} de ${session.date.toLocaleDateString("pt-BR")}`}
+      />
       <Card>
-        <CardHeader>
-          <CardTitle>{session.lodge.name}</CardTitle>
-          <CardDescription>
-            Check-in — Sessão {session.type} de{" "}
-            {session.date.toLocaleDateString("pt-BR")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 pt-6">
           {authSession?.user ? (
             <div className="space-y-2">
               <p className="text-sm">
@@ -48,7 +43,7 @@ export default async function CheckinPage({
               <ActionButton action={memberAction} label="Confirmar minha presença" />
             </div>
           ) : (
-            <p className="text-sm text-neutral-500">
+            <p className="text-sm text-muted-foreground">
               É membro desta Loja? Faça login para registrar sua presença, ou
               preencha abaixo como visitante.
             </p>

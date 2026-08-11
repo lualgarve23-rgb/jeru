@@ -135,7 +135,7 @@ export default async function BalancetePage({
           <CardHeader>
             <CardTitle className="text-sm">Receitas</CardTitle>
           </CardHeader>
-          <CardContent className="text-xl font-bold text-green-700">
+          <CardContent className="text-xl font-bold text-success">
             {brl(receitas)}
           </CardContent>
         </Card>
@@ -143,7 +143,7 @@ export default async function BalancetePage({
           <CardHeader>
             <CardTitle className="text-sm">Despesas</CardTitle>
           </CardHeader>
-          <CardContent className="text-xl font-bold text-red-700">
+          <CardContent className="text-xl font-bold text-destructive">
             {brl(despesas)}
           </CardContent>
         </Card>
@@ -271,7 +271,7 @@ export default async function BalancetePage({
                     </Badge>
                   </TableCell>
                   <TableCell
-                    className={`text-right ${c.tipo === "RECEITA" ? "text-green-700" : "text-red-700"}`}
+                    className={`text-right ${c.tipo === "RECEITA" ? "text-success" : "text-destructive"}`}
                   >
                     {c.tipo === "RECEITA" ? "+" : "−"} {brl(c.total)}
                   </TableCell>
@@ -314,7 +314,7 @@ export default async function BalancetePage({
               <TableCell>{t.description}</TableCell>
               <TableCell>{t.category ?? "—"}</TableCell>
               <TableCell
-                className={`text-right ${t.type === "RECEITA" ? "text-green-700" : "text-red-700"}`}
+                className={`text-right ${t.type === "RECEITA" ? "text-success" : "text-destructive"}`}
               >
                 {t.type === "RECEITA" ? "+" : "−"} {brl(t.amountCents)}
               </TableCell>

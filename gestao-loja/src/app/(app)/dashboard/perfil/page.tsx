@@ -39,16 +39,40 @@ export default async function PerfilPage() {
     },
   });
 
+  const initials = me.name
+    .split(" ")
+    .filter(Boolean)
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
   return (
     <div className="max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Meu perfil</h1>
-        <p className="text-sm text-muted-foreground">
-          {me.name} · CIM {me.cim} ·{" "}
-          {degreeLabels[me.degree] ?? me.degree} ·{" "}
-          {me.cargoRito ?? roleLabels[me.currentRole] ?? me.currentRole}
-        </p>
-      </div>
+      <h1 className="sr-only">Meu perfil</h1>
+      <section className="bg-hero-gradient shadow-raised flex items-center gap-4 rounded-2xl p-5 text-white">
+        {me.photoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={mediaSrc(me.photoUrl)!}
+            alt={`Foto de ${me.name}`}
+            className="h-16 w-16 shrink-0 rounded-full border-2 border-white/40 object-cover"
+          />
+        ) : (
+          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white/15 text-xl font-bold">
+            {initials}
+          </span>
+        )}
+        <div className="min-w-0">
+          <p className="truncate text-lg font-bold leading-tight">{me.name}</p>
+          <p className="mt-0.5 truncate text-xs text-white/80">
+            CIM {me.cim} · {degreeLabels[me.degree] ?? me.degree}
+          </p>
+          <p className="truncate text-xs text-white/80">
+            {me.cargoRito ?? roleLabels[me.currentRole] ?? me.currentRole}
+          </p>
+        </div>
+      </section>
 
       <Card>
         <CardHeader>

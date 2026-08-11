@@ -58,7 +58,7 @@ export default async function ImportarMembrosPage() {
             {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
             <a
               href="/secretaria/membros/importar/modelo"
-              className="font-medium underline underline-offset-2"
+              className="font-medium text-primary hover:underline"
             >
               Baixe o modelo
             </a>

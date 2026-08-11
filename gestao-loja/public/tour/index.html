@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tours · Gestão NoPrumo</title>
+<style>
+:root{--navy:#1c3a5e;--navy2:#2a5286;--gold:#b98a2e;--gold-l:#f0c86e}
+*{box-sizing:border-box;margin:0}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#10203a;color:#fff;min-height:100vh}
+header{padding:40px 20px 24px;text-align:center;background:linear-gradient(135deg,var(--navy),var(--navy2))}
+header h1{font-size:1.6rem}
+header p{opacity:.8;font-size:.9rem;margin-top:6px}
+main{max-width:880px;margin:0 auto;padding:24px 20px 48px;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.card{background:rgb(255 255 255/.06);border:1px solid rgb(255 255 255/.12);border-radius:16px;padding:20px}
+.card h2{font-size:1.05rem;margin-bottom:4px}
+.card p{font-size:.85rem;opacity:.75;line-height:1.45;min-height:3.6em}
+.card .links{display:flex;gap:10px;margin-top:12px}
+.card a{flex:1;text-align:center;text-decoration:none;border-radius:999px;padding:9px 0;font-size:.85rem;font-weight:600}
+.card a.tour{background:var(--gold);color:#10203a}
+.card a.mp4{border:1px solid rgb(255 255 255/.3);color:#fff}
+.destaque{grid-column:1/-1;background:linear-gradient(135deg,var(--navy),var(--navy2));border-color:var(--gold)}
+footer{text-align:center;padding:0 0 30px;font-size:.75rem;opacity:.5}
+</style></head><body>
+<header><h1>Tours do Gestão NoPrumo</h1>
+<p>Visitas guiadas com narração e legendas. Escolha o tour interativo ou o vídeo.</p></header>
+<main>
+  <div class="card destaque"><h2>✨ Conheça o Gestão NoPrumo</h2>
+    <p>Apresentação geral do sistema: o que ele faz pela sua loja, da Secretaria à Tesouraria.</p>
+    <div class="links"><a class="tour" href="comercial.html">Tour interativo</a><a class="mp4" href="video/comercial.mp4">Vídeo</a></div></div>
+  <div class="card"><h2>Obreiro do Quadro</h2>
+    <p>Painel pessoal, carteirinha digital, avisos, perfil, privacidade e biblioteca.</p>
+    <div class="links"><a class="tour" href="obreiro.html">Tour interativo</a><a class="mp4" href="video/obreiro.mp4">Vídeo</a></div></div>
+  <div class="card"><h2>Secretário</h2>
+    <p>Quadro de obreiros, sessões, atas, pranchas, progressões, admissões e documentos.</p>
+    <div class="links"><a class="tour" href="secretario.html">Tour interativo</a><a class="mp4" href="video/secretario.mp4">Vídeo</a></div></div>
+  <div class="card"><h2>Tesoureiro</h2>
+    <p>Mensalidades, despesas com aprovação dupla e balancete para prestação de contas.</p>
+    <div class="links"><a class="tour" href="tesoureiro.html">Tour interativo</a><a class="mp4" href="video/tesoureiro.mp4">Vídeo</a></div></div>
+  <div class="card"><h2>Venerável Mestre</h2>
+    <p>Pendências de assinatura, aprovação de despesas, Quitte Placets e progressões.</p>
+    <div class="links"><a class="tour" href="veneravel.html">Tour interativo</a><a class="mp4" href="video/veneravel.mp4">Vídeo</a></div></div>
+  <div class="card"><h2>Conselho de Contas</h2>
+    <p>Fiscalização com acesso somente leitura: balancete, despesas e mensalidades.</p>
+    <div class="links"><a class="tour" href="conselho.html">Tour interativo</a><a class="mp4" href="video/conselho.mp4">Vídeo</a></div></div>
+</main>
+<footer>Gestão NoPrumo · noprumo.ia.br</footer>
+</body></html>

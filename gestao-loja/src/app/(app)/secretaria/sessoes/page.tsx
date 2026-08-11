@@ -134,7 +134,7 @@ export default async function SessoesPage() {
                   : "—"}
               </TableCell>
               <TableCell>
-                <Link className="text-sm underline" href={`/secretaria/sessoes/${s.id}`}>
+                <Link className="text-sm font-medium text-primary hover:underline" href={`/secretaria/sessoes/${s.id}`}>
                   Abrir
                 </Link>
               </TableCell>

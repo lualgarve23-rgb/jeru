@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { PublicHero } from "@/components/public-shell";
 
 // Verificação pública da carteirinha digital (QR Code). Mostra o mínimo
 // necessário para conferir a regularidade: nome, CIM, Loja, grau e situação.
@@ -50,31 +51,20 @@ export default async function VerificarCarteirinhaPage({
   const regular = member.status === "ATIVO";
 
   return (
-    <main className="mx-auto max-w-md space-y-4 p-6">
+    <main className="mx-auto max-w-md space-y-4 p-4 py-6">
+      <PublicHero
+        logoUrl={member.lodge.logoUrl}
+        logoAlt={`Logo da Loja ${member.lodge.name}`}
+        eyebrow="Verificação de carteirinha"
+        title={`${member.lodge.name} nº ${member.lodge.number}`}
+        subtitle={
+          [member.lodge.potencia, member.lodge.oriente]
+            .filter(Boolean)
+            .join(" — ") || "Verificação de identificação maçônica"
+        }
+      />
       <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            {member.lodge.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={member.lodge.logoUrl}
-                alt={`Logo da Loja ${member.lodge.name}`}
-                className="h-10 w-10 rounded-full border object-contain"
-              />
-            ) : null}
-            <div>
-              <CardTitle>
-                {member.lodge.name} nº {member.lodge.number}
-              </CardTitle>
-              <CardDescription>
-                {[member.lodge.potencia, member.lodge.oriente]
-                  .filter(Boolean)
-                  .join(" — ") || "Verificação de identificação maçônica"}
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-6">
           <div className="flex items-center gap-4">
             {member.photoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -93,10 +83,10 @@ export default async function VerificarCarteirinhaPage({
           </div>
           <div
             className={cn(
-              "rounded-lg border p-3 text-sm font-semibold",
+              "rounded-xl p-3 text-sm font-semibold",
               regular
-                ? "border-green-200 bg-green-50 text-green-800"
-                : "border-amber-200 bg-amber-50 text-amber-800"
+                ? "bg-success-soft text-success"
+                : "bg-warning-soft text-warning"
             )}
           >
             {regular

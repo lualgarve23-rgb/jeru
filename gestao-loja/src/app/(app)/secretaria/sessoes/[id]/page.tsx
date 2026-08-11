@@ -214,7 +214,7 @@ export default async function SessaoPage({
               <Badge variant="secondary">
                 {confirmados.length} presença(s) confirmada(s)
               </Badge>
-              <Badge className="border-amber-200 bg-amber-50 text-amber-700">
+              <Badge className="border-amber-200 bg-amber-50 text-warning">
                 {agapeTotal} para o Ágape
               </Badge>
             </div>
@@ -418,7 +418,7 @@ export default async function SessaoPage({
             {minFreq}%. O alerta legal vale para Aprendizes e Companheiros.{" "}
             <Link
               href={`/secretaria/sessoes/export?ano=${ano}`}
-              className="underline"
+              className="font-medium text-primary hover:underline"
             >
               Exportar frequência anual (CSV)
             </Link>
@@ -501,7 +501,7 @@ export default async function SessaoPage({
                             {sf.texto} — abaixo do mínimo
                           </Badge>
                         ) : sf.tone === "amarelo" ? (
-                          <Badge className="border-amber-200 bg-amber-50 text-amber-700">
+                          <Badge className="border-amber-200 bg-amber-50 text-warning">
                             {sf.texto} — perto do mínimo
                           </Badge>
                         ) : sf.tone === "ok" ? (
@@ -546,7 +546,7 @@ export default async function SessaoPage({
                   {a.visitorLodge ? ` · ${a.visitorLodge}` : ""}
                   {a.visitorPotencia ? ` / ${a.visitorPotencia}` : ""}
                   {a.agapeConfirmed && (
-                    <Badge className="ml-2 border-amber-200 bg-amber-50 text-amber-700">
+                    <Badge className="ml-2 border-amber-200 bg-amber-50 text-warning">
                       Ágape
                     </Badge>
                   )}

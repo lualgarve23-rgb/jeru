@@ -1,7 +1,18 @@
 import { InfoDica } from "@/components/info-dica";
 import { AJUDA } from "@/lib/ajuda";
 import Link from "next/link";
-import { Check, CheckCheck, BellOff } from "lucide-react";
+import {
+  Check,
+  CheckCheck,
+  BellOff,
+  Cake,
+  PenLine,
+  Clock,
+  Wallet,
+  FileWarning,
+  Bell,
+  type LucideIcon,
+} from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
@@ -34,7 +45,16 @@ function dueBadge(dueDate: Date | null) {
   );
 }
 
+const typeIcons: Record<string, LucideIcon> = {
+  BIRTHDAY: Cake,
+  PENDING_SIGNATURE: PenLine,
+  DEADLINE_WARNING: Clock,
+  FINANCIAL_APPROVAL: Wallet,
+  MISSING_DATA: FileWarning,
+};
+
 function NotificationItem({ n }: { n: Notification }) {
+  const Icon = typeIcons[n.type] ?? Bell;
   const body = (
     <>
       <div className="flex flex-wrap items-center gap-2">
@@ -59,18 +79,29 @@ function NotificationItem({ n }: { n: Notification }) {
 
   return (
     <li
-      className={`flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-start sm:justify-between ${
-        n.isRead ? "bg-muted/30" : "bg-background"
+      className={`flex flex-col gap-2 rounded-xl border p-3 sm:flex-row sm:items-start sm:justify-between ${
+        n.isRead ? "bg-muted/30" : "shadow-card bg-card"
       }`}
     >
-      <div className="min-w-0 flex-1">
-        {n.link ? (
-          <Link href={n.link} className="block transition-opacity hover:opacity-80">
-            {body}
-          </Link>
-        ) : (
-          body
-        )}
+      <div className="flex min-w-0 flex-1 items-start gap-3">
+        <span
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+            n.isRead
+              ? "bg-muted text-muted-foreground"
+              : "bg-gold-soft text-gold-text"
+          }`}
+        >
+          <Icon className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          {n.link ? (
+            <Link href={n.link} className="block transition-opacity hover:opacity-80">
+              {body}
+            </Link>
+          ) : (
+            body
+          )}
+        </div>
       </div>
       {!n.isRead && (
         <form action={markNotificationRead.bind(null, n.id)} className="shrink-0">
