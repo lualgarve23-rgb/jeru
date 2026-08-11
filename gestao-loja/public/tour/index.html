@@ -19,6 +19,12 @@ main{max-width:880px;margin:0 auto;padding:24px 20px 48px;display:grid;gap:14px;
 .card a.mp4{border:1px solid rgb(255 255 255/.3);color:#fff}
 .destaque{grid-column:1/-1;background:linear-gradient(135deg,var(--navy),var(--navy2));border-color:var(--gold)}
 footer{text-align:center;padding:0 0 30px;font-size:.75rem;opacity:.5}
+.acessos table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.85rem}
+.acessos th,.acessos td{text-align:left;padding:7px 10px;border-bottom:1px solid rgb(255 255 255/.12)}
+.acessos th{font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;opacity:.6}
+.acessos code{background:rgb(255 255 255/.1);border-radius:6px;padding:2px 8px;font-size:.85rem;color:var(--gold-l)}
+.acessos .entrar{display:inline-block;margin-top:14px;background:var(--gold);color:#10203a;text-decoration:none;border-radius:999px;padding:10px 22px;font-size:.9rem;font-weight:600}
+.acessos .nota{margin-top:10px;min-height:0;font-size:.8rem}
 </style></head><body>
 <header><h1>Tours do Gestão NoPrumo</h1>
 <p>Visitas guiadas com narração e legendas. Escolha o tour interativo ou o vídeo.</p></header>
@@ -41,6 +47,21 @@ footer{text-align:center;padding:0 0 30px;font-size:.75rem;opacity:.5}
   <div class="card"><h2>Conselho de Contas</h2>
     <p>Fiscalização com acesso somente leitura: balancete, despesas e mensalidades.</p>
     <div class="links"><a class="tour" href="conselho.html">Tour interativo</a><a class="mp4" href="video/conselho.mp4">Vídeo</a></div></div>
+  <div class="card destaque acessos"><h2>🔑 Experimente você mesmo</h2>
+    <p style="min-height:0">Entre na loja de demonstração <strong>Acácia do Oriente nº 9999</strong> em <a href="https://www.noprumo.ia.br" style="color:var(--gold-l)">www.noprumo.ia.br</a>. Faça login com o CIM e a senha abaixo e explore com o acesso de cada cargo.</p>
+    <table>
+      <tr><th>Cargo</th><th>CIM (login)</th><th>Senha</th></tr>
+      <tr><td>Venerável Mestre</td><td><code>demo-vm</code></td><td><code>demo123</code></td></tr>
+      <tr><td>Secretário</td><td><code>demo-sec</code></td><td><code>demo123</code></td></tr>
+      <tr><td>Tesoureiro</td><td><code>demo-tes</code></td><td><code>demo123</code></td></tr>
+      <tr><td>Esmoler</td><td><code>demo-esm</code></td><td><code>demo123</code></td></tr>
+      <tr><td>Conselho de Contas</td><td><code>demo-cc</code></td><td><code>demo123</code></td></tr>
+      <tr><td>Obreiro do Quadro (Mestre)</td><td><code>demo-m1</code></td><td><code>demo123</code></td></tr>
+      <tr><td>Companheiro</td><td><code>demo-c1</code></td><td><code>demo123</code></td></tr>
+      <tr><td>Aprendiz</td><td><code>demo-a1</code></td><td><code>demo123</code></td></tr>
+    </table>
+    <p class="nota">Os dados da loja demo são fictícios e recriados periodicamente — fique à vontade para mexer em tudo.</p>
+    <a class="entrar" href="https://www.noprumo.ia.br/login">Entrar na demonstração →</a></div>
 </main>
 <footer>Gestão NoPrumo · noprumo.ia.br</footer>
 </body></html>
