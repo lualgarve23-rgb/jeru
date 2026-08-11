@@ -49,6 +49,7 @@ function navFor(role: string, cargoRito: string | null, unread: number): NavItem
     { href: "/dashboard/perfil", label: "Meu perfil", icon: "perfil", section: "Minha conta" },
     { href: "/dashboard/privacidade", label: "Privacidade (LGPD)", icon: "privacidade", section: "Minha conta" },
     { href: "/dashboard/senha", label: "Alterar senha", icon: "senha", section: "Minha conta" },
+    { href: "/tour", label: "Tour da plataforma", icon: "tour", section: "Ajuda" },
   ];
   return items.filter((i) => !i.roles || i.roles.includes(role));
 }

@@ -27,6 +27,7 @@ import {
   BookOpen,
   CreditCard,
   DoorOpen,
+  PlayCircle,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -56,6 +57,7 @@ const icons: Record<string, LucideIcon> = {
   biblioteca: BookOpen,
   carteirinha: CreditCard,
   visitas: DoorOpen,
+  tour: PlayCircle,
 };
 
 export type NavItem = {
