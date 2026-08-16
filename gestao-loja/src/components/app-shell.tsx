@@ -63,7 +63,7 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen bg-background">
-      <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-card px-4 text-foreground print:hidden lg:hidden">
+      <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-card/90 px-4 text-foreground backdrop-blur-md print:hidden lg:hidden">
         <div className="flex min-w-0 items-center gap-2.5">
           <LodgeMark lodge={lodge} size="sm" />
           <p className="truncate text-sm font-semibold">{lodgeName}</p>
@@ -180,7 +180,7 @@ function BottomNav({
   return (
     <nav
       aria-label="Navegação principal"
-      className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-card pb-[env(safe-area-inset-bottom)] print:hidden lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-card/90 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_rgb(30_39_51/0.07)] backdrop-blur-md print:hidden lg:hidden"
     >
       {tabs.map(({ Component, short, item }) => {
         const active =

@@ -79,7 +79,7 @@ function Stat({
   icon?: LucideIcon;
 }) {
   return (
-    <div className="shadow-card rounded-2xl border border-border bg-card p-4">
+    <div className="shadow-card card-lift rounded-2xl border border-border bg-card p-4">
       {Icon && (
         <span
           className={cn(
@@ -126,7 +126,7 @@ function GestorHero({
     month: "long",
   });
   return (
-    <section className="bg-hero-gradient shadow-raised flex flex-wrap items-center justify-between gap-3 rounded-2xl p-5 text-white sm:p-6">
+    <section className="bg-hero-gradient shadow-raised animate-rise flex flex-wrap items-center justify-between gap-3 rounded-3xl p-5 text-white sm:p-6">
       <div className="min-w-0">
         <p className="text-sm text-white/80">Olá,</p>
         <h1 className="flex items-center gap-1.5 truncate text-2xl font-bold leading-tight">
@@ -274,7 +274,7 @@ async function MemberDashboard({
   return (
     <>
       {/* Card-herói: saudação + resumo financeiro, estilo app de banco */}
-      <section className="bg-hero-gradient shadow-raised rounded-2xl p-5 text-white sm:p-6">
+      <section className="bg-hero-gradient shadow-raised animate-rise rounded-3xl p-5 text-white sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm text-white/80">Olá,</p>
@@ -413,7 +413,7 @@ function QuickAction({
   return (
     <Link
       href={href}
-      className="shadow-card flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-card px-1 py-3 text-center transition-colors hover:bg-accent"
+      className="shadow-card card-lift flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-card px-1 py-3 text-center transition-colors hover:bg-accent"
     >
       <span className="bg-gold-soft text-gold-text flex h-10 w-10 items-center justify-center rounded-full">
         {icon}
@@ -437,7 +437,7 @@ function StatTile({
   hint?: string;
 }) {
   return (
-    <div className="shadow-card rounded-2xl border border-border bg-card p-4">
+    <div className="shadow-card card-lift rounded-2xl border border-border bg-card p-4">
       <span className="bg-accent text-accent-foreground mb-2 flex h-9 w-9 items-center justify-center rounded-full">
         {icon}
       </span>

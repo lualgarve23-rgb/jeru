@@ -60,7 +60,11 @@ export default function LoginPage() {
             {error}
           </p>
         )}
-        <Button type="submit" disabled={pending} className="w-full font-semibold">
+        <Button
+          type="submit"
+          disabled={pending}
+          className="shadow-glow-gold w-full bg-gradient-to-r from-gold-bright to-gold font-bold text-[#101f35] hover:from-gold-bright hover:to-gold hover:opacity-90"
+        >
           {pending ? "Entrando..." : "Entrar"}
         </Button>
         <p className="text-center text-xs">

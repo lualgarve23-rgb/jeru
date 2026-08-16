@@ -33,7 +33,7 @@ export function AuthShell({
             <p className="mt-1 text-sm text-white/75">{subtitle}</p>
           ) : null}
         </div>
-        <div className="rounded-2xl bg-card p-6 text-card-foreground shadow-raised">
+        <div className="animate-rise rounded-3xl bg-card p-6 text-card-foreground shadow-raised">
           {children}
         </div>
         {footer ? (
