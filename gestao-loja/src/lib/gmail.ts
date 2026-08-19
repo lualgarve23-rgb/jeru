@@ -39,7 +39,14 @@ export async function sendLodgeEmail(opts: {
   subject: string;
   text: string;
   html?: string; // corpo HTML (ex.: convite de sessão); text fica como fallback
-  attachments?: { filename: string; content: Buffer | string }[];
+  attachments?: {
+    filename: string;
+    content: Buffer | string;
+    // Imagem inline no corpo HTML (src="cid:...") — evita o corte do Gmail
+    // em mensagens grandes com a arte em base64
+    cid?: string;
+    contentType?: string;
+  }[];
   // Encadeamento de resposta (Re: na mesma conversa)
   inReplyTo?: string;
   references?: string[];

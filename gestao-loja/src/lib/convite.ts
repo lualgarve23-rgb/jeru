@@ -82,7 +82,6 @@ export function templateDeImagem(dataUri: string) {
           <tr><td style="padding:24px 32px;text-align:center;">
             <p style="margin:0 0 12px;font-size:15px;color:#3f3f46;line-height:1.6;">{{FRASE}}</p>
             <p style="margin:0 0 16px;font-size:14px;color:#3f3f46;line-height:1.6;">
-              <strong>{{TIPO}}</strong> — {{DATA}}, às {{HORA}}.{{PAUTA}}<br/>
               Confirme sua presença — e se ficará para o <strong>Ágape</strong> — pelo botão abaixo. Não podendo comparecer, o mesmo link permite justificar a ausência.
             </p>
             <a href="{{LINK}}" style="background:#1e3a5f;color:#ffffff;text-decoration:none;padding:12px 32px;border-radius:6px;font-size:15px;display:inline-block;">Confirmar presença</a>
@@ -104,6 +103,12 @@ export function arteDoConvite(conviteTemplateHtml: string | null) {
   return (
     conviteTemplateHtml?.match(/src="(data:image\/[^"]+)"/)?.[1] ?? null
   );
+}
+
+// Miolo do HTML do convite (conteúdo do <body>), para exibir o template
+// preenchido também na página pública /convite/[token]
+export function corpoDoConvite(html: string) {
+  return html.match(/<body[^>]*>([\s\S]*)<\/body>/i)?.[1] ?? html;
 }
 
 // A frase fixa da loja aceita marcadores <<...>> substituídos por sessão, ex.:
@@ -169,11 +174,14 @@ export function renderConvite(
     "name" | "conviteTemplateHtml" | "conviteFrase" | "address" | "oriente"
   >,
   session: Pick<LodgeSession, "date" | "type" | "degree" | "pauta">,
-  inviteUrl: string
+  inviteUrl: string,
+  // Arte já composta com os dados da sessão (lib/convite-arte.ts); quando
+  // ausente, cai na arte original salva no template
+  arteOverride?: string | null
 ) {
   // Template de imagem: regenera o wrapper a partir da arte salva, para que
   // melhorias no layout do e-mail valham sem reenviar o arquivo
-  const arte = arteDoConvite(lodge.conviteTemplateHtml);
+  const arte = arteOverride ?? arteDoConvite(lodge.conviteTemplateHtml);
   const template = arte
     ? templateDeImagem(arte)
     : lodge.conviteTemplateHtml || CONVITE_TEMPLATE_PADRAO;

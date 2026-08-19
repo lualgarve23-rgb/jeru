@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendLodgeEmail, getGmailAuth } from "@/lib/gmail";
-import { renderConvite } from "@/lib/convite";
+import { renderConvite, arteDoConvite } from "@/lib/convite";
+import { arteComDados } from "@/lib/convite-arte";
 import { gerarAtaPdf } from "@/lib/ata-pdf";
 import { gerarPdfAtaAssinada } from "@/lib/ata-final";
 import { isDriveAvailable, uploadToLodgeDrive } from "@/lib/google-drive";
@@ -34,7 +35,17 @@ export async function enviarConvitesSessao(lodgeId: string, sessionId: string) {
 
   const baseUrl = process.env.APP_URL ?? "http://localhost:3100";
   const inviteUrl = `${baseUrl}/convite/${session.inviteToken}`;
-  const html = renderConvite(session.lodge, session, inviteUrl);
+  // Template de imagem: desenha os dados da sessão dentro da própria arte e a
+  // envia como anexo inline (cid:) — base64 no HTML estoura o limite de ~102KB
+  // do Gmail, que exibe o convite cortado ("[Mensagem cortada]") e sem a imagem
+  const arte = arteDoConvite(session.lodge.conviteTemplateHtml);
+  const arteFinal = arte ? await arteComDados(arte, session) : null;
+  const html = renderConvite(
+    session.lodge,
+    session,
+    inviteUrl,
+    arteFinal ? "cid:convite-arte" : null
+  );
   const dataFmt = session.date.toLocaleDateString("pt-BR");
   await sendLodgeEmail({
     lodgeId,
@@ -43,6 +54,16 @@ export async function enviarConvitesSessao(lodgeId: string, sessionId: string) {
     subject: `Convite — Sessão de ${dataFmt} · ${session.lodge.name}`,
     text: `Convite para a sessão de ${dataFmt}. Confirme sua presença e o Ágape em: ${inviteUrl}`,
     html,
+    attachments: arteFinal
+      ? [
+          {
+            filename: "convite.jpg",
+            content: Buffer.from(arteFinal.split(",")[1], "base64"),
+            cid: "convite-arte",
+            contentType: "image/jpeg",
+          },
+        ]
+      : undefined,
   });
 }
 

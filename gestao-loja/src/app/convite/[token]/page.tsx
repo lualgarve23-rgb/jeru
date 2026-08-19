@@ -11,7 +11,14 @@ import { ActionForm } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { sessionTypeLabels, degreeLabels } from "@/lib/labels";
-import { arteDoConvite, renderFrase, fraseCitaPauta } from "@/lib/convite";
+import {
+  renderConvite,
+  corpoDoConvite,
+  arteDoConvite,
+  renderFrase,
+  fraseCitaPauta,
+} from "@/lib/convite";
+import { arteComDados } from "@/lib/convite-arte";
 import {
   Card,
   CardContent,
@@ -59,7 +66,20 @@ export default async function ConvitePage({
   });
   if (!session) notFound();
 
+  // Loja com template próprio (HTML ou arte): exibe o convite preenchido com
+  // os dados da sessão, igual ao e-mail enviado; o {{LINK}} vira âncora para o
+  // formulário de confirmação logo abaixo
   const arte = arteDoConvite(session.lodge.conviteTemplateHtml);
+  const arteFinal = arte ? await arteComDados(arte, session) : null;
+  const conviteHtml = session.lodge.conviteTemplateHtml
+    ? corpoDoConvite(
+        renderConvite(session.lodge, session, "#confirmar-presenca", arteFinal)
+      )
+        .replace(/<p[^>]*>\s*Se o botão não funcionar[\s\S]*?<\/p>/g, "")
+        // O template de e-mail usa tabela de largura fixa (560px); na página,
+        // vira fluida para não cortar o convite em telas de celular
+        .replaceAll('width="560"', 'width="100%"')
+    : null;
   const authSession = await auth();
   const memberAction = rsvpMember.bind(null, token);
   const publicoAction = rsvpPublico.bind(null, token);
@@ -68,12 +88,10 @@ export default async function ConvitePage({
 
   return (
     <main className="mx-auto max-w-md space-y-6 p-6">
-      {arte ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={arte}
-          alt={`Convite — ${session.lodge.name}`}
-          className="w-full rounded-lg border shadow-sm"
+      {conviteHtml ? (
+        <div
+          className="overflow-hidden rounded-lg border shadow-sm"
+          dangerouslySetInnerHTML={{ __html: conviteHtml }}
         />
       ) : (
         <PublicHero
@@ -85,32 +103,39 @@ export default async function ConvitePage({
         />
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            Sessão {sessionTypeLabels[session.type] ?? session.type}
-          </CardTitle>
-          <CardDescription>
-            {session.date.toLocaleDateString("pt-BR", {
-              weekday: "long",
-              day: "2-digit",
-              month: "long",
-              year: "numeric",
-            })}
-            {" às "}
-            {session.date.toLocaleTimeString("pt-BR", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-            {" — grau "}
-            {degreeLabels[session.degree] ?? session.degree}
-          </CardDescription>
-        </CardHeader>
+      <Card id="confirmar-presenca">
+        {/* Com template da loja, os dados da sessão já estão dentro do convite */}
+        {!conviteHtml && (
+          <CardHeader>
+            <CardTitle>
+              Sessão {sessionTypeLabels[session.type] ?? session.type}
+            </CardTitle>
+            <CardDescription>
+              {session.date.toLocaleDateString("pt-BR", {
+                weekday: "long",
+                day: "2-digit",
+                month: "long",
+                year: "numeric",
+              })}
+              {" às "}
+              {session.date.toLocaleTimeString("pt-BR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+              {" — grau "}
+              {degreeLabels[session.degree] ?? session.degree}
+            </CardDescription>
+          </CardHeader>
+        )}
         <CardContent className="space-y-6">
-          <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-            {renderFrase(session.lodge, session)}
-          </p>
-          {session.pauta && !fraseCitaPauta(session.lodge.conviteFrase) && (
+          {!conviteHtml && (
+            <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+              {renderFrase(session.lodge, session)}
+            </p>
+          )}
+          {!conviteHtml &&
+            session.pauta &&
+            !fraseCitaPauta(session.lodge.conviteFrase) && (
             <div className="rounded-md border bg-secondary p-3 text-sm">
               <p className="mb-1 font-semibold">Pauta do dia</p>
               <p className="whitespace-pre-line text-muted-foreground">
