@@ -61,10 +61,20 @@ export default async function SessoesPage() {
           </CardHeader>
           <CardContent>
             <ActionForm action={createSession} submitLabel="Criar sessão">
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-4">
                 <div className="space-y-1">
                   <Label htmlFor="date">Data</Label>
                   <Input id="date" name="date" type="date" required />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="hora">Início</Label>
+                  <Input
+                    id="hora"
+                    name="hora"
+                    type="time"
+                    required
+                    defaultValue="20:00"
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="type">Tipo</Label>
@@ -124,7 +134,14 @@ export default async function SessoesPage() {
         <TableBody>
           {sessions.map((s) => (
             <TableRow key={s.id}>
-              <TableCell>{s.date.toLocaleDateString("pt-BR")}</TableCell>
+              <TableCell>
+                {s.date.toLocaleDateString("pt-BR")}
+                {" às "}
+                {s.date.toLocaleTimeString("pt-BR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </TableCell>
               <TableCell>{sessionTypeLabels[s.type] ?? s.type}</TableCell>
               <TableCell>{degreeLabels[s.degree] ?? s.degree}</TableCell>
               <TableCell>{s._count.attendances}</TableCell>

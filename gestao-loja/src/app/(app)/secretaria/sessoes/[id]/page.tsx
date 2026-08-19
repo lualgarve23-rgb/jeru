@@ -170,7 +170,12 @@ export default async function SessaoPage({
     <div className="max-w-3xl space-y-6">
       <h1 className="text-2xl font-bold">
         Sessão {sessionTypeLabels[session.type] ?? session.type} —{" "}
-        {session.date.toLocaleDateString("pt-BR")}{" "}
+        {session.date.toLocaleDateString("pt-BR")}
+        {" às "}
+        {session.date.toLocaleTimeString("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}{" "}
         <span className="text-base font-normal text-muted-foreground">
           (grau {degreeLabels[session.degree] ?? session.degree})
         </span>

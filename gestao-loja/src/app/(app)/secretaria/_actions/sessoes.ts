@@ -27,7 +27,10 @@ export async function createSession(
   const session = await prisma.lodgeSession.create({
     data: {
       lodgeId: user.lodgeId,
-      date: new Date(String(formData.get("date"))),
+      // Data + horário de início (campo "hora" do formulário; ex.: 20:00)
+      date: new Date(
+        `${String(formData.get("date"))}T${String(formData.get("hora") || "20:00")}:00`
+      ),
       type: formData.get("type") as SessionType,
       degree: formData.get("degree") as Degree,
       pauta: String(formData.get("pauta") ?? "").trim() || null,
