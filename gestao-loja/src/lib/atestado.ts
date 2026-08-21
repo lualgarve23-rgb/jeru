@@ -3,9 +3,63 @@ import { gerarAtaPdf } from "@/lib/ata-pdf";
 import { resolveParaDataUri } from "@/lib/media";
 
 // Atestado de Regularidade: declaração de que o irmão é membro efetivo e está
-// regular com seus deveres, assinada pelo Venerável Mestre e pelo Secretário.
+// regular com seus deveres, assinada pelo Venerável Mestre, pelo Tesoureiro e
+// pelo Secretário.
 // Texto conforme o modelo oficial da pasta formularios/. O PDF é montado sob
 // demanda com o mesmo visual das atas (cabeçalho institucional + assinaturas).
+
+// Ordem de governança das assinaturas: Tesoureiro → Secretário → Venerável
+// Mestre. Vale para todos os fluxos (senha, gov.br OAuth e portal ITI).
+export type AtestadoAssinaturas = {
+  signedByTesAt: Date | null;
+  signedBySecAt: Date | null;
+  signedByMasterAt: Date | null;
+};
+
+export function ordemAssinaturaAtestado(role: string, a: AtestadoAssinaturas) {
+  if (role === "TESOUREIRO") {
+    return {
+      jaAssinou: !!a.signedByTesAt,
+      aguardando: null as string | null,
+      ultimaAssinatura: !!a.signedBySecAt && !!a.signedByMasterAt,
+    };
+  }
+  if (role === "SECRETARIO") {
+    return {
+      jaAssinou: !!a.signedBySecAt,
+      aguardando: a.signedByTesAt ? null : "Tesoureiro",
+      ultimaAssinatura: !!a.signedByTesAt && !!a.signedByMasterAt,
+    };
+  }
+  return {
+    jaAssinou: !!a.signedByMasterAt,
+    aguardando: !a.signedByTesAt
+      ? "Tesoureiro"
+      : !a.signedBySecAt
+        ? "Secretário"
+        : null,
+    ultimaAssinatura: !!a.signedByTesAt && !!a.signedBySecAt,
+  };
+}
+
+export function camposAssinaturaAtestado(role: string, userId: string) {
+  const agora = new Date();
+  if (role === "TESOUREIRO") {
+    return { signedByTesId: userId, signedByTesAt: agora };
+  }
+  if (role === "SECRETARIO") {
+    return { signedBySecId: userId, signedBySecAt: agora };
+  }
+  return { signedByMasterId: userId, signedByMasterAt: agora };
+}
+
+export function cargoAssinanteAtestado(role: string) {
+  return role === "TESOUREIRO"
+    ? "Tesoureiro"
+    : role === "SECRETARIO"
+      ? "Secretário"
+      : "Venerável Mestre";
+}
 
 export function textoAtestado(dados: {
   nome: string;
@@ -35,11 +89,13 @@ export async function gerarAtestadoPdf(atestadoId: string, lodgeId: string) {
       lodge: true,
       user: { select: { name: true, cim: true } },
       signedByMaster: { select: { name: true, signatureUrl: true } },
+      signedByTes: { select: { name: true, signatureUrl: true } },
       signedBySec: { select: { name: true, signatureUrl: true } },
     },
   });
-  const [assinaturaMaster, assinaturaSec] = await Promise.all([
+  const [assinaturaMaster, assinaturaTes, assinaturaSec] = await Promise.all([
     resolveParaDataUri(atestado.signedByMaster?.signatureUrl),
+    resolveParaDataUri(atestado.signedByTes?.signatureUrl),
     resolveParaDataUri(atestado.signedBySec?.signatureUrl),
   ]);
   const pdf = await gerarAtaPdf({
@@ -62,6 +118,12 @@ export async function gerarAtestadoPdf(atestadoId: string, lodgeId: string) {
         cargo: "Venerável Mestre",
         signedAt: atestado.signedByMasterAt,
         signatureUrl: assinaturaMaster,
+      },
+      atestado.signedByTes && {
+        name: atestado.signedByTes.name,
+        cargo: "Tesoureiro",
+        signedAt: atestado.signedByTesAt,
+        signatureUrl: assinaturaTes,
       },
       atestado.signedBySec && {
         name: atestado.signedBySec.name,

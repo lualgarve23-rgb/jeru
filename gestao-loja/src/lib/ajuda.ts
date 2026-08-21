@@ -38,7 +38,7 @@ export const AJUDA = {
   instrucoes:
     "Instruções de grau ministradas pelos Vigilantes: Aprendizes com o 2º Vigilante e Companheiros com o 1º. Registre cada instrução dada; a meta é configurada pela Loja.",
   atestado:
-    "O Atestado de Regularidade declara que o irmão é membro efetivo e está em dia com os metais e demais deveres maçônicos. Qualquer irmão ATIVO pode solicitar; o documento segue para as assinaturas do Secretário e do Venerável Mestre — com senha (imagem da assinatura no PDF) ou pelo gov.br (assinatura digital ICP) — e o PDF fica disponível para download.",
+    "O Atestado de Regularidade declara que o irmão é membro efetivo e está em dia com os metais e demais deveres maçônicos. Qualquer irmão ATIVO pode solicitar; o documento segue para as assinaturas do Tesoureiro, do Secretário e do Venerável Mestre (nesta ordem) — com senha (imagem da assinatura no PDF) ou pelo gov.br (assinatura digital ICP) — e o PDF fica disponível para download.",
   quitte:
     "Quitte Placet é o documento de desligamento ou transferência do irmão. Só pode ser emitido com o Nada Consta da Tesouraria (trava financeira) e a dupla assinatura do Venerável e do Secretário. Acompanhe o andamento no quadro de etapas, baixe o Form. 122 já preenchido, anexe o formulário assinado e envie à Guarda dos Selos.",
   mensalidades:

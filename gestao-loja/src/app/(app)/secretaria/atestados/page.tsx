@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import { textoAtestado } from "@/lib/atestado";
+import { textoAtestado, ordemAssinaturaAtestado } from "@/lib/atestado";
+import { AutoDownload } from "@/components/auto-download";
 import {
   solicitarAtestado,
   signAtestadoInline,
@@ -29,6 +30,8 @@ const govbrMsgs: Record<string, string> = {
     "A conta gov.br usada não é do próprio assinante (CPF divergente).",
   "ja-assinou": "Você já assinou este atestado.",
   "sessao-expirada": "Sessão do gov.br expirou — tente novamente.",
+  ordem:
+    "Ainda não é a sua vez — a ordem de assinatura é Tesoureiro, Secretário e Venerável Mestre.",
   falhou: "A assinatura gov.br falhou — tente novamente.",
 };
 
@@ -39,7 +42,9 @@ export default async function AtestadosPage({
 }) {
   const user = await requireUser();
   const sp = await searchParams;
-  const podeAssinar = ["VENERAVEL_MESTRE", "SECRETARIO"].includes(user.role);
+  const podeAssinar = ["TESOUREIRO", "SECRETARIO", "VENERAVEL_MESTRE"].includes(
+    user.role
+  );
 
   const [meus, pendentes, lodge, dbUser] = await Promise.all([
     prisma.atestadoRegularidade.findMany({
@@ -79,8 +84,8 @@ export default async function AtestadosPage({
         </h1>
         <p className="text-sm text-muted-foreground">
           Declaração de que o irmão é membro efetivo e está regular com os
-          metais e demais deveres maçônicos, assinada pelo Venerável Mestre e
-          pelo Secretário.
+          metais e demais deveres maçônicos, assinada pelo Tesoureiro, pelo
+          Secretário e pelo Venerável Mestre — nesta ordem.
         </p>
       </div>
 
@@ -100,8 +105,9 @@ export default async function AtestadosPage({
         <CardHeader>
           <CardTitle>Meu atestado</CardTitle>
           <CardDescription>
-            Solicite aqui — o documento segue para as assinaturas do Secretário
-            e do Venerável Mestre e fica disponível em PDF quando concluído.
+            Solicite aqui — o documento segue para as assinaturas do
+            Tesoureiro, do Secretário e do Venerável Mestre e fica disponível
+            em PDF quando concluído.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -137,7 +143,14 @@ export default async function AtestadosPage({
                     >
                       {a.status === "ASSINADO"
                         ? "Assinado"
-                        : `Aguardando assinatura${!a.signedBySecAt && !a.signedByMasterAt ? "s" : ""} (${[!a.signedBySecAt && "Secretário", !a.signedByMasterAt && "Venerável"].filter(Boolean).join(" e ")})`}
+                        : (() => {
+                            const faltam = [
+                              !a.signedByTesAt && "Tesoureiro",
+                              !a.signedBySecAt && "Secretário",
+                              !a.signedByMasterAt && "Venerável",
+                            ].filter(Boolean);
+                            return `Aguardando assinatura${faltam.length > 1 ? "s" : ""} (${faltam.join(", ")})`;
+                          })()}
                     </Badge>
                     {a.status === "ASSINADO" && (
                       <Button asChild size="sm" variant="outline">
@@ -163,7 +176,8 @@ export default async function AtestadosPage({
           <CardHeader>
             <CardTitle>Assinaturas pendentes</CardTitle>
             <CardDescription>
-              Atestados solicitados pelos irmãos aguardando a dupla assinatura.
+              Atestados solicitados pelos irmãos aguardando a tripla assinatura
+              — Tesoureiro, depois Secretário e por último o Venerável Mestre.
               Assine com sua senha (a imagem da sua assinatura entra no PDF) ou
               pelo gov.br (assinatura digital ICP/ITI).
             </CardDescription>
@@ -176,10 +190,14 @@ export default async function AtestadosPage({
             ) : (
               <ul className="divide-y rounded-md border">
                 {pendentes.map((a) => {
-                  const jaAssinei =
-                    user.role === "VENERAVEL_MESTRE"
-                      ? !!a.signedByMasterAt
-                      : !!a.signedBySecAt;
+                  const ordem = ordemAssinaturaAtestado(user.role, a);
+                  const jaAssinei = ordem.jaAssinou;
+                  const minhaVez = !jaAssinei && !ordem.aguardando;
+                  const numAssinaturas = [
+                    a.signedByTesAt,
+                    a.signedBySecAt,
+                    a.signedByMasterAt,
+                  ].filter(Boolean).length;
                   return (
                     <li key={a.id} className="space-y-2 p-3 text-sm">
                       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -197,6 +215,9 @@ export default async function AtestadosPage({
                         )}
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={a.signedByTesAt ? "default" : "secondary"}>
+                          Tesoureiro {a.signedByTesAt ? "✓" : "pendente"}
+                        </Badge>
                         <Badge variant={a.signedBySecAt ? "default" : "secondary"}>
                           Secretário {a.signedBySecAt ? "✓" : "pendente"}
                         </Badge>
@@ -214,7 +235,7 @@ export default async function AtestadosPage({
                             Ver PDF
                           </a>
                         </Button>
-                        {!jaAssinei && a.user.status === "ATIVO" && (
+                        {minhaVez && a.user.status === "ATIVO" && (
                           <>
                             <InlineSignDialog
                               title={`Assinar atestado de ${a.user.name}`}
@@ -240,30 +261,46 @@ export default async function AtestadosPage({
                             Você já assinou.
                           </span>
                         )}
+                        {!jaAssinei && ordem.aguardando && (
+                          <span className="text-xs text-muted-foreground">
+                            Aguardando a assinatura do {ordem.aguardando} — a
+                            ordem é Tesoureiro, Secretário e Venerável Mestre.
+                          </span>
+                        )}
                       </div>
                       {/* Fluxo gov.br pelo portal, igual ao das atas: baixar o
                           PDF, assinar no assinador.iti.br e subir o arquivo.
-                          Ordem: o Venerável Mestre assina primeiro. */}
-                      {!jaAssinei &&
-                        a.user.status === "ATIVO" &&
-                        (user.role === "VENERAVEL_MESTRE" ||
-                        a.signedByMasterAt ? (
+                          Ordem: Tesoureiro → Secretário → Venerável Mestre.
+                          Quando chega a vez do assinante, o PDF (já com as
+                          assinaturas anteriores) baixa automaticamente. */}
+                      {minhaVez &&
+                        a.user.status === "ATIVO" && (
                           <details className="rounded-md border bg-muted/20 p-3">
                             <summary className="cursor-pointer text-sm font-medium">
                               Assinar pelo gov.br (portal assinador.iti.br)
                             </summary>
                             <div className="mt-2 space-y-3">
+                              {numAssinaturas > 0 && (
+                                <AutoDownload
+                                  href={`/secretaria/atestados/${a.id}/pdf?download=1`}
+                                  chave={`atestado:${a.id}:${numAssinaturas}`}
+                                />
+                              )}
                               <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
                                 <li>
+                                  {numAssinaturas > 0 ? (
+                                    <>
+                                      O PDF já com as assinaturas anteriores
+                                      baixa automaticamente — se não baixar,{" "}
+                                    </>
+                                  ) : (
+                                    <>Baixe o PDF do atestado: </>
+                                  )}
                                   <a
-                                    href={`/secretaria/atestados/${a.id}/pdf`}
-                                    target="_blank"
-                                    rel="noreferrer"
+                                    href={`/secretaria/atestados/${a.id}/pdf?download=1`}
                                     className="font-medium text-primary hover:underline"
                                   >
-                                    {user.role === "SECRETARIO"
-                                      ? "Baixe o PDF já assinado pelo Venerável Mestre"
-                                      : "Baixe o PDF do atestado"}
+                                    clique aqui
                                   </a>
                                   .
                                 </li>
@@ -295,12 +332,7 @@ export default async function AtestadosPage({
                               </ActionForm>
                             </div>
                           </details>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            Para assinar pelo gov.br, aguarde o Venerável Mestre
-                            assinar e subir o PDF primeiro.
-                          </p>
-                        ))}
+                        )}
                     </li>
                   );
                 })}

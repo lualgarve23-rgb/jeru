@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isGovbrConfigured, govbrAuthorizeUrl } from "@/lib/govbr";
+import { ordemAssinaturaAtestado } from "@/lib/atestado";
 
 // Início do fluxo de assinatura gov.br de uma ata: valida a elegibilidade do
 // assinante, grava o state em cookie e redireciona ao login gov.br.
@@ -10,7 +11,11 @@ export async function GET(req: NextRequest) {
   const baseUrl = process.env.APP_URL ?? req.url;
   const session = await auth();
   const role = session?.user?.role;
-  if (!session?.user || !["VENERAVEL_MESTRE", "SECRETARIO"].includes(role!)) {
+  // TESOUREIRO só assina Atestado de Regularidade; nas atas segue VM/Secretário
+  if (
+    !session?.user ||
+    !["VENERAVEL_MESTRE", "SECRETARIO", "TESOUREIRO"].includes(role!)
+  ) {
     return NextResponse.redirect(new URL("/login", baseUrl));
   }
 
@@ -25,16 +30,17 @@ export async function GET(req: NextRequest) {
     const atestado = await prisma.atestadoRegularidade.findUnique({
       where: { id: atestadoId, lodgeId: session.user.lodgeId },
     });
-    const isMaster = role === "VENERAVEL_MESTRE";
-    const jaAssinou = isMaster
-      ? atestado?.signedByMasterAt
-      : atestado?.signedBySecAt;
     if (!atestado || atestado.status !== "SOLICITADO") {
       backUrl.searchParams.set("govbr", "falhou");
       return NextResponse.redirect(backUrl);
     }
-    if (jaAssinou) {
+    const ordem = ordemAssinaturaAtestado(role!, atestado);
+    if (ordem.jaAssinou) {
       backUrl.searchParams.set("govbr", "ja-assinou");
+      return NextResponse.redirect(backUrl);
+    }
+    if (ordem.aguardando) {
+      backUrl.searchParams.set("govbr", "ordem");
       return NextResponse.redirect(backUrl);
     }
     const state = randomUUID();

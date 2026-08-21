@@ -223,6 +223,7 @@ model User {
   atestados             AtestadoRegularidade[] @relation("AtestadoUser")
   atestadosAsMaster     AtestadoRegularidade[] @relation("AtestadoMaster")
   atestadosAsSec        AtestadoRegularidade[] @relation("AtestadoSec")
+  atestadosAsTes        AtestadoRegularidade[] @relation("AtestadoTes")
   notifications         Notification[]
   instrucoesRecebidas   Instrucao[]     @relation("InstrucaoUser")
   instrucoesRegistradas Instrucao[]     @relation("InstrucaoRegistrador")
@@ -859,8 +860,9 @@ model QuittePlacet {
   @@map("quitte_placets")
 }
 
-// Atestado de Regularidade: o irmão solicita e o documento segue para a dupla
-// assinatura do Secretário e do Venerável Mestre (senha/imagem ou gov.br).
+// Atestado de Regularidade: o irmão solicita e o documento segue para a tripla
+// assinatura — Tesoureiro, depois Secretário e por último o Venerável Mestre
+// (senha/imagem ou gov.br).
 // O PDF é gerado sob demanda a partir dos dados; govbrPdf guarda a versão
 // com assinaturas PAdES do ITI quando algum assinante usa o gov.br.
 enum StatusAtestado {
@@ -875,6 +877,8 @@ model AtestadoRegularidade {
   status       StatusAtestado @default(SOLICITADO)
   solicitadoAt DateTime       @default(now())
 
+  signedByTesId    String?
+  signedByTesAt    DateTime?
   signedBySecId    String?
   signedBySecAt    DateTime?
   signedByMasterId String?
@@ -886,6 +890,7 @@ model AtestadoRegularidade {
 
   user           User  @relation("AtestadoUser", fields: [userId], references: [id])
   lodge          Lodge @relation(fields: [lodgeId], references: [id])
+  signedByTes    User? @relation("AtestadoTes", fields: [signedByTesId], references: [id])
   signedBySec    User? @relation("AtestadoSec", fields: [signedBySecId], references: [id])
   signedByMaster User? @relation("AtestadoMaster", fields: [signedByMasterId], references: [id])
 

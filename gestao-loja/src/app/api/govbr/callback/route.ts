@@ -7,7 +7,12 @@ import {
   assinarPdfComGovbr,
 } from "@/lib/govbr";
 import { gerarPdfAtaAssinada } from "@/lib/ata-final";
-import { gerarAtestadoPdf } from "@/lib/atestado";
+import {
+  gerarAtestadoPdf,
+  ordemAssinaturaAtestado,
+  camposAssinaturaAtestado,
+  cargoAssinanteAtestado,
+} from "@/lib/atestado";
 
 // Callback do OAuth gov.br: troca o code pelo token da sessão de assinatura,
 // confere que a conta gov.br é do próprio assinante (CPF) e embute a
@@ -16,7 +21,11 @@ export async function GET(req: NextRequest) {
   const baseUrl = process.env.APP_URL ?? req.url;
   const session = await auth();
   const role = session?.user?.role;
-  if (!session?.user || !["VENERAVEL_MESTRE", "SECRETARIO"].includes(role!)) {
+  // TESOUREIRO só assina Atestado de Regularidade; nas atas segue VM/Secretário
+  if (
+    !session?.user ||
+    !["VENERAVEL_MESTRE", "SECRETARIO", "TESOUREIRO"].includes(role!)
+  ) {
     return NextResponse.redirect(new URL("/login", baseUrl));
   }
 
@@ -143,15 +152,12 @@ async function assinarAtestado(
   const atestado = await prisma.atestadoRegularidade.findUnique({
     where: { id: atestadoId, lodgeId: sessionUser.lodgeId },
   });
-  const isMaster = role === "VENERAVEL_MESTRE";
   if (!atestado || atestado.status !== "SOLICITADO") return fail("falhou");
-  if (isMaster ? atestado.signedByMasterAt : atestado.signedBySecAt) {
-    return fail("ja-assinou");
-  }
+  const ordem = ordemAssinaturaAtestado(role, atestado);
+  if (ordem.jaAssinou) return fail("ja-assinou");
+  if (ordem.aguardando) return fail("ordem");
 
-  const camposAssinatura = isMaster
-    ? { signedByMasterId: sessionUser.id, signedByMasterAt: new Date() }
-    : { signedBySecId: sessionUser.id, signedBySecAt: new Date() };
+  const camposAssinatura = camposAssinaturaAtestado(role, sessionUser.id);
   try {
     const token = await govbrExchangeCode(code);
     const user = await prisma.user.findUniqueOrThrow({
@@ -173,27 +179,24 @@ async function assinarAtestado(
       const base =
         atestado.govbrPdf ??
         (await gerarAtestadoPdf(atestadoId, sessionUser.lodgeId)).pdf;
-      const cargo = isMaster ? "Venerável Mestre" : "Secretário";
+      const cargo = cargoAssinanteAtestado(role);
       const signed = await assinarPdfComGovbr(Buffer.from(base), token, {
         name: user.name,
         reason: `Assinatura gov.br — ${cargo}: ${user.name}`,
       });
-      const doisAssinaram = isMaster
-        ? !!atestado.signedBySecAt
-        : !!atestado.signedByMasterAt;
       await prisma.atestadoRegularidade.update({
         where: { id: atestadoId, lodgeId: sessionUser.lodgeId },
         data: {
           govbrPdf: new Uint8Array(signed),
-          ...(doisAssinaram ? { status: "ASSINADO" as const } : {}),
+          ...(ordem.ultimaAssinatura ? { status: "ASSINADO" as const } : {}),
         },
       });
     } catch (e) {
       await prisma.atestadoRegularidade.update({
         where: { id: atestadoId, lodgeId: sessionUser.lodgeId },
-        data: isMaster
-          ? { signedByMasterId: null, signedByMasterAt: null }
-          : { signedBySecId: null, signedBySecAt: null },
+        data: Object.fromEntries(
+          Object.keys(camposAssinatura).map((k) => [k, null])
+        ),
       });
       throw e;
     }

@@ -5,11 +5,16 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser, requireRole } from "@/lib/session";
 import { auditar } from "@/lib/audit";
+import {
+  ordemAssinaturaAtestado,
+  camposAssinaturaAtestado,
+} from "@/lib/atestado";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
-// Atestado de Regularidade — o irmão solicita; Secretário e Venerável Mestre
-// assinam (senha/imagem aqui, ou gov.br via /api/govbr/authorize?atestado=).
+// Atestado de Regularidade — o irmão solicita; Tesoureiro, Secretário e
+// Venerável Mestre assinam nesta ordem (senha/imagem aqui, ou gov.br via
+// /api/govbr/authorize?atestado=).
 
 export async function solicitarAtestado(): Promise<ActionResult> {
   const user = await requireUser();
@@ -41,20 +46,20 @@ export async function solicitarAtestado(): Promise<ActionResult> {
   });
   revalidatePath("/secretaria/atestados");
   return {
-    ok: "Atestado solicitado — aguarde as assinaturas do Secretário e do Venerável Mestre.",
+    ok: "Atestado solicitado — aguarde as assinaturas do Tesoureiro, do Secretário e do Venerável Mestre.",
   };
 }
 
 // Upload do atestado assinado externamente no portal assinador.iti.br —
 // mesmo processo das atas: o assinante baixa o PDF, assina com a conta
-// gov.br no portal e sobe o arquivo aqui. Ordem de governança: quando os
-// dois ainda não assinaram, o Venerável Mestre assina primeiro.
+// gov.br no portal e sobe o arquivo aqui. Ordem de governança: Tesoureiro,
+// depois Secretário e por último o Venerável Mestre.
 export async function uploadAtestadoAssinadoGovbr(
   atestadoId: string,
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  const user = await requireRole("VENERAVEL_MESTRE", "SECRETARIO");
+  const user = await requireRole("TESOUREIRO", "SECRETARIO", "VENERAVEL_MESTRE");
   const atestado = await prisma.atestadoRegularidade.findUnique({
     where: { id: atestadoId, lodgeId: user.lodgeId },
     include: { user: { select: { name: true, status: true } } },
@@ -67,14 +72,13 @@ export async function uploadAtestadoAssinadoGovbr(
       error: `${atestado.user.name} não está com situação ATIVO — o atestado não pode ser assinado.`,
     };
   }
-  const isMaster = user.role === "VENERAVEL_MESTRE";
-  if (isMaster ? atestado.signedByMasterAt : atestado.signedBySecAt) {
+  const ordem = ordemAssinaturaAtestado(user.role, atestado);
+  if (ordem.jaAssinou) {
     return { error: "Você já assinou este atestado." };
   }
-  if (!isMaster && !atestado.signedByMasterAt) {
+  if (ordem.aguardando) {
     return {
-      error:
-        "O Venerável Mestre assina primeiro no gov.br — aguarde o upload dele e baixe o PDF já com a assinatura.",
+      error: `O ${ordem.aguardando} assina primeiro no gov.br — aguarde o upload dele e baixe o PDF já com a assinatura.`,
     };
   }
 
@@ -90,17 +94,12 @@ export async function uploadAtestadoAssinadoGovbr(
     return { error: "O arquivo enviado não é um PDF." };
   }
 
-  const doisAssinaram = isMaster
-    ? !!atestado.signedBySecAt
-    : !!atestado.signedByMasterAt;
   await prisma.atestadoRegularidade.update({
     where: { id: atestadoId, lodgeId: user.lodgeId },
     data: {
       govbrPdf: new Uint8Array(pdf),
-      ...(isMaster
-        ? { signedByMasterId: user.id, signedByMasterAt: new Date() }
-        : { signedBySecId: user.id, signedBySecAt: new Date() }),
-      ...(doisAssinaram ? { status: "ASSINADO" as const } : {}),
+      ...camposAssinaturaAtestado(user.role, user.id),
+      ...(ordem.ultimaAssinatura ? { status: "ASSINADO" as const } : {}),
     },
   });
   await auditar({
@@ -112,9 +111,11 @@ export async function uploadAtestadoAssinadoGovbr(
   });
   revalidatePath("/secretaria/atestados");
   return {
-    ok: doisAssinaram
+    ok: ordem.ultimaAssinatura
       ? `Atestado de ${atestado.user.name} assinado via gov.br e concluído.`
-      : "PDF assinado recebido — agora o Secretário baixa esta versão, assina no gov.br e sobe aqui.",
+      : `PDF assinado recebido — agora o ${
+          user.role === "TESOUREIRO" ? "Secretário" : "Venerável Mestre"
+        } baixa esta versão, assina no gov.br e sobe aqui.`,
   };
 }
 
@@ -125,7 +126,7 @@ export async function signAtestadoInline(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  const user = await requireRole("VENERAVEL_MESTRE", "SECRETARIO");
+  const user = await requireRole("TESOUREIRO", "SECRETARIO", "VENERAVEL_MESTRE");
   const password = String(formData.get("password") ?? "");
   if (!password) return { error: "Digite sua senha para confirmar a assinatura." };
   const dbUser = await prisma.user.findUniqueOrThrow({
@@ -146,21 +147,21 @@ export async function signAtestadoInline(
       error: `${atestado.user.name} não está com situação ATIVO — o atestado não pode ser assinado.`,
     };
   }
-  const isMaster = user.role === "VENERAVEL_MESTRE";
-  if (isMaster ? atestado.signedByMasterAt : atestado.signedBySecAt) {
+  const ordem = ordemAssinaturaAtestado(user.role, atestado);
+  if (ordem.jaAssinou) {
     return { error: "Você já assinou este atestado." };
   }
+  if (ordem.aguardando) {
+    return {
+      error: `Aguarde a assinatura do ${ordem.aguardando} — a ordem é Tesoureiro, Secretário e Venerável Mestre.`,
+    };
+  }
 
-  const doisAssinaram = isMaster
-    ? !!atestado.signedBySecAt
-    : !!atestado.signedByMasterAt;
   await prisma.atestadoRegularidade.update({
     where: { id: atestadoId, lodgeId: user.lodgeId },
     data: {
-      ...(isMaster
-        ? { signedByMasterId: user.id, signedByMasterAt: new Date() }
-        : { signedBySecId: user.id, signedBySecAt: new Date() }),
-      ...(doisAssinaram ? { status: "ASSINADO" as const } : {}),
+      ...camposAssinaturaAtestado(user.role, user.id),
+      ...(ordem.ultimaAssinatura ? { status: "ASSINADO" as const } : {}),
     },
   });
   await auditar({
@@ -172,8 +173,14 @@ export async function signAtestadoInline(
   });
   revalidatePath("/secretaria/atestados");
   return {
-    ok: doisAssinaram
+    ok: ordem.ultimaAssinatura
       ? `Atestado de ${atestado.user.name} assinado e concluído.`
-      : `Assinatura registrada — falta a do ${isMaster ? "Secretário" : "Venerável Mestre"}.`,
+      : `Assinatura registrada — falta a do ${
+          user.role === "TESOUREIRO"
+            ? "Secretário e a do Venerável Mestre"
+            : user.role === "SECRETARIO"
+              ? "Venerável Mestre"
+              : "Secretário"
+        }.`,
   };
 }

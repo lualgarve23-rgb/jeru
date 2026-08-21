@@ -13,6 +13,7 @@ import {
   setAtaGovbr,
 } from "../../actions";
 import { ActionForm, ActionButton } from "@/components/action-form";
+import { AutoDownload } from "@/components/auto-download";
 import { Badge } from "@/components/ui/badge";
 import {
   ataStatusLabels,
@@ -502,15 +503,26 @@ export default async function AtaPage({
                     ? "Sua vez de assinar (Venerável Mestre)"
                     : "Sua vez de assinar (Secretário)"}
                 </p>
+                {/* Chegou a vez do Secretário: o PDF já assinado pelo VM
+                    baixa automaticamente (uma vez por etapa) */}
+                {govbrEtapaSec && (
+                  <AutoDownload
+                    href={`/api/atas/pdf?ata=${ata.id}`}
+                    chave={`ata:${ata.id}:govbr-sec`}
+                  />
+                )}
                 <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
                   <li>
+                    {govbrEtapaSec && (
+                      <>O PDF baixa automaticamente — se não baixar, </>
+                    )}
                     <a
                       href={`/api/atas/pdf?ata=${ata.id}`}
                       className="font-medium text-primary hover:underline"
                     >
                       {govbrEtapaVm
                         ? "Baixe o PDF final da ata"
-                        : "Baixe o PDF já assinado pelo Venerável Mestre"}
+                        : "baixe o PDF já assinado pelo Venerável Mestre"}
                     </a>
                     .
                   </li>
