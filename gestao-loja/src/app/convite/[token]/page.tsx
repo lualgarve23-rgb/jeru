@@ -18,7 +18,7 @@ import {
   renderFrase,
   fraseCitaPauta,
 } from "@/lib/convite";
-import { arteComDados } from "@/lib/convite-arte";
+import { arteComDados, isConviteArteLayout } from "@/lib/convite-arte";
 import {
   Card,
   CardContent,
@@ -54,6 +54,65 @@ function AgapeCheckbox() {
   );
 }
 
+// Preview do link no WhatsApp: a arte do convite como og:image, para que a
+// imagem apareça primeiro e a confirmação/recusa fique logo abaixo, na página
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ token: string }>;
+}) {
+  const { token } = await params;
+  const session = await prisma.lodgeSession.findUnique({
+    where: { inviteToken: token },
+    include: { lodge: true },
+  });
+  if (!session) return { title: "Convite" };
+
+  const tipo = sessionTypeLabels[session.type] ?? session.type;
+  const data = session.date.toLocaleDateString("pt-BR");
+  const hora = session.date.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const baseUrl = process.env.APP_URL ?? "http://localhost:3100";
+  const arte = arteDoConvite(session.lodge.conviteTemplateHtml);
+  const title = `Convite — ${session.lodge.name}`;
+  const description = `Sessão ${tipo} em ${data}, às ${hora}. Toque para confirmar presença ou justificar ausência.`;
+
+  // Dimensões declaradas ajudam WhatsApp/Telegram a exibir o cartão grande
+  // com a imagem, em vez da miniatura ou de link sem preview
+  let imagem: { url: string; width?: number; height?: number; type: string } | null = null;
+  if (arte) {
+    imagem = { url: `${baseUrl}/convite/${token}/imagem`, type: "image/jpeg" };
+    try {
+      const sharp = (await import("sharp")).default;
+      const meta = await sharp(
+        Buffer.from(arte.split(",")[1], "base64")
+      ).metadata();
+      if (meta.width && meta.height) {
+        imagem.width = meta.width;
+        imagem.height = meta.height;
+      }
+    } catch {
+      // sem dimensões o preview ainda funciona
+    }
+  }
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      url: `${baseUrl}/convite/${token}`,
+      ...(imagem ? { images: [imagem] } : {}),
+    },
+    ...(imagem
+      ? { twitter: { card: "summary_large_image" as const, images: [imagem.url] } }
+      : {}),
+  };
+}
+
 export default async function ConvitePage({
   params,
 }: {
@@ -70,7 +129,15 @@ export default async function ConvitePage({
   // os dados da sessão, igual ao e-mail enviado; o {{LINK}} vira âncora para o
   // formulário de confirmação logo abaixo
   const arte = arteDoConvite(session.lodge.conviteTemplateHtml);
-  const arteFinal = arte ? await arteComDados(arte, session) : null;
+  const arteFinal = arte
+    ? await arteComDados(
+        arte,
+        session,
+        isConviteArteLayout(session.lodge.conviteArteLayout)
+          ? session.lodge.conviteArteLayout
+          : null
+      )
+    : null;
   const conviteHtml = session.lodge.conviteTemplateHtml
     ? corpoDoConvite(
         renderConvite(session.lodge, session, "#confirmar-presenca", arteFinal)

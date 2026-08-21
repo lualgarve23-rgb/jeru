@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendLodgeEmail, getGmailAuth } from "@/lib/gmail";
 import { renderConvite, arteDoConvite } from "@/lib/convite";
-import { arteComDados } from "@/lib/convite-arte";
+import { arteComDados, isConviteArteLayout } from "@/lib/convite-arte";
 import { gerarAtaPdf } from "@/lib/ata-pdf";
 import { gerarPdfAtaAssinada } from "@/lib/ata-final";
 import { isDriveAvailable, uploadToLodgeDrive } from "@/lib/google-drive";
@@ -39,7 +39,10 @@ export async function enviarConvitesSessao(lodgeId: string, sessionId: string) {
   // envia como anexo inline (cid:) — base64 no HTML estoura o limite de ~102KB
   // do Gmail, que exibe o convite cortado ("[Mensagem cortada]") e sem a imagem
   const arte = arteDoConvite(session.lodge.conviteTemplateHtml);
-  const arteFinal = arte ? await arteComDados(arte, session) : null;
+  const layout = isConviteArteLayout(session.lodge.conviteArteLayout)
+    ? session.lodge.conviteArteLayout
+    : null;
+  const arteFinal = arte ? await arteComDados(arte, session, layout) : null;
   const html = renderConvite(
     session.lodge,
     session,

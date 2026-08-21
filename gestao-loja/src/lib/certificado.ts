@@ -20,7 +20,7 @@ const FUNDO_PATH = path.join(process.cwd(), "templates", "certificado-fundo.pdf"
 const SLIDE_PATH = "ppt/slides/slide1.xml";
 
 // Conversão EMU (unidade do PPTX) → pontos PDF
-const EMU = 12700;
+export const EMU = 12700;
 
 // Placeholders reconhecidos no PPTX (texto literal num run do slide 1)
 const PLACEHOLDERS = {
@@ -47,7 +47,7 @@ export type CertLayout = {
 
 // Layout do template padrão (templates/certificado.pptx); o nome do VM vai
 // na primeira linha do bloco da assinatura ("Jaime Caruso" no PPTX original).
-const DEFAULT_LAYOUT: CertLayout = {
+export const DEFAULT_LAYOUT: CertLayout = {
   nome: { x: 916300, y: 5386700, cx: 5734200, cy: 523200, size: 22 },
   sessao: { x: 682275, y: 6409050, cx: 6180600, cy: 477000, size: 19 },
   email: { x: 326475, y: 10041250, cx: 5486400, cy: 276900, size: 6 },
@@ -207,6 +207,17 @@ export async function gerarCertificadoVisitaPdf(
   return Buffer.from(await doc.save());
 }
 
+// Fundo em vigor (PDF): o upload da loja ou o template padrão do repositório
+export async function fundoAtual(lodgeId: string): Promise<Buffer> {
+  const lodge = await prisma.lodge.findUnique({
+    where: { id: lodgeId },
+    select: { certFundoPdf: true },
+  });
+  return lodge?.certFundoPdf
+    ? Buffer.from(lodge.certFundoPdf)
+    : await readFile(FUNDO_PATH);
+}
+
 // Carrega o template personalizado da loja (ou undefined = padrão)
 export async function templateDaLoja(
   lodgeId: string
@@ -215,10 +226,14 @@ export async function templateDaLoja(
     where: { id: lodgeId },
     select: { certFundoPdf: true, certLayout: true },
   });
-  if (!lodge?.certFundoPdf || !lodge.certLayout) return undefined;
+  // Loja pode personalizar só o layout (editor visual) mantendo o fundo
+  // padrão, ou o fundo (PPTX) com o layout extraído/ajustado
+  if (!lodge?.certFundoPdf && !lodge?.certLayout) return undefined;
   return {
-    fundo: Buffer.from(lodge.certFundoPdf),
-    layout: lodge.certLayout as CertLayout,
+    fundo: lodge.certFundoPdf
+      ? Buffer.from(lodge.certFundoPdf)
+      : await readFile(FUNDO_PATH),
+    layout: (lodge.certLayout as CertLayout | null) ?? DEFAULT_LAYOUT,
   };
 }
 

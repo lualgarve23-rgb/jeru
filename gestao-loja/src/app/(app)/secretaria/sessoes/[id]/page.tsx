@@ -15,6 +15,8 @@ import {
   updateSessionPauta,
 } from "../../actions";
 import { CopyButton } from "@/components/copy-button";
+import { WhatsAppShareButton } from "@/components/whatsapp-share-button";
+import { arteDoConvite } from "@/lib/convite";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Label } from "@/components/ui/label";
 import { sessionTypeLabels, degreeLabels } from "@/lib/labels";
@@ -52,6 +54,7 @@ export default async function SessaoPage({
     include: {
       attendances: { include: { user: true }, orderBy: { checkedInAt: "asc" } },
       ata: true,
+      lodge: { select: { name: true, conviteTemplateHtml: true } },
     },
   });
   if (!session) notFound();
@@ -205,6 +208,14 @@ export default async function SessaoPage({
               </div>
             </ActionForm>
             <div className="flex flex-wrap items-center gap-3">
+              <WhatsAppShareButton
+                imageUrl={
+                  arteDoConvite(session.lodge.conviteTemplateHtml)
+                    ? `${inviteUrl}/imagem`
+                    : null
+                }
+                text={`Convite — ${session.lodge.name}\nSessão ${sessionTypeLabels[session.type] ?? session.type} · ${session.date.toLocaleDateString("pt-BR")} às ${session.date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}\nConfirme sua presença (ou justifique a ausência) em:\n${inviteUrl}`}
+              />
               <CopyButton text={inviteUrl!} label="Copiar link do convite" />
               <ActionButton
                 action={dispararConvitesEmail.bind(null, session.id)}

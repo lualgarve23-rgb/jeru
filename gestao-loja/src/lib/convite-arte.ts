@@ -42,13 +42,30 @@ function quebrarLinhas(s: string, maxChars: number, maxLinhas: number) {
   return linhas;
 }
 
+// Posição do painel escolhida no editor visual (Configurações da Loja):
+// frações da imagem — x/y = canto superior esquerdo, w = largura do painel
+export type ConviteArteLayout = { x: number; y: number; w: number };
+
+// Largura de referência do painel (0.88 × 1120px) — as medidas internas do
+// SVG escalam a partir dela, no layout padrão e no personalizado
+const PANEL_REF_W = 985.6;
+
+export function isConviteArteLayout(v: unknown): v is ConviteArteLayout {
+  if (!v || typeof v !== "object") return false;
+  const o = v as Record<string, unknown>;
+  return ["x", "y", "w"].every(
+    (k) => typeof o[k] === "number" && o[k]! >= 0 && (o[k] as number) <= 1
+  );
+}
+
 export async function arteComDados(
   arteDataUri: string,
-  session: Pick<LodgeSession, "date" | "type" | "degree" | "pauta">
+  session: Pick<LodgeSession, "date" | "type" | "degree" | "pauta">,
+  layout?: ConviteArteLayout | null
 ): Promise<string> {
   const buf = Buffer.from(arteDataUri.split(",")[1], "base64");
   const img = sharp(buf);
-  const { width = 1120 } = await img.metadata();
+  const { width = 1120, height = 1120 } = await img.metadata();
 
   const tipo = sessionTypeLabels[session.type] ?? session.type;
   const grau = degreeLabels[session.degree] ?? session.degree;
@@ -65,30 +82,37 @@ export async function arteComDados(
   // Pauta em até 2 linhas, quebradas por palavra, para caber no painel
   const linhasPauta = session.pauta ? quebrarLinhas(session.pauta, 56, 2) : [];
 
-  // Painel central translúcido, com medidas proporcionais à largura da arte
-  // (referência: 1120px) — legível sobre artes claras ou escuras
-  const f = width / 1120;
-  const panelW = Math.round(width * 0.88);
+  // Painel translúcido com medidas proporcionais à própria largura — legível
+  // sobre artes claras ou escuras. Sem layout salvo, ocupa 88% da largura,
+  // centralizado (comportamento original); com layout, vale a posição do editor
+  const panelW = Math.round(width * (layout ? layout.w : 0.88));
+  const f = panelW / PANEL_REF_W;
   const panelH = Math.round((200 + linhasPauta.length * 52) * f);
-  const px = Math.round((width - panelW) / 2);
-  const yTipo = Math.round(74 * f);
-  const yData = Math.round(140 * f);
-  const yPauta = Math.round(202 * f);
+  const px = layout
+    ? Math.round(Math.max(0, Math.min(layout.x * width, width - panelW)))
+    : Math.round((width - panelW) / 2);
+  const py = layout
+    ? Math.round(Math.max(0, Math.min(layout.y * height, height - panelH)))
+    : Math.round((height - panelH) / 2);
+  const cx = px + panelW / 2;
+  const yTipo = py + Math.round(74 * f);
+  const yData = py + Math.round(140 * f);
+  const yPauta = py + Math.round(202 * f);
   const pautaSvg = linhasPauta
     .map(
       (linha, i) =>
-        `<text x="50%" y="${yPauta + Math.round(i * 44 * f)}" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="${Math.round(29 * f)}" fill="#3f3f46">${escXml(linha)}</text>`
+        `<text x="${cx}" y="${yPauta + Math.round(i * 44 * f)}" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="${Math.round(29 * f)}" fill="#3f3f46">${escXml(linha)}</text>`
     )
     .join("\n  ");
-  const svg = `<svg width="${width}" height="${panelH}" xmlns="http://www.w3.org/2000/svg">
-  <rect x="${px}" y="${Math.round(6 * f)}" width="${panelW}" height="${panelH - Math.round(12 * f)}" rx="${Math.round(14 * f)}" fill="#fffdf7" fill-opacity="0.88" stroke="#c9a84c" stroke-width="${Math.max(2, Math.round(3 * f))}"/>
-  <text x="50%" y="${yTipo}" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="${Math.round(30 * f)}" letter-spacing="${3 * f}" fill="#8a6d1f">${escXml(`${tipo} · Grau ${grau}`.toUpperCase())}</text>
-  <text x="50%" y="${yData}" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="${Math.round(38 * f)}" font-weight="bold" fill="#1e3a5f">${escXml(`${data}, às ${hora}`)}</text>
+  const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+  <rect x="${px}" y="${py + Math.round(6 * f)}" width="${panelW}" height="${panelH - Math.round(12 * f)}" rx="${Math.round(14 * f)}" fill="#fffdf7" fill-opacity="0.88" stroke="#c9a84c" stroke-width="${Math.max(2, Math.round(3 * f))}"/>
+  <text x="${cx}" y="${yTipo}" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="${Math.round(30 * f)}" letter-spacing="${3 * f}" fill="#8a6d1f">${escXml(`${tipo} · Grau ${grau}`.toUpperCase())}</text>
+  <text x="${cx}" y="${yData}" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="${Math.round(38 * f)}" font-weight="bold" fill="#1e3a5f">${escXml(`${data}, às ${hora}`)}</text>
   ${pautaSvg}
 </svg>`;
 
   const out = await img
-    .composite([{ input: Buffer.from(svg), gravity: "centre" }])
+    .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
     .jpeg({ quality: 82 })
     .toBuffer();
   return `data:image/jpeg;base64,${out.toString("base64")}`;

@@ -73,6 +73,9 @@ model Lodge {
   conviteTemplateHtml String?
   // Frase fixa do convite (saudação/texto da loja) — só data e tipo variam
   conviteFrase        String?
+  // Posição do painel de dados sobre a arte do convite (editor visual):
+  // frações da imagem {x, y, w}; null = painel centralizado (padrão)
+  conviteArteLayout   Json?
   // Gateway de pagamento Asaas (cobrança recorrente cartão/boleto)
   asaasApiKey        String? // API key da conta Asaas da Loja
   asaasWebhookToken  String? // token conferido no header asaas-access-token do webhook
@@ -104,6 +107,7 @@ model Lodge {
   processosAdmissao   ProcessoAdmissao[]
   processosProgressao ProcessoProgressao[]
   quittePlacets       QuittePlacet[]
+  atestados           AtestadoRegularidade[]
   notifications       Notification[]
   cargosRito          CargoRito[]
   bibliotecaItens     BibliotecaItem[]
@@ -216,6 +220,9 @@ model User {
   quittePlacets         QuittePlacet[]
   quittePlacetsAsMaster QuittePlacet[]  @relation("QuittePlacetMaster")
   quittePlacetsAsSec    QuittePlacet[]  @relation("QuittePlacetSecretary")
+  atestados             AtestadoRegularidade[] @relation("AtestadoUser")
+  atestadosAsMaster     AtestadoRegularidade[] @relation("AtestadoMaster")
+  atestadosAsSec        AtestadoRegularidade[] @relation("AtestadoSec")
   notifications         Notification[]
   instrucoesRecebidas   Instrucao[]     @relation("InstrucaoUser")
   instrucoesRegistradas Instrucao[]     @relation("InstrucaoRegistrador")
@@ -850,6 +857,39 @@ model QuittePlacet {
 
   @@index([lodgeId])
   @@map("quitte_placets")
+}
+
+// Atestado de Regularidade: o irmão solicita e o documento segue para a dupla
+// assinatura do Secretário e do Venerável Mestre (senha/imagem ou gov.br).
+// O PDF é gerado sob demanda a partir dos dados; govbrPdf guarda a versão
+// com assinaturas PAdES do ITI quando algum assinante usa o gov.br.
+enum StatusAtestado {
+  SOLICITADO
+  ASSINADO
+}
+
+model AtestadoRegularidade {
+  id           String         @id @default(cuid())
+  userId       String
+  lodgeId      String
+  status       StatusAtestado @default(SOLICITADO)
+  solicitadoAt DateTime       @default(now())
+
+  signedBySecId    String?
+  signedBySecAt    DateTime?
+  signedByMasterId String?
+  signedByMasterAt DateTime?
+  govbrPdf         Bytes?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user           User  @relation("AtestadoUser", fields: [userId], references: [id])
+  lodge          Lodge @relation(fields: [lodgeId], references: [id])
+  signedBySec    User? @relation("AtestadoSec", fields: [signedBySecId], references: [id])
+  signedByMaster User? @relation("AtestadoMaster", fields: [signedByMasterId], references: [id])
+
+  @@map("atestados_regularidade")
 }
 
 enum StatusProgressao {

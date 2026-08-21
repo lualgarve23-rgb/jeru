@@ -30,6 +30,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { isOAuthAppConfigured } from "@/lib/google-drive";
+import { arteDoConvite } from "@/lib/convite";
+import { isConviteArteLayout } from "@/lib/convite-arte";
+import { ConviteArteEditor } from "./convite-arte-editor";
+import { CertLayoutEditor } from "./cert-layout-editor";
+import {
+  fundoAtual,
+  DEFAULT_LAYOUT,
+  EMU,
+  type CertLayout,
+  type CertBox,
+} from "@/lib/certificado";
+import { PDFDocument } from "pdf-lib";
 
 const erros: Record<string, string> = {
   "oauth-nao-configurado":
@@ -52,6 +64,26 @@ export default async function LojaConfigPage({
   const lodge = await prisma.lodge.findUniqueOrThrow({
     where: { id: user.lodgeId },
   });
+
+  // Editor visual do certificado: converte o layout em vigor (EMU) para
+  // frações da página do fundo, que é o que o editor manipula
+  const certPdf = await PDFDocument.load(await fundoAtual(user.lodgeId));
+  const { width: certPw, height: certPh } = certPdf.getPage(0).getSize();
+  const certLayout = (lodge.certLayout as CertLayout | null) ?? DEFAULT_LAYOUT;
+  const paraFrac = (b?: CertBox) =>
+    b && {
+      x: b.x / EMU / certPw,
+      y: b.y / EMU / certPh,
+      w: b.cx / EMU / certPw,
+      h: b.cy / EMU / certPh,
+      size: b.size,
+    };
+  const certBoxes = {
+    nome: paraFrac(certLayout.nome)!,
+    sessao: paraFrac(certLayout.sessao)!,
+    email: paraFrac(certLayout.email),
+    veneravel: paraFrac(certLayout.veneravel),
+  };
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -217,6 +249,7 @@ export default async function LojaConfigPage({
               />
             )}
           </div>
+          <CertLayoutEditor boxes={certBoxes} pageW={certPw} />
           <ActionForm action={updateCertTemplate} submitLabel="Enviar template">
             <div className="space-y-1">
               <Label htmlFor="template">Novo template (.pptx)</Label>
@@ -261,6 +294,19 @@ export default async function LojaConfigPage({
               />
             )}
           </div>
+          {(() => {
+            const arte = arteDoConvite(lodge.conviteTemplateHtml);
+            return arte ? (
+              <ConviteArteEditor
+                arte={arte}
+                layout={
+                  isConviteArteLayout(lodge.conviteArteLayout)
+                    ? lodge.conviteArteLayout
+                    : null
+                }
+              />
+            ) : null;
+          })()}
           <ActionForm action={updateConviteFrase} submitLabel="Salvar frase">
             <div className="space-y-1">
               <Label htmlFor="convite-frase">

@@ -28,6 +28,7 @@ export type AtaPdfData = {
   content: string;
   signers: AtaPdfSigner[]; // vazio na minuta em validação
   minuta?: boolean; // marca "MINUTA PARA VALIDAÇÃO"
+  titulo?: string; // substitui a linha "Ata nº N" (ex.: Atestado de Regularidade)
   logoUrl?: string | null; // símbolo da Loja no cabeçalho (data URI png/jpg)
   cabecalho?: string | null; // linhas institucionais sob o nome (Lodge.ataCabecalho)
   address?: string | null; // endereço da sede (última linha do cabeçalho)
@@ -140,9 +141,11 @@ export async function gerarAtaPdf(data: AtaPdfData): Promise<Buffer> {
     color: vermelho,
   });
   y -= 24;
-  const sub = data.minuta
-    ? `Ata nº ${data.number} — MINUTA PARA VALIDAÇÃO`
-    : `Ata nº ${data.number}`;
+  const sub =
+    data.titulo ??
+    (data.minuta
+      ? `Ata nº ${data.number} — MINUTA PARA VALIDAÇÃO`
+      : `Ata nº ${data.number}`);
   centered(sub, 11, serif, data.minuta ? rgb(0.6, 0.1, 0.1) : rgb(0.2, 0.2, 0.2));
   y -= 28;
 

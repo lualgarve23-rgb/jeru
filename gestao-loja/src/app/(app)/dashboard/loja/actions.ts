@@ -130,6 +130,61 @@ export async function updateCertTemplate(
   };
 }
 
+// Caixa do editor visual do certificado, em frações da página (0–1)
+type CertBoxFrac = { x: number; y: number; w: number; h: number; size: number };
+
+// Salva as posições das caixas do certificado ajustadas no editor visual.
+// As frações viram EMU (unidade do certLayout) a partir do tamanho real da
+// página do fundo em vigor.
+export async function updateCertLayoutBoxes(boxes: {
+  nome: CertBoxFrac;
+  sessao: CertBoxFrac;
+  email?: CertBoxFrac;
+  veneravel?: CertBoxFrac;
+}): Promise<ActionResult> {
+  const user = await requireRole("VENERAVEL_MESTRE", "SECRETARIO");
+  const valida = (b?: CertBoxFrac) =>
+    !b ||
+    ([b.x, b.y, b.w, b.h].every(
+      (v) => typeof v === "number" && v >= 0 && v <= 1
+    ) &&
+      typeof b.size === "number" &&
+      b.size >= 4 &&
+      b.size <= 96);
+  if (
+    !boxes?.nome ||
+    !boxes.sessao ||
+    ![boxes.nome, boxes.sessao, boxes.email, boxes.veneravel].every(valida)
+  ) {
+    return { error: "Posições inválidas das caixas do certificado." };
+  }
+
+  const { fundoAtual, EMU } = await import("@/lib/certificado");
+  const { PDFDocument } = await import("pdf-lib");
+  const pdf = await PDFDocument.load(await fundoAtual(user.lodgeId));
+  const { width: pw, height: ph } = pdf.getPage(0).getSize(); // pontos
+
+  const paraEmu = (b: CertBoxFrac) => ({
+    x: Math.round(b.x * pw * EMU),
+    y: Math.round(b.y * ph * EMU),
+    cx: Math.round(b.w * pw * EMU),
+    cy: Math.round(b.h * ph * EMU),
+    size: Math.round(b.size),
+  });
+  const layout = {
+    nome: paraEmu(boxes.nome),
+    sessao: paraEmu(boxes.sessao),
+    ...(boxes.email ? { email: paraEmu(boxes.email) } : {}),
+    ...(boxes.veneravel ? { veneravel: paraEmu(boxes.veneravel) } : {}),
+  };
+  await prisma.lodge.update({
+    where: { id: user.lodgeId },
+    data: { certLayout: layout as Prisma.InputJsonValue },
+  });
+  revalidatePath("/dashboard/loja");
+  return { ok: "Posições do certificado salvas — confira o preview." };
+}
+
 // Volta ao template padrão do sistema
 export async function removeCertTemplate(): Promise<ActionResult> {
   const user = await requireRole("VENERAVEL_MESTRE", "SECRETARIO");
@@ -194,7 +249,8 @@ export async function updateConviteTemplate(
   }
   await prisma.lodge.update({
     where: { id: user.lodgeId },
-    data: { conviteTemplateHtml: html },
+    // Arte nova: a posição salva do painel valia para a arte anterior
+    data: { conviteTemplateHtml: html, conviteArteLayout: Prisma.DbNull },
   });
   revalidatePath("/dashboard/loja");
   return { ok: "Template do convite de sessão atualizado." };
@@ -218,12 +274,43 @@ export async function updateConviteFrase(
   return { ok: frase ? "Frase do convite salva." : "Frase do convite removida (volta ao padrão)." };
 }
 
+// Posição do painel de dados sobre a arte do convite (editor visual)
+export async function updateConviteArteLayout(layout: {
+  x: number;
+  y: number;
+  w: number;
+}): Promise<ActionResult> {
+  const user = await requireRole("VENERAVEL_MESTRE", "SECRETARIO");
+  const { x, y, w } = layout ?? {};
+  const ok = [x, y].every((v) => typeof v === "number" && v >= 0 && v <= 1);
+  if (!ok || typeof w !== "number" || w < 0.2 || w > 1) {
+    return { error: "Posição inválida do painel." };
+  }
+  await prisma.lodge.update({
+    where: { id: user.lodgeId },
+    data: { conviteArteLayout: { x, y, w } },
+  });
+  revalidatePath("/dashboard/loja");
+  return { ok: "Posição do painel do convite salva." };
+}
+
+// Volta o painel ao padrão (centralizado, 88% da largura)
+export async function resetConviteArteLayout(): Promise<ActionResult> {
+  const user = await requireRole("VENERAVEL_MESTRE", "SECRETARIO");
+  await prisma.lodge.update({
+    where: { id: user.lodgeId },
+    data: { conviteArteLayout: Prisma.DbNull },
+  });
+  revalidatePath("/dashboard/loja");
+  return { ok: "Painel do convite centralizado (padrão)." };
+}
+
 // Volta ao template padrão do convite (do repositório)
 export async function removeConviteTemplate(): Promise<ActionResult> {
   const user = await requireRole("VENERAVEL_MESTRE", "SECRETARIO");
   await prisma.lodge.update({
     where: { id: user.lodgeId },
-    data: { conviteTemplateHtml: null },
+    data: { conviteTemplateHtml: null, conviteArteLayout: Prisma.DbNull },
   });
   revalidatePath("/dashboard/loja");
   return { ok: "Template padrão do convite restaurado." };
