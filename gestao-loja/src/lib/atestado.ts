@@ -112,26 +112,28 @@ export async function gerarAtestadoPdf(atestadoId: string, lodgeId: string) {
     cabecalho: atestado.lodge.ataCabecalho,
     address: atestado.lodge.address,
     divisa: atestado.lodge.ataDivisa,
+    // Os três campos aparecem sempre no template, na ordem Venerável Mestre →
+    // Tesoureiro → Secretário, para a assinatura enquadrar no campo do cargo.
     signers: [
-      atestado.signedByMaster && {
-        name: atestado.signedByMaster.name,
+      {
+        name: atestado.signedByMaster?.name ?? "",
         cargo: "Venerável Mestre",
         signedAt: atestado.signedByMasterAt,
         signatureUrl: assinaturaMaster,
       },
-      atestado.signedByTes && {
-        name: atestado.signedByTes.name,
+      {
+        name: atestado.signedByTes?.name ?? "",
         cargo: "Tesoureiro",
         signedAt: atestado.signedByTesAt,
         signatureUrl: assinaturaTes,
       },
-      atestado.signedBySec && {
-        name: atestado.signedBySec.name,
+      {
+        name: atestado.signedBySec?.name ?? "",
         cargo: "Secretário",
         signedAt: atestado.signedBySecAt,
         signatureUrl: assinaturaSec,
       },
-    ].filter((s) => s !== null),
+    ],
   });
   return { atestado, pdf };
 }
