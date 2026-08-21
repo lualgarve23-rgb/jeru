@@ -5,7 +5,9 @@
 import re, json, subprocess, tempfile, os, sys
 
 BASE = "/home/ubuntu/jeruteste/gestao-loja/public/tour"
-TOURS = ["obreiro", "secretario", "veneravel", "extras-secretaria"]
+TOURS = ["obreiro", "secretario", "veneravel", "tesoureiro", "extras-secretaria"]
+if len(sys.argv) > 1:
+    TOURS = sys.argv[1:]
 VOICE = "pt-BR-AntonioNeural"
 PAUSA = 0.8  # respiro após cada narração
 

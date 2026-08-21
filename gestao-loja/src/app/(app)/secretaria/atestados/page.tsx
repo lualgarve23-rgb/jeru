@@ -153,15 +153,22 @@ export default async function AtestadosPage({
                           })()}
                     </Badge>
                     {a.status === "ASSINADO" && (
-                      <Button asChild size="sm" variant="outline">
-                        <a
-                          href={`/secretaria/atestados/${a.id}/pdf`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Baixar PDF
-                        </a>
-                      </Button>
+                      <>
+                        <Button asChild size="sm" variant="ghost">
+                          <a
+                            href={`/secretaria/atestados/${a.id}/pdf`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Ver PDF
+                          </a>
+                        </Button>
+                        <Button asChild size="sm" variant="outline">
+                          <a href={`/secretaria/atestados/${a.id}/pdf?download=1`}>
+                            Baixar PDF
+                          </a>
+                        </Button>
+                      </>
                     )}
                   </span>
                 </li>
@@ -233,6 +240,11 @@ export default async function AtestadosPage({
                             rel="noreferrer"
                           >
                             Ver PDF
+                          </a>
+                        </Button>
+                        <Button asChild size="sm" variant="ghost">
+                          <a href={`/secretaria/atestados/${a.id}/pdf?download=1`}>
+                            Baixar PDF
                           </a>
                         </Button>
                         {minhaVez && a.user.status === "ATIVO" && (
