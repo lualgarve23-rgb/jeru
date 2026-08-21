@@ -4,8 +4,10 @@ import { textoAtestado } from "@/lib/atestado";
 import {
   solicitarAtestado,
   signAtestadoInline,
+  uploadAtestadoAssinadoGovbr,
 } from "../_actions/atestados";
-import { ActionButton } from "@/components/action-form";
+import { isGovbrConfigured } from "@/lib/govbr";
+import { ActionButton, ActionForm } from "@/components/action-form";
 import { InlineSignDialog } from "@/components/inline-sign-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -224,11 +226,13 @@ export default async function AtestadosPage({
                               })}
                               action={signAtestadoInline.bind(null, a.id)}
                             />
-                            <Button asChild size="sm" variant="outline">
-                              <a href={`/api/govbr/authorize?atestado=${a.id}`}>
-                                Assinar com gov.br
-                              </a>
-                            </Button>
+                            {isGovbrConfigured() && (
+                              <Button asChild size="sm" variant="outline">
+                                <a href={`/api/govbr/authorize?atestado=${a.id}`}>
+                                  Assinar com gov.br
+                                </a>
+                              </Button>
+                            )}
                           </>
                         )}
                         {jaAssinei && (
@@ -237,6 +241,66 @@ export default async function AtestadosPage({
                           </span>
                         )}
                       </div>
+                      {/* Fluxo gov.br pelo portal, igual ao das atas: baixar o
+                          PDF, assinar no assinador.iti.br e subir o arquivo.
+                          Ordem: o Venerável Mestre assina primeiro. */}
+                      {!jaAssinei &&
+                        a.user.status === "ATIVO" &&
+                        (user.role === "VENERAVEL_MESTRE" ||
+                        a.signedByMasterAt ? (
+                          <details className="rounded-md border bg-muted/20 p-3">
+                            <summary className="cursor-pointer text-sm font-medium">
+                              Assinar pelo gov.br (portal assinador.iti.br)
+                            </summary>
+                            <div className="mt-2 space-y-3">
+                              <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
+                                <li>
+                                  <a
+                                    href={`/secretaria/atestados/${a.id}/pdf`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="font-medium text-primary hover:underline"
+                                  >
+                                    {user.role === "SECRETARIO"
+                                      ? "Baixe o PDF já assinado pelo Venerável Mestre"
+                                      : "Baixe o PDF do atestado"}
+                                  </a>
+                                  .
+                                </li>
+                                <li>
+                                  Assine o arquivo em{" "}
+                                  <a
+                                    href="https://assinador.iti.br"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="font-medium text-primary hover:underline"
+                                  >
+                                    assinador.iti.br
+                                  </a>{" "}
+                                  com a sua conta gov.br (nível prata ou ouro).
+                                </li>
+                                <li>Envie aqui o PDF assinado.</li>
+                              </ol>
+                              <ActionForm
+                                action={uploadAtestadoAssinadoGovbr.bind(null, a.id)}
+                                submitLabel="Enviar PDF assinado"
+                              >
+                                <input
+                                  type="file"
+                                  name="file"
+                                  accept="application/pdf"
+                                  required
+                                  className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium"
+                                />
+                              </ActionForm>
+                            </div>
+                          </details>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            Para assinar pelo gov.br, aguarde o Venerável Mestre
+                            assinar e subir o PDF primeiro.
+                          </p>
+                        ))}
                     </li>
                   );
                 })}
