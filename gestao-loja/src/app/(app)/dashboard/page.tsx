@@ -108,6 +108,57 @@ function StatusBadge({ status, tone }: { status: string; tone: BadgeTone }) {
   return <Badge variant={tone}>{status}</Badge>;
 }
 
+/* Atestados de Regularidade na vez do cargo logado (ordem Tes → Sec → VM) */
+function AtestadosPendentesCard({
+  atestados,
+}: {
+  atestados: {
+    id: string;
+    solicitadoAt: Date;
+    user: { name: string; cim: string };
+  }[];
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Atestados aguardando minha assinatura</CardTitle>
+        <CardDescription>
+          Atestado de Regularidade — ordem de assinatura: Tesoureiro,
+          Secretário e Venerável Mestre.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {atestados.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhuma pendência.</p>
+        ) : (
+          <ul className="space-y-2 text-sm">
+            {atestados.map((a) => (
+              <li key={a.id}>
+                <Link
+                  href="/secretaria/atestados"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background p-3 transition-colors hover:bg-muted/50"
+                >
+                  <span className="min-w-0">
+                    {a.user.name} (CIM {a.user.cim}) — solicitado em{" "}
+                    {a.solicitadoAt.toLocaleDateString("pt-BR")}
+                  </span>
+                  <Badge variant="warning">Minha vez</Badge>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+        <Link
+          href="/secretaria/atestados"
+          className="mt-3 block text-sm font-medium text-primary hover:underline"
+        >
+          Ir para os atestados →
+        </Link>
+      </CardContent>
+    </Card>
+  );
+}
+
 /* Faixa-herói dos cargos de gestão: saudação + cargo, no mesmo gradiente
    do dashboard do Obreiro, mas mais baixa (foco desktop). */
 function GestorHero({
@@ -460,6 +511,7 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
     pendingAtasCount,
     nextSessions,
     pranchasYear,
+    atestadosToSign,
   ] = await Promise.all([
     prisma.user.groupBy({
       by: ["status"],
@@ -493,6 +545,17 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
     }),
     prisma.prancha.count({
       where: { lodgeId, year: new Date().getFullYear() },
+    }),
+    // Atestados na vez do Secretário (Tesoureiro já assinou)
+    prisma.atestadoRegularidade.findMany({
+      where: {
+        lodgeId,
+        status: "SOLICITADO",
+        signedByTesId: { not: null },
+        signedBySecId: null,
+      },
+      include: { user: { select: { name: true, cim: true } } },
+      orderBy: { solicitadoAt: "asc" },
     }),
   ]);
 
@@ -602,6 +665,8 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
             </Link>
           </CardContent>
         </Card>
+
+        <AtestadosPendentesCard atestados={atestadosToSign} />
       </div>
     </>
   );
@@ -610,7 +675,7 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
 // ───────────── Tesoureiro ─────────────
 
 async function TesoureiroDashboard({ lodgeId }: { lodgeId: string }) {
-  const [{ receitas, despesas, saldo }, overdue, pendingExpenses] =
+  const [{ receitas, despesas, saldo }, overdue, pendingExpenses, atestadosToSign] =
     await Promise.all([
       monthBalance(lodgeId),
       prisma.invoice.findMany({
@@ -625,6 +690,12 @@ async function TesoureiroDashboard({ lodgeId }: { lodgeId: string }) {
       prisma.expense.findMany({
         where: { lodgeId, status: "PENDENTE_APROVACAO" },
         orderBy: { createdAt: "asc" },
+      }),
+      // Atestados na vez do Tesoureiro (1º da ordem Tes → Sec → VM)
+      prisma.atestadoRegularidade.findMany({
+        where: { lodgeId, status: "SOLICITADO", signedByTesId: null },
+        include: { user: { select: { name: true, cim: true } } },
+        orderBy: { solicitadoAt: "asc" },
       }),
     ]);
 
@@ -726,6 +797,8 @@ async function TesoureiroDashboard({ lodgeId }: { lodgeId: string }) {
             </Link>
           </CardContent>
         </Card>
+
+        <AtestadosPendentesCard atestados={atestadosToSign} />
       </div>
     </>
   );
@@ -734,8 +807,14 @@ async function TesoureiroDashboard({ lodgeId }: { lodgeId: string }) {
 // ───────────── Venerável Mestre ─────────────
 
 async function VmDashboard({ lodgeId }: { lodgeId: string }) {
-  const [{ saldo }, ativos, atasToSign, expensesToApprove, placetsToSign] =
-    await Promise.all([
+  const [
+    { saldo },
+    ativos,
+    atasToSign,
+    expensesToApprove,
+    placetsToSign,
+    atestadosToSign,
+  ] = await Promise.all([
       monthBalance(lodgeId),
       prisma.user.count({ where: { lodgeId, status: "ATIVO" } }),
       prisma.ata.findMany({
@@ -764,6 +843,18 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
         },
         include: { user: { select: { name: true, cim: true } } },
         orderBy: { dataSolicitacao: "asc" },
+      }),
+      // Atestados na vez do VM (Tesoureiro e Secretário já assinaram)
+      prisma.atestadoRegularidade.findMany({
+        where: {
+          lodgeId,
+          status: "SOLICITADO",
+          signedByTesId: { not: null },
+          signedBySecId: { not: null },
+          signedByMasterId: null,
+        },
+        include: { user: { select: { name: true, cim: true } } },
+        orderBy: { solicitadoAt: "asc" },
       }),
     ]);
 
@@ -947,6 +1038,8 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
             </Link>
           </CardContent>
         </Card>
+
+        <AtestadosPendentesCard atestados={atestadosToSign} />
       </div>
     </>
   );

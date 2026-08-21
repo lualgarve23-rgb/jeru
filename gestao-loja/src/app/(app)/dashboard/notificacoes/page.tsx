@@ -15,10 +15,10 @@ import {
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import { canWriteSecretaria } from "@/lib/permissions";
 import {
   syncLodgeNotifications,
   notificationWhere,
+  NOTIFICATION_VIEWERS,
 } from "@/lib/notifications";
 import { markNotificationRead, markAllNotificationsRead } from "./actions";
 import { Badge } from "@/components/ui/badge";
@@ -117,8 +117,10 @@ function NotificationItem({ n }: { n: Notification }) {
 export default async function NotificacoesPage() {
   const user = await requireUser();
 
-  // Geração automática: quem opera a Secretaria dispara a varredura ao abrir
-  if (canWriteSecretaria(user.role)) {
+  // Geração automática: qualquer cargo que enxerga as notificações
+  // operacionais (VM, Secretário, Tesoureiro, Conselho) dispara a varredura
+  // ao abrir — o Tesoureiro é o 1º da fila do atestado e precisa do alerta.
+  if (NOTIFICATION_VIEWERS.includes(user.role)) {
     await syncLodgeNotifications(user.lodgeId);
   }
 

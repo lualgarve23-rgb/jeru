@@ -40,7 +40,7 @@ function addMonths(d: Date, months: number) {
 // da central de notificações (uma entrada por sourceKey).
 async function collectPending(lodgeId: string): Promise<Pending[]> {
   const now = new Date();
-  const [atas, placets, members, magnas, progressoes] = await Promise.all([
+  const [atas, placets, members, magnas, progressoes, atestados] = await Promise.all([
     prisma.ata.findMany({
       where: { lodgeId, status: "AGUARDANDO_ASSINATURAS" },
       include: { session: { select: { date: true } } },
@@ -77,6 +77,10 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
       },
       include: { user: { select: { name: true } } },
     }),
+    prisma.atestadoRegularidade.findMany({
+      where: { lodgeId, status: "SOLICITADO" },
+      include: { user: { select: { name: true, cim: true } } },
+    }),
   ]);
 
   const pending: Pending[] = [];
@@ -95,6 +99,24 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
       title: `Ata nº ${ata.number} aguarda assinatura`,
       description: `Sessão de ${ata.session.date.toLocaleDateString("pt-BR")} — falta assinar: ${faltam}.`,
       link: `/secretaria/atas/${ata.id}`,
+    });
+  }
+
+  // Atestados de Regularidade — ordem de governança Tesoureiro → Secretário
+  // → Venerável Mestre. A notificação aponta o cargo da vez e é recriada a
+  // cada avanço na cadeia (o cargo compõe a sourceKey).
+  for (const at of atestados) {
+    const cargo = !at.signedByTesAt
+      ? { key: "tes", role: "TESOUREIRO", label: "Tesoureiro" }
+      : !at.signedBySecAt
+        ? { key: "sec", role: "SECRETARIO", label: "Secretário" }
+        : { key: "vm", role: "VENERAVEL_MESTRE", label: "Venerável Mestre" };
+    pending.push({
+      sourceKey: `atestado:${at.id}:${cargo.key}`,
+      type: "PENDING_SIGNATURE",
+      title: `Atestado de ${at.user.name} aguarda assinatura do ${cargo.label}`,
+      description: `Atestado de Regularidade solicitado em ${at.solicitadoAt.toLocaleDateString("pt-BR")} (CIM ${at.user.cim}) — é a vez do ${cargo.label} assinar (ordem: Tesoureiro, Secretário e Venerável Mestre).`,
+      link: "/secretaria/atestados",
     });
   }
 
