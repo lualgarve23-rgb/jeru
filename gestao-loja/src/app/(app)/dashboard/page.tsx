@@ -49,6 +49,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { signAtaInline } from "./sign-actions";
+import { NOTIFICATION_VIEWERS, syncLodgeNotifications } from "@/lib/notifications";
 
 function brl(cents: number) {
   return (cents / 100).toLocaleString("pt-BR", {
@@ -108,27 +109,46 @@ function StatusBadge({ status, tone }: { status: string; tone: BadgeTone }) {
   return <Badge variant={tone}>{status}</Badge>;
 }
 
-/* Atestados de Regularidade na vez do cargo logado (ordem Tes → Sec → VM) */
+/* Assinaturas na vez do cargo logado — atestados (ordem Tes → Sec → VM) e
+   processos da cadeia gov.br (pranchas, formulários GOB, ofícios). Tudo se
+   assina na aba Processos. */
+async function processosNaVez(lodgeId: string, role: string) {
+  const docs = await prisma.processoDocumento.findMany({
+    where: { lodgeId, status: "EM_ASSINATURA" },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      titulo: true,
+      createdAt: true,
+      assinantes: { orderBy: { ordem: "asc" }, select: { cargo: true, signedAt: true } },
+    },
+  });
+  return docs.filter((d) => d.assinantes.find((a) => !a.signedAt)?.cargo === role);
+}
+
 function AtestadosPendentesCard({
   atestados,
+  processos = [],
 }: {
   atestados: {
     id: string;
     solicitadoAt: Date;
     user: { name: string; cim: string };
   }[];
+  processos?: { id: string; titulo: string; createdAt: Date }[];
 }) {
+  const vazio = atestados.length === 0 && processos.length === 0;
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Atestados aguardando minha assinatura</CardTitle>
+        <CardTitle>Assinaturas aguardando minha vez</CardTitle>
         <CardDescription>
-          Atestado de Regularidade — ordem de assinatura: Tesoureiro,
-          Secretário e Venerável Mestre.
+          Atestados de Regularidade (Tesoureiro, Secretário e Venerável Mestre)
+          e processos da Secretaria — assinatura gov.br na aba Processos.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {atestados.length === 0 ? (
+        {vazio ? (
           <p className="text-sm text-muted-foreground">Nenhuma pendência.</p>
         ) : (
           <ul className="space-y-2 text-sm">
@@ -139,8 +159,21 @@ function AtestadosPendentesCard({
                   className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background p-3 transition-colors hover:bg-muted/50"
                 >
                   <span className="min-w-0">
-                    {a.user.name} (CIM {a.user.cim}) — solicitado em{" "}
+                    Atestado de {a.user.name} (CIM {a.user.cim}) — solicitado em{" "}
                     {a.solicitadoAt.toLocaleDateString("pt-BR")}
+                  </span>
+                  <Badge variant="warning">Minha vez</Badge>
+                </Link>
+              </li>
+            ))}
+            {processos.map((d) => (
+              <li key={d.id}>
+                <Link
+                  href="/secretaria/processos"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background p-3 transition-colors hover:bg-muted/50"
+                >
+                  <span className="min-w-0">
+                    {d.titulo} — aberto em {d.createdAt.toLocaleDateString("pt-BR")}
                   </span>
                   <Badge variant="warning">Minha vez</Badge>
                 </Link>
@@ -512,6 +545,7 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
     nextSessions,
     pranchasYear,
     atestadosToSign,
+    processosToSign,
   ] = await Promise.all([
     prisma.user.groupBy({
       by: ["status"],
@@ -557,6 +591,7 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
       include: { user: { select: { name: true, cim: true } } },
       orderBy: { solicitadoAt: "asc" },
     }),
+    processosNaVez(lodgeId, "SECRETARIO"),
   ]);
 
   const count = (s: string) =>
@@ -666,7 +701,7 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
           </CardContent>
         </Card>
 
-        <AtestadosPendentesCard atestados={atestadosToSign} />
+        <AtestadosPendentesCard atestados={atestadosToSign} processos={processosToSign} />
       </div>
     </>
   );
@@ -675,7 +710,7 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
 // ───────────── Tesoureiro ─────────────
 
 async function TesoureiroDashboard({ lodgeId }: { lodgeId: string }) {
-  const [{ receitas, despesas, saldo }, overdue, pendingExpenses, atestadosToSign] =
+  const [{ receitas, despesas, saldo }, overdue, pendingExpenses, atestadosToSign, processosToSign] =
     await Promise.all([
       monthBalance(lodgeId),
       prisma.invoice.findMany({
@@ -697,7 +732,8 @@ async function TesoureiroDashboard({ lodgeId }: { lodgeId: string }) {
         include: { user: { select: { name: true, cim: true } } },
         orderBy: { solicitadoAt: "asc" },
       }),
-    ]);
+      processosNaVez(lodgeId, "TESOUREIRO"),
+  ]);
 
   const inadimplencia = overdue.reduce((s, i) => s + i.amountCents, 0);
 
@@ -798,7 +834,7 @@ async function TesoureiroDashboard({ lodgeId }: { lodgeId: string }) {
           </CardContent>
         </Card>
 
-        <AtestadosPendentesCard atestados={atestadosToSign} />
+        <AtestadosPendentesCard atestados={atestadosToSign} processos={processosToSign} />
       </div>
     </>
   );
@@ -814,6 +850,7 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
     expensesToApprove,
     placetsToSign,
     atestadosToSign,
+    processosToSign,
   ] = await Promise.all([
       monthBalance(lodgeId),
       prisma.user.count({ where: { lodgeId, status: "ATIVO" } }),
@@ -858,7 +895,8 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
         include: { user: { select: { name: true, cim: true } } },
         orderBy: { solicitadoAt: "asc" },
       }),
-    ]);
+      processosNaVez(lodgeId, "VENERAVEL_MESTRE"),
+  ]);
 
   // Prazo de 15 dias vencido (comunicação pós-cerimônia) — card vermelho
   const comunicacoesVencidas = await prisma.processoProgressao.findMany({
@@ -1041,7 +1079,7 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
           </CardContent>
         </Card>
 
-        <AtestadosPendentesCard atestados={atestadosToSign} />
+        <AtestadosPendentesCard atestados={atestadosToSign} processos={processosToSign} />
       </div>
     </>
   );
@@ -1148,6 +1186,12 @@ async function ConselhoDashboard({ lodgeId }: { lodgeId: string }) {
 
 export default async function DashboardPage() {
   const user = await requireUser();
+  // O dashboard é a porta de entrada após o login: dispara a varredura de
+  // pendências para os cargos que veem as notificações, para o sino e o
+  // quadro já refletirem processos/atestados abertos (o cron roda só 1×/dia).
+  if (NOTIFICATION_VIEWERS.includes(user.role)) {
+    await syncLodgeNotifications(user.lodgeId);
+  }
   if (user.role === "SUPER_ADMIN") redirect("/admin");
 
   const isGestor = ["SECRETARIO", "TESOUREIRO", "VENERAVEL_MESTRE", "CONSELHO_CONTAS"].includes(user.role);

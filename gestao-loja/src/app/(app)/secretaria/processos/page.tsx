@@ -143,12 +143,12 @@ export default async function ProcessosPage({
                 <Input id="titulo" name="titulo" required />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="arquivo">Documento (PDF)</Label>
+                <Label htmlFor="arquivo">Documento (PDF ou Word .docx — o Word é convertido para PDF)</Label>
                 <Input
                   id="arquivo"
                   name="arquivo"
                   type="file"
-                  accept=".pdf"
+                  accept=".pdf,.docx"
                   required
                 />
               </div>

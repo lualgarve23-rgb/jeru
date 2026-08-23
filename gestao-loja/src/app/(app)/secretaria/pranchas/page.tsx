@@ -258,7 +258,7 @@ export default async function PranchasPage() {
                   isWriter ? (
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground">
-                        O anexo (em PDF) segue para a cadeia de assinaturas
+                        O anexo (PDF ou Word .docx, convertido para PDF) segue para a cadeia de assinaturas
                         gov.br na seção Processos — o Venerável Mestre assina
                         por último.
                       </p>

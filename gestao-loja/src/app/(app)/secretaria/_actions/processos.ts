@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { garantirPdf } from "@/lib/docx-pdf";
+import { logError } from "@/lib/log";
 import { auditar } from "@/lib/audit";
 import { requireRole } from "@/lib/session";
 import { downloadFromLodgeDrive } from "@/lib/google-drive";
@@ -37,15 +39,22 @@ export async function criarProcessoDocumento(
 
   const file = formData.get("arquivo") as File | null;
   if (!file || file.size === 0) {
-    return { error: "Selecione o documento em PDF." };
+    return { error: "Selecione o documento (PDF ou Word .docx)." };
   }
   if (file.size > 15_000_000) {
-    return { error: "Arquivo muito grande — o PDF deve ter até 15 MB." };
+    return { error: "Arquivo muito grande — o documento deve ter até 15 MB." };
   }
-  const pdf = Buffer.from(await file.arrayBuffer());
-  if (!pdf.subarray(0, 5).toString("latin1").startsWith("%PDF-")) {
-    return { error: "O arquivo enviado não é um PDF." };
+  // Word (.docx) é convertido para PDF no servidor: o gov.br só assina PDF
+  let conv: { pdf: Buffer; nome: string } | null;
+  try {
+    conv = await garantirPdf(Buffer.from(await file.arrayBuffer()), file.name, file.type);
+  } catch (e) {
+    logError("processo.docx2pdf", e);
+    return { error: "Não foi possível converter o Word para PDF — envie o documento em PDF." };
   }
+  if (!conv) return { error: "O arquivo enviado não é PDF nem Word (.docx)." };
+  const pdf = conv.pdf;
+  const arquivoNome = conv.nome;
 
   const cadeia = lerCadeiaDoForm(formData);
   await prisma.processoDocumento.create({
@@ -53,7 +62,7 @@ export async function criarProcessoDocumento(
       lodgeId: user.lodgeId,
       titulo,
       arquivo: new Uint8Array(pdf),
-      arquivoNome: file.name.slice(0, 200),
+      arquivoNome: arquivoNome.slice(0, 200),
       criadoPorId: user.id,
       assinantes: {
         create: cadeia.map((cargo, i) => ({ ordem: i + 1, cargo })),
@@ -107,12 +116,23 @@ export async function criarProcessoDaPrancha(
       error: e instanceof Error ? e.message : "Falha ao baixar o anexo do Drive.",
     };
   }
-  if (!pdf.subarray(0, 5).toString("latin1").startsWith("%PDF-")) {
+  // Anexo em Word (.docx, caso dos formulários GOB preenchidos) é
+  // convertido para PDF aqui — o gov.br só assina PDF
+  let conv: { pdf: Buffer; nome: string } | null;
+  try {
+    conv = await garantirPdf(pdf, nome);
+  } catch (e) {
+    logError("processo.docx2pdf", e);
+    return { error: "Não foi possível converter o anexo Word para PDF — anexe-o em PDF." };
+  }
+  if (!conv) {
     return {
       error:
-        "O anexo da prancha não está em PDF — converta-o em PDF e anexe novamente antes de abrir o processo.",
+        "O anexo da prancha não está em PDF nem Word (.docx) — converta-o em PDF e anexe novamente antes de abrir o processo.",
     };
   }
+  pdf = conv.pdf;
+  nome = conv.nome;
 
   const cadeia = lerCadeiaDoForm(formData);
   await prisma.processoDocumento.create({

@@ -2,6 +2,7 @@ import { NotificationType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { INTERSTICE_MONTHS } from "@/lib/permissions";
 import { degreeLabels } from "@/lib/labels";
+import { cargoLabel } from "@/lib/processos";
 import {
   frequenciaAnual,
   MIN_SESSOES_PARA_ALERTA,
@@ -40,7 +41,7 @@ function addMonths(d: Date, months: number) {
 // da central de notificações (uma entrada por sourceKey).
 async function collectPending(lodgeId: string): Promise<Pending[]> {
   const now = new Date();
-  const [atas, placets, members, magnas, progressoes, atestados] = await Promise.all([
+  const [atas, placets, members, magnas, progressoes, atestados, processos] = await Promise.all([
     prisma.ata.findMany({
       where: { lodgeId, status: "AGUARDANDO_ASSINATURAS" },
       include: { session: { select: { date: true } } },
@@ -81,6 +82,18 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
       where: { lodgeId, status: "SOLICITADO" },
       include: { user: { select: { name: true, cim: true } } },
     }),
+    prisma.processoDocumento.findMany({
+      where: { lodgeId, status: "EM_ASSINATURA" },
+      select: {
+        id: true,
+        titulo: true,
+        createdAt: true,
+        assinantes: {
+          orderBy: { ordem: "asc" },
+          select: { ordem: true, cargo: true, signedAt: true },
+        },
+      },
+    }),
   ]);
 
   const pending: Pending[] = [];
@@ -116,6 +129,22 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
       type: "PENDING_SIGNATURE",
       title: `Atestado de ${at.user.name} aguarda assinatura do ${cargo.label}`,
       description: `Atestado de Regularidade solicitado em ${at.solicitadoAt.toLocaleDateString("pt-BR")} (CIM ${at.user.cim}) — é a vez do ${cargo.label} assinar (ordem: Tesoureiro, Secretário e Venerável Mestre).`,
+      link: "/secretaria/processos",
+    });
+  }
+
+  // Processos (pranchas, formulários GOB, ofícios) — cadeia ordenada; a
+  // notificação aponta o cargo da vez e é recriada a cada avanço (a ordem
+  // do assinante compõe a sourceKey), como no atestado.
+  for (const doc of processos) {
+    const proximo = doc.assinantes.find((a) => !a.signedAt);
+    if (!proximo) continue;
+    const label = cargoLabel(proximo.cargo);
+    pending.push({
+      sourceKey: `processo:${doc.id}:${proximo.ordem}`,
+      type: "PENDING_SIGNATURE",
+      title: `${doc.titulo} aguarda assinatura do ${label}`,
+      description: `Processo aberto em ${doc.createdAt.toLocaleDateString("pt-BR")} — é a vez do ${label} assinar (${proximo.ordem}º de ${doc.assinantes.length} na cadeia; o Venerável Mestre assina por último).`,
       link: "/secretaria/processos",
     });
   }

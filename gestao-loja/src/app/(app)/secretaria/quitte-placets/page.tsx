@@ -486,7 +486,7 @@ export default async function QuittePlacetsPage() {
                     >
                       <div className="space-y-1">
                         <Label htmlFor={`arquivo-${p.id}`}>
-                          Form. 122 preenchido — em PDF, para receber as
+                          Form. 122 preenchido — em PDF ou Word (.docx, convertido automaticamente), para receber as
                           assinaturas gov.br
                           {p.formularioNome &&
                             " (substituir invalida assinaturas já colhidas)"}
@@ -495,7 +495,7 @@ export default async function QuittePlacetsPage() {
                           id={`arquivo-${p.id}`}
                           name="arquivo"
                           type="file"
-                          accept=".pdf"
+                          accept=".pdf,.docx"
                           required
                         />
                       </div>

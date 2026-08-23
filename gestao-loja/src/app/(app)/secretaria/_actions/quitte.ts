@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import {
   StatusPlacet } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { garantirPdf } from "@/lib/docx-pdf";
+import { logError } from "@/lib/log";
 import { auditar } from "@/lib/audit";
 import { requireUser, requireRole } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
@@ -215,12 +217,26 @@ export async function anexarFormularioQuittePlacet(
   }
   const valid = validarAnexo(formData.get("arquivo") as File | null);
   if ("error" in valid) return valid;
+  // Word (.docx) — o modelo preenchido baixado do sistema — é convertido
+  // para PDF aqui, pois o gov.br só assina PDF
+  let conv: { pdf: Buffer; nome: string } | null;
+  try {
+    conv = await garantirPdf(
+      Buffer.from(await valid.file.arrayBuffer()),
+      valid.file.name,
+      valid.file.type
+    );
+  } catch (e) {
+    logError("quitte.docx2pdf", e);
+    return { error: "Não foi possível converter o Word para PDF — anexe o Form. 122 em PDF." };
+  }
+  if (!conv) return { error: "Anexe o Form. 122 em PDF ou Word (.docx)." };
   await prisma.quittePlacet.update({
     where: { id: placetId, lodgeId: user.lodgeId },
     data: {
-      formularioArquivo: Buffer.from(await valid.file.arrayBuffer()),
-      formularioNome: valid.file.name.slice(0, 200),
-      formularioMime: valid.file.type,
+      formularioArquivo: new Uint8Array(conv.pdf),
+      formularioNome: conv.nome.slice(0, 200),
+      formularioMime: "application/pdf",
       formularioEnviadoAt: null,
       // Trocar o formulário invalida as assinaturas gov.br já colhidas —
       // elas se referem ao arquivo anterior
