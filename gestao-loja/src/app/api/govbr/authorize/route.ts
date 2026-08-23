@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { isGovbrConfigured, govbrAuthorizeUrl } from "@/lib/govbr";
 import { ordemAssinaturaAtestado } from "@/lib/atestado";
 import { ordemAssinaturaQuitte, bloqueioAssinaturaQuitte } from "@/lib/quitte";
-import { estadoProcesso } from "@/lib/processos";
+import { estadoProcesso, cargosProcessoDoUsuario } from "@/lib/processos";
 
 // Início do fluxo de assinatura gov.br de uma ata: valida a elegibilidade do
 // assinante, grava o state em cookie e redireciona ao login gov.br.
@@ -13,17 +13,18 @@ export async function GET(req: NextRequest) {
   const baseUrl = process.env.APP_URL ?? req.url;
   const session = await auth();
   const role = session?.user?.role;
-  // TESOUREIRO só assina Atestado de Regularidade; nas atas segue VM/Secretário
-  if (
-    !session?.user ||
-    !["VENERAVEL_MESTRE", "SECRETARIO", "TESOUREIRO"].includes(role!)
-  ) {
+  if (!session?.user) {
     return NextResponse.redirect(new URL("/login", baseUrl));
   }
+  // TESOUREIRO só assina Atestado de Regularidade; nas atas segue VM/Secretário.
+  // Os documentos da seção Processos têm cadeia própria (pode incluir Orador e
+  // Vigilantes, pelo cargo do rito) — o gate deles é o estadoProcesso.
+  const cargoFiscal = ["VENERAVEL_MESTRE", "SECRETARIO", "TESOUREIRO"].includes(role!);
 
   // Assinatura gov.br de um Atestado de Regularidade (mesmo OAuth das atas)
   const atestadoId = req.nextUrl.searchParams.get("atestado");
   if (atestadoId) {
+    if (!cargoFiscal) return NextResponse.redirect(new URL("/dashboard", baseUrl));
     const backUrl = new URL("/secretaria/processos", baseUrl);
     if (!isGovbrConfigured()) {
       backUrl.searchParams.set("govbr", "nao-configurado");
@@ -72,7 +73,10 @@ export async function GET(req: NextRequest) {
       include: { assinantes: true },
     });
     if (!doc || doc.status === "ASSINADO") return back("falhou");
-    const estado = estadoProcesso(role!, doc.assinantes);
+    const estado = estadoProcesso(
+      await cargosProcessoDoUsuario(session.user),
+      doc.assinantes
+    );
     if (!estado.souAssinante) return back("nao-assinante");
     if (estado.jaAssinou) return back("ja-assinou");
     if (!estado.minhaVez) return back("ordem");
@@ -91,6 +95,7 @@ export async function GET(req: NextRequest) {
   // Assinatura gov.br de um Quitte Placet — Secretário primeiro, VM por último
   const quitteId = req.nextUrl.searchParams.get("quitte");
   if (quitteId) {
+    if (!cargoFiscal) return NextResponse.redirect(new URL("/dashboard", baseUrl));
     const backUrl = new URL("/secretaria/processos", baseUrl);
     const back = (motivo: string) => {
       backUrl.searchParams.set("govbr", motivo);
@@ -121,6 +126,7 @@ export async function GET(req: NextRequest) {
   }
 
   const ataId = req.nextUrl.searchParams.get("ata");
+  if (!cargoFiscal) return NextResponse.redirect(new URL("/dashboard", baseUrl));
   if (!ataId) {
     return NextResponse.redirect(new URL("/secretaria/atas", baseUrl));
   }

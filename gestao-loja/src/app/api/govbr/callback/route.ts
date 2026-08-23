@@ -21,6 +21,7 @@ import {
 } from "@/lib/quitte";
 import {
   estadoProcesso,
+  cargosProcessoDoUsuario,
   cargoLabel,
   concluirProcessoNaPrancha,
 } from "@/lib/processos";
@@ -32,13 +33,13 @@ export async function GET(req: NextRequest) {
   const baseUrl = process.env.APP_URL ?? req.url;
   const session = await auth();
   const role = session?.user?.role;
-  // TESOUREIRO só assina Atestado de Regularidade; nas atas segue VM/Secretário
-  if (
-    !session?.user ||
-    !["VENERAVEL_MESTRE", "SECRETARIO", "TESOUREIRO"].includes(role!)
-  ) {
+  if (!session?.user) {
     return NextResponse.redirect(new URL("/login", baseUrl));
   }
+  // TESOUREIRO só assina Atestado de Regularidade; nas atas segue VM/Secretário.
+  // Os documentos da seção Processos têm cadeia própria (pode incluir Orador e
+  // Vigilantes, pelo cargo do rito) — o gate deles é o estadoProcesso.
+  const cargoFiscal = ["VENERAVEL_MESTRE", "SECRETARIO", "TESOUREIRO"].includes(role!);
 
   const cookie = req.cookies.get("govbr_oauth")?.value;
   let ataId: string | null = null;
@@ -65,19 +66,22 @@ export async function GET(req: NextRequest) {
 
   // ── Atestado de Regularidade ──
   if (atestadoId) {
+    if (!cargoFiscal) return NextResponse.redirect(new URL("/dashboard", baseUrl));
     return assinarAtestado(req, baseUrl, session.user, role!, atestadoId);
   }
 
   // ── Quitte Placet ──
   if (quitteId) {
+    if (!cargoFiscal) return NextResponse.redirect(new URL("/dashboard", baseUrl));
     return assinarQuitte(req, baseUrl, session.user, role!, quitteId);
   }
 
   // ── Documento da seção Processos ──
   if (processoId) {
-    return assinarProcesso(req, baseUrl, session.user, role!, processoId);
+    return assinarProcesso(req, baseUrl, session.user, processoId);
   }
 
+  if (!cargoFiscal) return NextResponse.redirect(new URL("/dashboard", baseUrl));
   if (!ataId) {
     return NextResponse.redirect(
       new URL("/secretaria/atas?govbr=sessao-expirada", baseUrl)
@@ -162,8 +166,7 @@ export async function GET(req: NextRequest) {
 async function assinarProcesso(
   req: NextRequest,
   baseUrl: string,
-  sessionUser: { id: string; lodgeId: string },
-  role: string,
+  sessionUser: { id: string; lodgeId: string; role: string },
   processoId: string
 ) {
   const backUrl = new URL("/secretaria/processos", baseUrl);
@@ -182,7 +185,10 @@ async function assinarProcesso(
     include: { assinantes: true },
   });
   if (!doc || doc.status === "ASSINADO") return fail("falhou");
-  const estado = estadoProcesso(role, doc.assinantes);
+  const estado = estadoProcesso(
+    await cargosProcessoDoUsuario(sessionUser),
+    doc.assinantes
+  );
   if (!estado.souAssinante) return fail("nao-assinante");
   if (estado.jaAssinou) return fail("ja-assinou");
   if (!estado.minhaVez) return fail("ordem");
@@ -201,10 +207,10 @@ async function assinarProcesso(
     const base = doc.govbrPdf ?? doc.arquivo;
     const signed = await assinarPdfComGovbr(Buffer.from(base), token, {
       name: user.name,
-      reason: `Assinatura gov.br — ${cargoLabel(role)}: ${user.name}`,
+      reason: `Assinatura gov.br — ${cargoLabel(estado.cargo!)}: ${user.name}`,
     });
 
-    const meu = doc.assinantes.find((a) => a.cargo === role)!;
+    const meu = doc.assinantes.find((a) => a.cargo === estado.cargo)!;
     await prisma.$transaction([
       prisma.processoAssinante.update({
         where: { id: meu.id },

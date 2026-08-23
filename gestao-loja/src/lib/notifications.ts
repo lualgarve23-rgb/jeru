@@ -2,7 +2,7 @@ import { NotificationType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { INTERSTICE_MONTHS } from "@/lib/permissions";
 import { degreeLabels } from "@/lib/labels";
-import { cargoLabel } from "@/lib/processos";
+import { cargoLabel, cargosProcesso } from "@/lib/processos";
 import {
   frequenciaAnual,
   MIN_SESSOES_PARA_ALERTA,
@@ -136,17 +136,38 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
   // Processos (pranchas, formulários GOB, ofícios) — cadeia ordenada; a
   // notificação aponta o cargo da vez e é recriada a cada avanço (a ordem
   // do assinante compõe a sourceKey), como no atestado.
+  // Quando a vez é de um cargo do rito (Orador/Vigilantes — nível Obreiro,
+  // que não vê as notificações operacionais), a notificação é dirigida aos
+  // usuários que ocupam o cargo, além da geral para a gestão.
+  const obreirosRito = processos.some((d) =>
+    ["ORADOR", "VIGILANTE_1", "VIGILANTE_2"].includes(
+      d.assinantes.find((a) => !a.signedAt)?.cargo ?? ""
+    )
+  )
+    ? await prisma.user.findMany({
+        where: { lodgeId, status: "ATIVO", cargoRito: { not: null } },
+        select: { id: true, currentRole: true, cargoRito: true },
+      })
+    : [];
   for (const doc of processos) {
     const proximo = doc.assinantes.find((a) => !a.signedAt);
     if (!proximo) continue;
     const label = cargoLabel(proximo.cargo);
-    pending.push({
-      sourceKey: `processo:${doc.id}:${proximo.ordem}`,
-      type: "PENDING_SIGNATURE",
+    const base = {
+      type: "PENDING_SIGNATURE" as const,
       title: `${doc.titulo} aguarda assinatura do ${label}`,
       description: `Processo aberto em ${doc.createdAt.toLocaleDateString("pt-BR")} — é a vez do ${label} assinar (${proximo.ordem}º de ${doc.assinantes.length} na cadeia; o Venerável Mestre assina por último).`,
       link: "/secretaria/processos",
-    });
+    };
+    pending.push({ sourceKey: `processo:${doc.id}:${proximo.ordem}`, ...base });
+    for (const u of obreirosRito) {
+      if (!cargosProcesso(u.currentRole, u.cargoRito).includes(proximo.cargo)) continue;
+      pending.push({
+        sourceKey: `processo:${doc.id}:${proximo.ordem}:${u.id}`,
+        userId: u.id,
+        ...base,
+      });
+    }
   }
 
   for (const qp of placets) {

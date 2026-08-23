@@ -50,6 +50,7 @@ import {
 } from "lucide-react";
 import { signAtaInline } from "./sign-actions";
 import { NOTIFICATION_VIEWERS, syncLodgeNotifications } from "@/lib/notifications";
+import { cargosProcesso } from "@/lib/processos";
 
 function brl(cents: number) {
   return (cents / 100).toLocaleString("pt-BR", {
@@ -112,7 +113,8 @@ function StatusBadge({ status, tone }: { status: string; tone: BadgeTone }) {
 /* Assinaturas na vez do cargo logado — atestados (ordem Tes → Sec → VM) e
    processos da cadeia gov.br (pranchas, formulários GOB, ofícios). Tudo se
    assina na aba Processos. */
-async function processosNaVez(lodgeId: string, role: string) {
+async function processosNaVez(lodgeId: string, cargos: string | string[]) {
+  const lista = Array.isArray(cargos) ? cargos : [cargos];
   const docs = await prisma.processoDocumento.findMany({
     where: { lodgeId, status: "EM_ASSINATURA" },
     orderBy: { createdAt: "asc" },
@@ -123,7 +125,10 @@ async function processosNaVez(lodgeId: string, role: string) {
       assinantes: { orderBy: { ordem: "asc" }, select: { cargo: true, signedAt: true } },
     },
   });
-  return docs.filter((d) => d.assinantes.find((a) => !a.signedAt)?.cargo === role);
+  return docs.filter((d) => {
+    const proximo = d.assinantes.find((a) => !a.signedAt);
+    return !!proximo && lista.includes(proximo.cargo);
+  });
 }
 
 function AtestadosPendentesCard({
@@ -298,7 +303,7 @@ async function MemberDashboard({
     await Promise.all([
       prisma.user.findUniqueOrThrow({
         where: { id: userId },
-        select: { degree: true, status: true, initiationDate: true },
+        select: { degree: true, status: true, initiationDate: true, cargoRito: true, currentRole: true },
       }),
       prisma.invoice.findMany({
         where: { lodgeId, userId, status: { in: ["PENDENTE", "VENCIDA"] } },
@@ -320,6 +325,12 @@ async function MemberDashboard({
         },
       }),
     ]);
+
+  // Orador e Vigilantes (cargo do rito) assinam na cadeia dos Processos —
+  // o card "aguardando minha vez" aparece só quando há algo na vez deles
+  const meusCargos = cargosProcesso(me.currentRole, me.cargoRito);
+  const processosToSign =
+    meusCargos.length > 1 ? await processosNaVez(lodgeId, meusCargos) : [];
 
   const emAberto = openInvoices.reduce((s, i) => s + i.amountCents, 0);
   const vencidas = openInvoices.filter(
@@ -481,6 +492,9 @@ async function MemberDashboard({
           )}
         </CardContent>
       </Card>
+      {processosToSign.length > 0 && (
+        <AtestadosPendentesCard atestados={[]} processos={processosToSign} />
+      )}
     </>
   );
 }

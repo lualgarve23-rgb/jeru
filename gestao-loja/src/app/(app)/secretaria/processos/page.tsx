@@ -1,10 +1,11 @@
 import { InfoDica } from "@/components/info-dica";
 import { AJUDA } from "@/lib/ajuda";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/session";
+import { redirect } from "next/navigation";
+import { requireUser } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
 import { isGovbrConfigured } from "@/lib/govbr";
-import { cargoLabel, estadoProcesso } from "@/lib/processos";
+import { cargoLabel, estadoProcesso, cargosProcessoDoUsuario } from "@/lib/processos";
 import { SelecaoCadeia } from "./cadeia-fields";
 import {
   AtestadosParaAssinar,
@@ -50,23 +51,24 @@ export default async function ProcessosPage({
 }: {
   searchParams: Promise<{ govbr?: string }>;
 }) {
-  const user = await requireRole(
-    "SECRETARIO",
-    "TESOUREIRO",
-    "VENERAVEL_MESTRE",
-    "CONSELHO_CONTAS"
-  );
+  const user = await requireUser();
+  // Cargos de gestão veem tudo; Orador e Vigilantes (cargo do rito, nível
+  // Obreiro) entram só para assinar os processos em que figuram na cadeia
+  const meusCargos = await cargosProcessoDoUsuario(user);
+  const isGestor = ["SECRETARIO", "TESOUREIRO", "VENERAVEL_MESTRE", "CONSELHO_CONTAS"].includes(user.role);
+  if (!isGestor && meusCargos.length < 2) redirect("/dashboard");
   const sp = await searchParams;
   const isWriter = canWriteSecretaria(user.role);
-  const canSign = ["SECRETARIO", "TESOUREIRO", "VENERAVEL_MESTRE"].includes(
-    user.role
-  );
+  const canSign = user.role !== "CONSELHO_CONTAS";
   const govbrOk = isGovbrConfigured();
   const govbrMsg = sp.govbr ? (govbrMsgs[sp.govbr] ?? govbrMsgs.falhou) : null;
 
   const [processos, membros] = await Promise.all([
     prisma.processoDocumento.findMany({
-      where: { lodgeId: user.lodgeId },
+      where: {
+        lodgeId: user.lodgeId,
+        ...(isGestor ? {} : { assinantes: { some: { cargo: { in: meusCargos } } } }),
+      },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -158,8 +160,12 @@ export default async function ProcessosPage({
         </Card>
       )}
 
-      <AtestadosParaAssinar lodgeId={user.lodgeId} role={user.role} />
-      <QuittePlacetsParaAssinar lodgeId={user.lodgeId} role={user.role} />
+      {isGestor && (
+        <>
+          <AtestadosParaAssinar lodgeId={user.lodgeId} role={user.role} />
+          <QuittePlacetsParaAssinar lodgeId={user.lodgeId} role={user.role} />
+        </>
+      )}
 
       <h2 className="text-lg font-semibold">Documentos da Secretaria</h2>
       <div className="space-y-4">
@@ -169,7 +175,7 @@ export default async function ProcessosPage({
           </p>
         )}
         {processos.map((doc) => {
-          const estado = canSign ? estadoProcesso(user.role, doc.assinantes) : null;
+          const estado = canSign ? estadoProcesso(meusCargos, doc.assinantes) : null;
           const minhaVez = !!estado?.minhaVez && doc.status !== "ASSINADO";
           const temAssinatura = doc.assinantes.some((a) => a.signedAt);
           return (

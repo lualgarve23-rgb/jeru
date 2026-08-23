@@ -1,6 +1,6 @@
-import type { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { roleLabels } from "@/lib/labels";
+import { cargoCorresponde } from "@/lib/cargos";
 
 // Processos — motor genérico de cadeia ordenada de assinaturas gov.br.
 // Generaliza o padrão de ordemAssinaturaAtestado: o Secretário monta a ordem
@@ -8,25 +8,55 @@ import { roleLabels } from "@/lib/labels";
 // (é ele quem sela o documento). Assinaturas exclusivamente gov.br, embutidas
 // no PDF (PAdES) — OAuth do ITI ou upload do portal assinador.iti.br.
 
-// Cargos que podem entrar na cadeia ANTES do Venerável Mestre. O gate de
-// roles do fluxo OAuth (/api/govbr/*) cobre exatamente VM/Sec/Tes — ampliar
-// esta lista exige ampliar aquele gate também.
-export const CARGOS_PROCESSO: Role[] = ["SECRETARIO", "TESOUREIRO"];
+// Cargos que podem entrar na cadeia ANTES do Venerável Mestre. Os três
+// primeiros são níveis de acesso (enum Role); Orador e Vigilantes são cargos
+// do rito (User.cargoRito), resolvidos por cargosProcessoDoUsuario().
+export const CARGOS_PROCESSO = [
+  "SECRETARIO",
+  "TESOUREIRO",
+  "ORADOR",
+  "VIGILANTE_1",
+  "VIGILANTE_2",
+] as const;
+export type CargoProcesso = (typeof CARGOS_PROCESSO)[number] | "VENERAVEL_MESTRE";
+
+const LABELS_RITO: Record<string, string> = {
+  ORADOR: "Orador",
+  VIGILANTE_1: "1º Vigilante",
+  VIGILANTE_2: "2º Vigilante",
+};
 
 export function cargoLabel(cargo: string) {
-  return roleLabels[cargo as keyof typeof roleLabels] ?? cargo;
+  return (
+    LABELS_RITO[cargo] ?? roleLabels[cargo as keyof typeof roleLabels] ?? cargo
+  );
+}
+
+// Chaves de cargo que um usuário pode assinar: o seu nível de acesso mais o
+// cargo do rito cadastrado (Orador / 1º Vigilante / 2º Vigilante).
+export function cargosProcesso(role: string, cargoRito?: string | null): string[] {
+  const cargos = [role];
+  if (cargoCorresponde(cargoRito, "Orador")) cargos.push("ORADOR");
+  if (cargoCorresponde(cargoRito, "1º Vigilante")) cargos.push("VIGILANTE_1");
+  if (cargoCorresponde(cargoRito, "2º Vigilante")) cargos.push("VIGILANTE_2");
+  return cargos;
+}
+
+export async function cargosProcessoDoUsuario(user: { id: string; role: string }) {
+  const u = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { cargoRito: true },
+  });
+  return cargosProcesso(user.role, u?.cargoRito);
 }
 
 // Monta a cadeia a partir dos cargos escolhidos no formulário, na ordem dada:
 // filtra inválidos, remove duplicatas e acrescenta o VM como último assinante.
-export function montarCadeiaProcesso(cargos: string[]): Role[] {
-  const cadeia: Role[] = [];
+export function montarCadeiaProcesso(cargos: string[]): string[] {
+  const cadeia: string[] = [];
   for (const c of cargos) {
-    if (
-      CARGOS_PROCESSO.includes(c as Role) &&
-      !cadeia.includes(c as Role)
-    ) {
-      cadeia.push(c as Role);
+    if ((CARGOS_PROCESSO as readonly string[]).includes(c) && !cadeia.includes(c)) {
+      cadeia.push(c);
     }
   }
   cadeia.push("VENERAVEL_MESTRE");
@@ -35,23 +65,39 @@ export function montarCadeiaProcesso(cargos: string[]): Role[] {
 
 export type AssinanteProcesso = {
   ordem: number;
-  cargo: Role;
+  cargo: string;
   signedAt: Date | null;
 };
 
-// Situação da cadeia para o cargo logado — mesmo contrato dos helpers de
-// atestado/quitte: de quem é a vez, se já assinou e se a assinatura dele sela.
-export function estadoProcesso(role: string, assinantes: AssinanteProcesso[]) {
+// Cargo com que o usuário figura na cadeia (o primeiro dos seus cargos que
+// aparece entre os assinantes), ou null se ele não é assinante.
+export function meuCargoNaCadeia(
+  cargos: string | string[],
+  assinantes: AssinanteProcesso[]
+): string | null {
+  const lista = Array.isArray(cargos) ? cargos : [cargos];
+  return lista.find((c) => assinantes.some((a) => a.cargo === c)) ?? null;
+}
+
+// Situação da cadeia para o usuário logado (um cargo ou a lista dos seus
+// cargos) — mesmo contrato dos helpers de atestado/quitte: de quem é a vez,
+// se já assinou e se a assinatura dele sela.
+export function estadoProcesso(
+  cargos: string | string[],
+  assinantes: AssinanteProcesso[]
+) {
   const ordenados = [...assinantes].sort((a, b) => a.ordem - b.ordem);
   const proximo = ordenados.find((a) => !a.signedAt) ?? null;
-  const meu = ordenados.find((a) => a.cargo === role) ?? null;
+  const cargo = meuCargoNaCadeia(cargos, ordenados);
+  const meu = cargo ? (ordenados.find((a) => a.cargo === cargo) ?? null) : null;
   return {
+    cargo,
     souAssinante: !!meu,
     jaAssinou: !!meu?.signedAt,
-    minhaVez: !!proximo && proximo.cargo === role,
+    minhaVez: !!proximo && !!cargo && proximo.cargo === cargo,
     // cargo que precisa assinar antes de mim (null quando é a minha vez)
     aguardando:
-      proximo && meu && !meu.signedAt && proximo.cargo !== role
+      proximo && meu && !meu.signedAt && proximo.cargo !== cargo
         ? cargoLabel(proximo.cargo)
         : null,
     proximoCargo: proximo ? cargoLabel(proximo.cargo) : null,

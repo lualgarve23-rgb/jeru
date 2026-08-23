@@ -198,10 +198,10 @@ O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da L
 ![Tela: secretario-pranchas](roteiros-prints/secretario-pranchas.png)
 
 - **Duração:** ~75 s.
-- **Na tela:** catálogo de formulários oficiais por categoria → baixar formulário já preenchido → criar prancha → anexar PDF → botão "Encaminhar para assinaturas" com a escolha da cadeia (1º Secretário, 2º …; o VM sempre por último) → a coluna passa a "Em assinatura na seção Processos →" → (corte para o vídeo 2.15) → prancha com ✅ assinada e "Enviada".
+- **Na tela:** catálogo de formulários oficiais por categoria → baixar formulário já preenchido → criar prancha → anexar PDF → botão "Encaminhar para assinaturas" com a escolha da cadeia — até 4 caixas (1º Secretário, 2º Tesoureiro, 3º Orador, 4º 1º/2º Vigilante…; o VM sempre por último) → a coluna passa a "Em assinatura na seção Processos →" → (corte para o vídeo 2.15) → prancha com ✅ assinada e "Enviada".
 - **Narração:**
 
-> Prancha é o ofício formal da Loja — a carta oficial que segue à Potência. O sistema traz o catálogo com os formulários oficiais do GOB-SP, organizados por categoria: admissão, filiação e regularização, vida do Obreiro, mútua e administração. Melhor ainda: os formulários já saem preenchidos com os dados da Loja e do irmão. O fluxo é direto: baixe o formulário, confira, anexe à prancha e encaminhe para as assinaturas, escolhendo a ordem dos cargos — o Venerável Mestre assina sempre por último. A partir daí, a prancha segue para a seção Processos, onde cada cargo assina com o gov.br na sua vez. Assinada, ela é expedida à Guarda dos Selos pelo próprio Gmail da Loja, com registro de envio. Ofício expedido, protocolo guardado.
+> Prancha é o ofício formal da Loja — a carta oficial que segue à Potência. O sistema traz o catálogo com os formulários oficiais do GOB-SP, organizados por categoria: admissão, filiação e regularização, vida do Obreiro, mútua e administração. Melhor ainda: os formulários já saem preenchidos com os dados da Loja e do irmão. O fluxo é direto: baixe o formulário, confira, anexe à prancha e encaminhe para as assinaturas, escolhendo a ordem dos cargos: Secretário, Tesoureiro, Orador, Primeiro ou Segundo Vigilante, em até quatro posições — o Venerável Mestre assina sempre por último. A partir daí, a prancha segue para a seção Processos, onde cada cargo assina com o gov.br na sua vez. Assinada, ela é expedida à Guarda dos Selos pelo próprio Gmail da Loja, com registro de envio. Ofício expedido, protocolo guardado.
 
 ## 2.7 — E-mails da Loja (`secretario-emails.mp4`)
 
@@ -291,10 +291,10 @@ O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da L
 
 - **Objetivo:** mostrar que toda assinatura gov.br de qualquer cargo acontece num só lugar.
 - **Duração:** ~75 s.
-- **Na tela:** menu Processos → cards "Atestados de Regularidade" e "Quitte Placets" na vez do cargo → "Documentos da Secretaria": card "Novo processo" (PDF + cadeia de assinantes) → processo vindo de uma prancha (badge "vez do Secretário") → "Assinar com gov.br" / bloco portal ITI → após a última assinatura, "Assinado por toda a cadeia" → bloco de envio com Guarda dos Selos em destaque + cópia a irmãos do quadro → "Enviado a … em …" → "Baixar documento (com assinaturas)".
+- **Na tela:** menu Processos → cards "Atestados de Regularidade" e "Quitte Placets" na vez do cargo → "Documentos da Secretaria": card "Novo processo" (PDF ou Word + cadeia de assinantes em 4 caixas: 1º, 2º, 3º e 4º assinante, com as opções Secretário, Tesoureiro, Orador, 1º Vigilante e 2º Vigilante; o VM entra sozinho no fim) → processo vindo de uma prancha (badge "vez do Secretário") → "Assinar com gov.br" / bloco portal ITI → após a última assinatura, "Assinado por toda a cadeia" → bloco de envio com Guarda dos Selos em destaque + cópia a irmãos do quadro → "Enviado a … em …" → "Baixar documento (com assinaturas)".
 - **Narração:**
 
-> Processos é a mesa de assinaturas da Loja. Tudo o que precisa de assinatura digital do gov.br chega aqui, separado por tipo: os Atestados de Regularidade dos irmãos, os Quitte Placets e os documentos oficiais da Secretaria — anexos de pranchas, formulários do GOB preenchidos, ofícios. Cada documento traz a sua cadeia de assinantes, em ordem, e o Venerável Mestre assina sempre por último, selando o documento. Quando chega a sua vez, o sistema avisa; você assina com a sua conta gov.br ou pelo portal oficial, e as assinaturas ficam embutidas no próprio PDF. Concluída a cadeia, o sistema pergunta para quem enviar — a Guarda dos Selos em destaque, com a opção de copiar irmãos do quadro. E, se o documento veio de uma prancha, a versão assinada volta para ela automaticamente, liberando o candidato ou a progressão no quadro. Um só lugar, uma só ordem, nenhuma assinatura perdida.
+> Processos é a mesa de assinaturas da Loja. Tudo o que precisa de assinatura digital do gov.br chega aqui, separado por tipo: os Atestados de Regularidade dos irmãos, os Quitte Placets e os documentos oficiais da Secretaria — anexos de pranchas, formulários do GOB preenchidos, ofícios. Cada documento traz a sua cadeia de assinantes, em ordem: ao abrir o processo, você define até quatro assinantes — Secretário, Tesoureiro, Orador, Primeiro ou Segundo Vigilante —, e o Venerável Mestre assina sempre por último, selando o documento. Os cargos do rito entram pelo cadastro do membro: quem está nomeado Orador ou Vigilante passa a ver o menu Processos e assina na sua vez. Quando chega a vez de alguém, o sistema avisa; você assina com a sua conta gov.br ou pelo portal oficial, e as assinaturas ficam embutidas no próprio PDF. Concluída a cadeia, o sistema pergunta para quem enviar — a Guarda dos Selos em destaque, com a opção de copiar irmãos do quadro. E, se o documento veio de uma prancha, a versão assinada volta para ela automaticamente, liberando o candidato ou a progressão no quadro. Um só lugar, uma só ordem, nenhuma assinatura perdida.
 
 # PARTE 3 — TESOUREIRO
 
@@ -374,7 +374,7 @@ O VM tem visão total: menus da Secretaria, da Tesouraria e da gestão da Loja.
 - **Na tela:** atas: assinar inline (senha) ou gov.br → menu Processos: cards Atestados (VM último: Tesoureiro ✓, Secretário ✓, "Assinar com gov.br"), Quitte Placets (Secretário ✓ → VM) e Documentos da Secretaria (prancha na vez do VM) → após assinar, bloco de envio à Guarda dos Selos.
 - **Narração:**
 
-> Boa parte do dia a dia do Venerável são as assinaturas — e o sistema as organiza todas. Nas atas, o Venerável assina primeiro, e o Secretário sela em seguida. Todo o resto está numa única seção: Processos. Nos Atestados de Regularidade, a sua é a assinatura final, depois do Tesoureiro e do Secretário — é ela que entrega o documento pronto ao irmão. Nos Quitte Placets, você sela depois do Secretário, sempre após o Nada Consta da Tesouraria. E nas pranchas e formulários oficiais, o Venerável assina sempre por último, fechando a cadeia — e é aí que o sistema oferece o envio à Guarda dos Selos. Tudo com a assinatura digital do gov.br, de validade jurídica plena: direto pela sua conta ou pelo portal oficial. A autoridade do cargo, com a praticidade da tecnologia.
+> Boa parte do dia a dia do Venerável são as assinaturas — e o sistema as organiza todas. Nas atas, o Venerável assina primeiro, e o Secretário sela em seguida. Todo o resto está numa única seção: Processos. Nos Atestados de Regularidade, a sua é a assinatura final, depois do Tesoureiro e do Secretário — é ela que entrega o documento pronto ao irmão. Nos Quitte Placets, você sela depois do Secretário, sempre após o Nada Consta da Tesouraria. E nas pranchas e formulários oficiais — que podem trazer na cadeia o Secretário, o Tesoureiro, o Orador e os Vigilantes —, o Venerável assina sempre por último, fechando a cadeia — e é aí que o sistema oferece o envio à Guarda dos Selos. Tudo com a assinatura digital do gov.br, de validade jurídica plena: direto pela sua conta ou pelo portal oficial. A autoridade do cargo, com a praticidade da tecnologia.
 
 ## 4.3 — Governança e travas do sistema (`veneravel-governanca.mp4`)
 
@@ -450,6 +450,19 @@ O VM tem visão total: menus da Secretaria, da Tesouraria e da gestão da Loja.
 
 ---
 
+## 7.2 — Assinaturas do Orador e dos Vigilantes nos Processos (`vigilantes-processos.mp4`)
+
+![Tela: vigilantes-processos](roteiros-prints/vigilantes-processos.png)
+
+- **Objetivo:** mostrar que o Orador, o 1º e o 2º Vigilante também assinam, com o gov.br, os documentos em que a Secretaria os incluiu na cadeia.
+- **Duração:** ~45 s.
+- **Na tela:** dashboard do Obreiro com cargo de Orador/Vigilante → notificação "… aguarda assinatura do Orador" e card "Assinaturas aguardando minha vez" → menu Processos (aparece para quem tem o cargo do rito) → lista só com os documentos em que o cargo figura na cadeia → badges da ordem (1º Secretário ✓, 2º Orador …, 3º Venerável Mestre) → "Assinar com gov.br" OU bloco portal assinador.iti.br (baixar PDF, assinar, subir) → badge "vez do Venerável Mestre".
+- **Narração:**
+
+> Alguns documentos da Loja pedem também a assinatura do Orador ou dos Vigilantes — e o sistema os inclui na cadeia com a mesma assinatura digital do gov.br. Quando a Secretaria abre um processo e coloca o seu cargo na ordem, você é avisado no painel e na central de notificações assim que chega a sua vez. O menu Processos aparece para você e mostra só os documentos em que o seu cargo está na cadeia, com a ordem de assinaturas à vista. Assine com a sua conta gov.br ou pelo portal oficial, e o documento segue para o próximo da fila — até o Venerável Mestre, que assina sempre por último. O cargo do rito, com a validade jurídica do gov.br.
+
+---
+
 # PARTE 8 — ADMINISTRADOR DA PLATAFORMA (opcional)
 
 ## 8.1 — Administração do SaaS (`admin-plataforma.mp4`)
@@ -505,4 +518,5 @@ O VM tem visão total: menus da Secretaria, da Tesouraria e da gestão da Loja.
 | 5.1 | conselho-fiscalizacao.mp4 | Conselho | ☐ |
 | 6.1 | esmoler-alertas.mp4 | Esmoler | ☐ |
 | 7.1 | vigilantes-instrucoes.mp4 | Vigilantes | ☐ |
+| 7.2 | vigilantes-processos.mp4 | Orador / Vigilantes | ☐ |
 | 8.1 | admin-plataforma.mp4 | Admin | ☐ |

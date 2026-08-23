@@ -5,12 +5,13 @@ import { prisma } from "@/lib/prisma";
 import { garantirPdf } from "@/lib/docx-pdf";
 import { logError } from "@/lib/log";
 import { auditar } from "@/lib/audit";
-import { requireRole } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 import { downloadFromLodgeDrive } from "@/lib/google-drive";
 import { sendLodgeEmail, GUARDA_SELOS_EMAIL } from "@/lib/gmail";
 import {
   montarCadeiaProcesso,
   estadoProcesso,
+  cargosProcessoDoUsuario,
   cargoLabel,
   concluirProcessoNaPrancha,
 } from "@/lib/processos";
@@ -19,10 +20,10 @@ import { type ActionResult, requireSecretariaWriter } from "./_shared";
 // ───────────── Processos: cadeia ordenada de assinaturas gov.br ─────────────
 
 function lerCadeiaDoForm(formData: FormData) {
-  // Selects ordenados assinante1..assinante3 — vazios são ignorados;
+  // Selects ordenados assinante1..assinante4 — vazios são ignorados;
   // o Venerável Mestre entra automaticamente como último
   return montarCadeiaProcesso(
-    [1, 2, 3].map((n) => String(formData.get(`assinante${n}`) ?? ""))
+    [1, 2, 3, 4].map((n) => String(formData.get(`assinante${n}`) ?? ""))
   );
 }
 
@@ -165,7 +166,9 @@ export async function uploadProcessoAssinadoGovbr(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  const user = await requireRole("SECRETARIO", "TESOUREIRO", "VENERAVEL_MESTRE");
+  // Qualquer cargo da cadeia (inclusive Orador/Vigilantes, pelo cargo do
+  // rito) — a elegibilidade real é decidida por estadoProcesso abaixo
+  const user = await requireUser();
   const doc = await prisma.processoDocumento.findUnique({
     where: { id: documentoId, lodgeId: user.lodgeId },
     include: { assinantes: true },
@@ -174,7 +177,7 @@ export async function uploadProcessoAssinadoGovbr(
   if (doc.status === "ASSINADO") {
     return { error: "Este documento já está com todas as assinaturas." };
   }
-  const estado = estadoProcesso(user.role, doc.assinantes);
+  const estado = estadoProcesso(await cargosProcessoDoUsuario(user), doc.assinantes);
   if (!estado.souAssinante) {
     return { error: "O seu cargo não está na cadeia de assinantes deste documento." };
   }
@@ -203,7 +206,7 @@ export async function uploadProcessoAssinadoGovbr(
     };
   }
 
-  const meu = doc.assinantes.find((a) => a.cargo === user.role)!;
+  const meu = doc.assinantes.find((a) => a.cargo === estado.cargo)!;
   await prisma.$transaction([
     prisma.processoAssinante.update({
       where: { id: meu.id },

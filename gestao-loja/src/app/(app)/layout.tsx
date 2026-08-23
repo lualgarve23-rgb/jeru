@@ -7,6 +7,7 @@ import { type NavItem } from "@/components/sidebar-nav";
 import { roleLabels } from "@/lib/labels";
 import { unreadCount } from "@/lib/notifications";
 import { grausInstrucaoPermitidos } from "@/lib/permissions";
+import { cargosProcesso } from "@/lib/processos";
 
 function navFor(role: string, cargoRito: string | null, unread: number): NavItem[] {
   if (role === "SUPER_ADMIN") {
@@ -21,6 +22,9 @@ function navFor(role: string, cargoRito: string | null, unread: number): NavItem
   // Instruções: VM/Secretário por acesso; Vigilantes pelo cargo do rito
   const ehInstrutor =
     grausInstrucaoPermitidos(role, cargoRito).length > 0;
+  // Processos: Orador e Vigilantes entram pelo cargo do rito (assinam na
+  // cadeia gov.br dos documentos da Secretaria)
+  const assinaProcessos = cargosProcesso(role, cargoRito).length > 1;
 
   const items: (NavItem & { roles?: string[] })[] = [
     { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
@@ -32,7 +36,7 @@ function navFor(role: string, cargoRito: string | null, unread: number): NavItem
     { href: "/secretaria/sessoes", label: "Sessões e Presenças", icon: "sessoes", section: "Secretaria" },
     { href: "/secretaria/atas", label: "Atas", icon: "atas", section: "Secretaria" },
     { href: "/secretaria/pranchas", label: "Pranchas", icon: "pranchas", section: "Secretaria", roles: fiscal },
-    { href: "/secretaria/processos", label: "Processos", icon: "documentos", section: "Secretaria", roles: [...fiscal, "TESOUREIRO"] },
+    { href: "/secretaria/processos", label: "Processos", icon: "documentos", section: "Secretaria", roles: assinaProcessos ? undefined : [...fiscal, "TESOUREIRO"] },
     { href: "/secretaria/emails", label: "E-mails da Loja", icon: "emails", section: "Secretaria", roles: gestaoLoja },
     { href: "/secretaria/documentos", label: "Documentos (Drive)", icon: "documentos", section: "Secretaria", roles: fiscal },
     { href: "/secretaria/admissoes", label: "Candidatos", icon: "admissoes", section: "Secretaria" },

@@ -576,7 +576,10 @@ model ProcessoAssinante {
   id          String    @id @default(cuid())
   documentoId String
   ordem       Int // 1..n — o último é sempre o Venerável Mestre
-  cargo       Role
+  // Chave do cargo (CARGOS_PROCESSO em lib/processos.ts): nível de acesso
+  // (SECRETARIO, TESOUREIRO, VENERAVEL_MESTRE) ou cargo do rito
+  // (ORADOR, VIGILANTE_1, VIGILANTE_2), resolvido pelo cargoRito do usuário
+  cargo       String
   signedById  String?
   signedAt    DateTime?
 
