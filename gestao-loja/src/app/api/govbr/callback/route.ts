@@ -25,6 +25,7 @@ import {
   cargoLabel,
   concluirProcessoNaPrancha,
 } from "@/lib/processos";
+import { arquivarAtestadoNoDrive } from "@/app/(app)/secretaria/_actions/atestados";
 
 // Callback do OAuth gov.br: troca o code pelo token da sessão de assinatura,
 // confere que a conta gov.br é do próprio assinante (CPF) e embute a
@@ -333,6 +334,7 @@ async function assinarAtestado(
 
   const atestado = await prisma.atestadoRegularidade.findUnique({
     where: { id: atestadoId, lodgeId: sessionUser.lodgeId },
+    include: { user: { select: { name: true } } },
   });
   if (!atestado || atestado.status !== "SOLICITADO") return fail("falhou");
   const ordem = ordemAssinaturaAtestado(role, atestado);
@@ -373,6 +375,16 @@ async function assinarAtestado(
           ...(ordem.ultimaAssinatura ? { status: "ASSINADO" as const } : {}),
         },
       });
+      if (ordem.ultimaAssinatura) {
+        const aviso = await arquivarAtestadoNoDrive(
+          sessionUser.lodgeId,
+          sessionUser.id,
+          atestadoId,
+          atestado.user.name,
+          signed
+        );
+        if (aviso) console.warn("govbr callback (atestado) drive:", aviso);
+      }
     } catch (e) {
       await prisma.atestadoRegularidade.update({
         where: { id: atestadoId, lodgeId: sessionUser.lodgeId },

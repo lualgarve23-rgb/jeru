@@ -8,6 +8,7 @@ import {
   ordemAssinaturaAtestado,
   camposAssinaturaAtestado,
 } from "@/lib/atestado";
+import { isDriveAvailable, uploadToLodgeDrive } from "@/lib/google-drive";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
@@ -109,15 +110,77 @@ export async function uploadAtestadoAssinadoGovbr(
     entidade: "AtestadoRegularidade",
     entidadeId: atestadoId,
   });
+  // Última assinatura: arquivamento no Drive da Loja (best-effort, como as atas)
+  let driveAviso = "";
+  if (ordem.ultimaAssinatura) {
+    driveAviso = await arquivarAtestadoNoDrive(
+      user.lodgeId,
+      user.id,
+      atestadoId,
+      atestado.user.name,
+      pdf
+    );
+  }
+
   revalidatePath("/secretaria/atestados");
   revalidatePath("/secretaria/processos");
   return {
     ok: ordem.ultimaAssinatura
-      ? `Atestado de ${atestado.user.name} assinado via gov.br e concluído.`
+      ? `Atestado de ${atestado.user.name} assinado via gov.br e concluído.${driveAviso}`
       : `PDF assinado recebido — agora o ${
           user.role === "TESOUREIRO" ? "Secretário" : "Venerável Mestre"
         } baixa esta versão, assina no gov.br e sobe aqui.`,
   };
+}
+
+// Sobe o PDF final ao Drive da Loja e registra na Biblioteca. Retorna um
+// aviso (string vazia se tudo certo) para anexar à mensagem de sucesso.
+export async function arquivarAtestadoNoDrive(
+  lodgeId: string,
+  uploadedById: string,
+  atestadoId: string,
+  nomeMembro: string,
+  pdf: Buffer
+): Promise<string> {
+  try {
+    if (!(await isDriveAvailable(lodgeId))) {
+      return " Drive não conectado — o arquivo não foi arquivado no Drive.";
+    }
+    const slug = nomeMembro
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    const driveFileId = await uploadToLodgeDrive(
+      lodgeId,
+      `atestado-regularidade-${slug}-${atestadoId.slice(-6)}.pdf`,
+      "application/pdf",
+      pdf
+    );
+    await Promise.all([
+      prisma.atestadoRegularidade.update({
+        where: { id: atestadoId, lodgeId },
+        data: { driveFileId },
+      }),
+      prisma.document.create({
+        data: {
+          lodgeId,
+          uploadedById,
+          title: `Atestado de Regularidade — ${nomeMembro} (assinado gov.br)`,
+          type: "OUTRO",
+          driveFileId,
+          mimeType: "application/pdf",
+          sizeBytes: pdf.length,
+        },
+      }),
+    ]);
+    return "";
+  } catch (e) {
+    return ` Falha ao arquivar no Drive: ${
+      e instanceof Error ? e.message : "erro desconhecido"
+    }`;
+  }
 }
 
 // Exclusão pela Secretaria (Secretário/VM) — para pedidos em duplicidade.

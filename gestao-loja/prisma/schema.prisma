@@ -964,6 +964,7 @@ model AtestadoRegularidade {
   signedByMasterId String?
   signedByMasterAt DateTime?
   govbrPdf         Bytes?
+  driveFileId      String? // PDF final arquivado no Google Drive da Loja
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
