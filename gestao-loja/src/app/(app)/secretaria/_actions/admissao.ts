@@ -32,10 +32,67 @@ export async function moveProcessoAdmissao(
       error: "Marque as certidões como válidas antes do Escrutínio.",
     };
   }
+
+  // Gate do Placet: o candidato só é INICIADO com a prancha do pedido de
+  // Placet assinada (cadeia gov.br na seção Processos, quando com anexo)
+  // e enviada à Guarda dos Selos
+  if (toStatus === "INICIADO" && processo.pranchaId) {
+    const prancha = await prisma.prancha.findUnique({
+      where: { id: processo.pranchaId },
+      select: {
+        govbrSignedAt: true,
+        enviadaAt: true,
+        driveFileId: true,
+        processo: { select: { id: true } },
+      },
+    });
+    if (
+      prancha &&
+      (prancha.driveFileId || prancha.processo) &&
+      !prancha.govbrSignedAt
+    ) {
+      return {
+        error:
+          "A prancha do Placet de Iniciação ainda não foi assinada — conclua a cadeia de assinaturas gov.br na seção Processos.",
+      };
+    }
+    if (prancha && !prancha.enviadaAt) {
+      return {
+        error:
+          "A prancha do Placet de Iniciação ainda não foi enviada — faça o envio à Guarda dos Selos (seção Processos ou Pranchas).",
+      };
+    }
+  }
+
   const data: Record<string, unknown> = { status: toStatus };
   if (toStatus === "ESCRUTINIO" && !processo.dataEscrutinio) {
     data.dataEscrutinio = new Date();
   }
+
+  // Escrutínio aprovado → expede a prancha do pedido de Placet de Iniciação,
+  // vinculada ao processo: é ela que trava a coluna INICIADO
+  if (toStatus === "AGUARDANDO_PLACET" && !processo.pranchaId) {
+    const year = new Date().getFullYear();
+    const last = await prisma.prancha.findFirst({
+      where: { lodgeId: user.lodgeId, year },
+      orderBy: { number: "desc" },
+    });
+    const prancha = await prisma.prancha.create({
+      data: {
+        lodgeId: user.lodgeId,
+        year,
+        number: (last?.number ?? 0) + 1,
+        subject: `Solicitação de Placet de Iniciação — ${processo.nomeCandidato}`,
+        recipient: "Secretaria Estadual da Guarda dos Selos",
+        content:
+          `Solicitamos o Placet de iniciação do candidato ${processo.nomeCandidato}, ` +
+          `aprovado em escrutínio de plenário em ${(processo.dataEscrutinio ?? new Date()).toLocaleDateString("pt-BR")}.`,
+      },
+    });
+    data.pranchaId = prancha.id;
+    revalidatePath("/secretaria/pranchas");
+  }
+
   await prisma.processoAdmissao.update({
     where: { id: processoId, lodgeId: user.lodgeId },
     data,

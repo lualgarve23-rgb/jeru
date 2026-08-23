@@ -587,12 +587,19 @@ export async function uploadPranchaAssinadaGovbr(
   const user = await requireSecretariaWriter();
   const prancha = await prisma.prancha.findUniqueOrThrow({
     where: { id: pranchaId, lodgeId: user.lodgeId },
+    include: { processo: { select: { id: true } } },
   });
   if (!prancha.driveFileId) {
     return { error: "Esta prancha não tem anexo para assinar." };
   }
   if (prancha.govbrSignedAt) {
     return { error: "O anexo desta prancha já foi assinado no gov.br." };
+  }
+  if (prancha.processo) {
+    return {
+      error:
+        "O anexo desta prancha está na cadeia de assinaturas da seção Processos — as assinaturas acontecem lá.",
+    };
   }
 
   const file = formData.get("file") as File | null;
@@ -691,6 +698,14 @@ export async function sendPranchaToGSelos(
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Falha no envio." };
   }
+  // Registra o envio — é ele que libera os gates dos kanbans (Placet)
+  await prisma.prancha.update({
+    where: { id: pranchaId, lodgeId: user.lodgeId },
+    data: { enviadaAt: new Date() },
+  });
+  revalidatePath("/secretaria/pranchas");
+  revalidatePath("/secretaria/progressoes");
+  revalidatePath("/secretaria/admissoes");
   return { ok: `Enviada para ${GUARDA_SELOS_EMAIL}.` };
 }
 

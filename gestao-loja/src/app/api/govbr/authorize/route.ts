@@ -4,6 +4,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isGovbrConfigured, govbrAuthorizeUrl } from "@/lib/govbr";
 import { ordemAssinaturaAtestado } from "@/lib/atestado";
+import { ordemAssinaturaQuitte, bloqueioAssinaturaQuitte } from "@/lib/quitte";
+import { estadoProcesso } from "@/lib/processos";
 
 // Início do fluxo de assinatura gov.br de uma ata: valida a elegibilidade do
 // assinante, grava o state em cookie e redireciona ao login gov.br.
@@ -22,7 +24,7 @@ export async function GET(req: NextRequest) {
   // Assinatura gov.br de um Atestado de Regularidade (mesmo OAuth das atas)
   const atestadoId = req.nextUrl.searchParams.get("atestado");
   if (atestadoId) {
-    const backUrl = new URL("/secretaria/atestados", baseUrl);
+    const backUrl = new URL("/secretaria/processos", baseUrl);
     if (!isGovbrConfigured()) {
       backUrl.searchParams.set("govbr", "nao-configurado");
       return NextResponse.redirect(backUrl);
@@ -46,6 +48,69 @@ export async function GET(req: NextRequest) {
     const state = randomUUID();
     const res = NextResponse.redirect(govbrAuthorizeUrl(state));
     res.cookies.set("govbr_oauth", JSON.stringify({ state, atestadoId }), {
+      httpOnly: true,
+      secure: baseUrl.startsWith("https"),
+      sameSite: "lax",
+      maxAge: 600,
+      path: "/api/govbr",
+    });
+    return res;
+  }
+
+  // Assinatura gov.br de um documento da seção Processos — cadeia ordenada
+  // de cargos definida no processo, com o VM sempre por último
+  const processoId = req.nextUrl.searchParams.get("processo");
+  if (processoId) {
+    const backUrl = new URL("/secretaria/processos", baseUrl);
+    const back = (motivo: string) => {
+      backUrl.searchParams.set("govbr", motivo);
+      return NextResponse.redirect(backUrl);
+    };
+    if (!isGovbrConfigured()) return back("nao-configurado");
+    const doc = await prisma.processoDocumento.findUnique({
+      where: { id: processoId, lodgeId: session.user.lodgeId },
+      include: { assinantes: true },
+    });
+    if (!doc || doc.status === "ASSINADO") return back("falhou");
+    const estado = estadoProcesso(role!, doc.assinantes);
+    if (!estado.souAssinante) return back("nao-assinante");
+    if (estado.jaAssinou) return back("ja-assinou");
+    if (!estado.minhaVez) return back("ordem");
+    const state = randomUUID();
+    const res = NextResponse.redirect(govbrAuthorizeUrl(state));
+    res.cookies.set("govbr_oauth", JSON.stringify({ state, processoId }), {
+      httpOnly: true,
+      secure: baseUrl.startsWith("https"),
+      sameSite: "lax",
+      maxAge: 600,
+      path: "/api/govbr",
+    });
+    return res;
+  }
+
+  // Assinatura gov.br de um Quitte Placet — Secretário primeiro, VM por último
+  const quitteId = req.nextUrl.searchParams.get("quitte");
+  if (quitteId) {
+    const backUrl = new URL("/secretaria/processos", baseUrl);
+    const back = (motivo: string) => {
+      backUrl.searchParams.set("govbr", motivo);
+      return NextResponse.redirect(backUrl);
+    };
+    if (!["VENERAVEL_MESTRE", "SECRETARIO"].includes(role!)) {
+      return back("nao-assinante");
+    }
+    if (!isGovbrConfigured()) return back("nao-configurado");
+    const placet = await prisma.quittePlacet.findUnique({
+      where: { id: quitteId, lodgeId: session.user.lodgeId },
+    });
+    if (!placet) return back("falhou");
+    if (bloqueioAssinaturaQuitte(placet)) return back("bloqueado");
+    const ordem = ordemAssinaturaQuitte(role!, placet);
+    if (ordem.jaAssinou) return back("ja-assinou");
+    if (ordem.aguardando) return back("ordem");
+    const state = randomUUID();
+    const res = NextResponse.redirect(govbrAuthorizeUrl(state));
+    res.cookies.set("govbr_oauth", JSON.stringify({ state, quitteId }), {
       httpOnly: true,
       secure: baseUrl.startsWith("https"),
       sameSite: "lax",

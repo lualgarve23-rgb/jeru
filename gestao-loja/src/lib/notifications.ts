@@ -116,7 +116,7 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
       type: "PENDING_SIGNATURE",
       title: `Atestado de ${at.user.name} aguarda assinatura do ${cargo.label}`,
       description: `Atestado de Regularidade solicitado em ${at.solicitadoAt.toLocaleDateString("pt-BR")} (CIM ${at.user.cim}) — é a vez do ${cargo.label} assinar (ordem: Tesoureiro, Secretário e Venerável Mestre).`,
-      link: "/secretaria/atestados",
+      link: "/secretaria/processos",
     });
   }
 
@@ -137,8 +137,8 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
         type: "PENDING_SIGNATURE",
         title: `Quitte Placet de ${qp.user.name} aguarda assinatura`,
         description:
-          "Quitação financeira confirmada — falta a dupla assinatura (VM + Secretário).",
-        link: "/secretaria/quitte-placets",
+          "Quitação financeira confirmada — falta a dupla assinatura (Secretário e, por último, VM) na aba Processos.",
+        link: "/secretaria/processos",
       });
     }
   }

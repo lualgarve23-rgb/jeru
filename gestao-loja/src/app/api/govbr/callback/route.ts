@@ -13,6 +13,17 @@ import {
   camposAssinaturaAtestado,
   cargoAssinanteAtestado,
 } from "@/lib/atestado";
+import {
+  ordemAssinaturaQuitte,
+  camposAssinaturaQuitte,
+  cargoAssinanteQuitte,
+  bloqueioAssinaturaQuitte,
+} from "@/lib/quitte";
+import {
+  estadoProcesso,
+  cargoLabel,
+  concluirProcessoNaPrancha,
+} from "@/lib/processos";
 
 // Callback do OAuth gov.br: troca o code pelo token da sessão de assinatura,
 // confere que a conta gov.br é do próprio assinante (CPF) e embute a
@@ -32,15 +43,21 @@ export async function GET(req: NextRequest) {
   const cookie = req.cookies.get("govbr_oauth")?.value;
   let ataId: string | null = null;
   let atestadoId: string | null = null;
+  let quitteId: string | null = null;
+  let processoId: string | null = null;
   try {
     const parsed = JSON.parse(cookie ?? "") as {
       state: string;
       ataId?: string;
       atestadoId?: string;
+      quitteId?: string;
+      processoId?: string;
     };
     if (parsed.state === req.nextUrl.searchParams.get("state")) {
       ataId = parsed.ataId ?? null;
       atestadoId = parsed.atestadoId ?? null;
+      quitteId = parsed.quitteId ?? null;
+      processoId = parsed.processoId ?? null;
     }
   } catch {
     // cookie ausente/ilegível — tratado abaixo
@@ -49,6 +66,16 @@ export async function GET(req: NextRequest) {
   // ── Atestado de Regularidade ──
   if (atestadoId) {
     return assinarAtestado(req, baseUrl, session.user, role!, atestadoId);
+  }
+
+  // ── Quitte Placet ──
+  if (quitteId) {
+    return assinarQuitte(req, baseUrl, session.user, role!, quitteId);
+  }
+
+  // ── Documento da seção Processos ──
+  if (processoId) {
+    return assinarProcesso(req, baseUrl, session.user, role!, processoId);
   }
 
   if (!ataId) {
@@ -128,6 +155,155 @@ export async function GET(req: NextRequest) {
   return res;
 }
 
+// Assinatura gov.br de um documento da seção Processos: cadeia ordenada de
+// cargos (VM sempre o último); a PKCS#7 do ITI entra incrementalmente no PDF
+// e a última assinatura conclui o processo (e devolve o PDF à prancha de
+// origem, quando houver).
+async function assinarProcesso(
+  req: NextRequest,
+  baseUrl: string,
+  sessionUser: { id: string; lodgeId: string },
+  role: string,
+  processoId: string
+) {
+  const backUrl = new URL("/secretaria/processos", baseUrl);
+  const fail = (motivo: string) => {
+    backUrl.searchParams.set("govbr", motivo);
+    const res = NextResponse.redirect(backUrl);
+    res.cookies.delete({ name: "govbr_oauth", path: "/api/govbr" });
+    return res;
+  };
+
+  const code = req.nextUrl.searchParams.get("code");
+  if (!code) return fail("negado");
+
+  const doc = await prisma.processoDocumento.findUnique({
+    where: { id: processoId, lodgeId: sessionUser.lodgeId },
+    include: { assinantes: true },
+  });
+  if (!doc || doc.status === "ASSINADO") return fail("falhou");
+  const estado = estadoProcesso(role, doc.assinantes);
+  if (!estado.souAssinante) return fail("nao-assinante");
+  if (estado.jaAssinou) return fail("ja-assinou");
+  if (!estado.minhaVez) return fail("ordem");
+
+  try {
+    const token = await govbrExchangeCode(code);
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: sessionUser.id },
+      select: { cpf: true, name: true },
+    });
+    const govbrCpf = govbrCpfFromToken(token);
+    if (govbrCpf && govbrCpf !== user.cpf.replace(/\D/g, "")) {
+      return fail("cpf-divergente");
+    }
+
+    const base = doc.govbrPdf ?? doc.arquivo;
+    const signed = await assinarPdfComGovbr(Buffer.from(base), token, {
+      name: user.name,
+      reason: `Assinatura gov.br — ${cargoLabel(role)}: ${user.name}`,
+    });
+
+    const meu = doc.assinantes.find((a) => a.cargo === role)!;
+    await prisma.$transaction([
+      prisma.processoAssinante.update({
+        where: { id: meu.id },
+        data: { signedById: sessionUser.id, signedAt: new Date() },
+      }),
+      prisma.processoDocumento.update({
+        where: { id: processoId, lodgeId: sessionUser.lodgeId },
+        data: {
+          govbrPdf: new Uint8Array(signed),
+          ...(estado.ultimaAssinatura ? { status: "ASSINADO" as const } : {}),
+        },
+      }),
+    ]);
+    if (estado.ultimaAssinatura) {
+      await concluirProcessoNaPrancha(processoId, sessionUser.lodgeId);
+    }
+  } catch (e) {
+    console.error("govbr callback (processo):", e);
+    return fail("falhou");
+  }
+
+  backUrl.searchParams.set("govbr", "ok");
+  const res = NextResponse.redirect(backUrl);
+  res.cookies.delete({ name: "govbr_oauth", path: "/api/govbr" });
+  return res;
+}
+
+// Assinatura gov.br do Quitte Placet: Secretário primeiro, Venerável Mestre
+// por último. A PKCS#7 do ITI é embutida incrementalmente no Form. 122 (PDF)
+// anexado ao processo; a segunda assinatura aprova o placet.
+async function assinarQuitte(
+  req: NextRequest,
+  baseUrl: string,
+  sessionUser: { id: string; lodgeId: string },
+  role: string,
+  quitteId: string
+) {
+  const backUrl = new URL("/secretaria/processos", baseUrl);
+  const fail = (motivo: string) => {
+    backUrl.searchParams.set("govbr", motivo);
+    const res = NextResponse.redirect(backUrl);
+    res.cookies.delete({ name: "govbr_oauth", path: "/api/govbr" });
+    return res;
+  };
+
+  if (!["VENERAVEL_MESTRE", "SECRETARIO"].includes(role)) {
+    return fail("nao-assinante");
+  }
+  const code = req.nextUrl.searchParams.get("code");
+  if (!code) return fail("negado");
+
+  const placet = await prisma.quittePlacet.findUnique({
+    where: { id: quitteId, lodgeId: sessionUser.lodgeId },
+  });
+  if (!placet) return fail("falhou");
+  if (bloqueioAssinaturaQuitte(placet)) return fail("bloqueado");
+  const ordem = ordemAssinaturaQuitte(role, placet);
+  if (ordem.jaAssinou) return fail("ja-assinou");
+  if (ordem.aguardando) return fail("ordem");
+
+  try {
+    const token = await govbrExchangeCode(code);
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: sessionUser.id },
+      select: { cpf: true, name: true },
+    });
+    const govbrCpf = govbrCpfFromToken(token);
+    if (govbrCpf && govbrCpf !== user.cpf.replace(/\D/g, "")) {
+      return fail("cpf-divergente");
+    }
+
+    const base = placet.govbrPdf ?? placet.formularioArquivo!;
+    const cargo = cargoAssinanteQuitte(role);
+    const signed = await assinarPdfComGovbr(Buffer.from(base), token, {
+      name: user.name,
+      reason: `Assinatura gov.br — ${cargo}: ${user.name}`,
+    });
+
+    await prisma.quittePlacet.update({
+      where: { id: quitteId, lodgeId: sessionUser.lodgeId },
+      data: {
+        govbrPdf: new Uint8Array(signed),
+        ...camposAssinaturaQuitte(role, sessionUser.id),
+        status: ordem.ultimaAssinatura
+          ? ("APROVADO" as const)
+          : ("EM_ANALISE" as const),
+      },
+    });
+  } catch (e) {
+    console.error("govbr callback (quitte):", e);
+    return fail("falhou");
+  }
+
+  backUrl.searchParams.set("govbr", "ok");
+  const res = NextResponse.redirect(backUrl);
+  res.cookies.delete({ name: "govbr_oauth", path: "/api/govbr" });
+  return res;
+}
+
 // Assinatura gov.br do Atestado de Regularidade: registra a assinatura do
 // cargo, regenera o PDF base com os assinantes atuais (se ainda não houver
 // versão gov.br) e embute a PKCS#7 do ITI incrementalmente.
@@ -138,7 +314,7 @@ async function assinarAtestado(
   role: string,
   atestadoId: string
 ) {
-  const backUrl = new URL("/secretaria/atestados", baseUrl);
+  const backUrl = new URL("/secretaria/processos", baseUrl);
   const fail = (motivo: string) => {
     backUrl.searchParams.set("govbr", motivo);
     const res = NextResponse.redirect(backUrl);

@@ -1,6 +1,5 @@
 "use server";
 
-import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser, requireRole } from "@/lib/session";
@@ -13,8 +12,8 @@ import {
 type ActionResult = { error?: string; ok?: string } | undefined;
 
 // Atestado de Regularidade — o irmão solicita; Tesoureiro, Secretário e
-// Venerável Mestre assinam nesta ordem (senha/imagem aqui, ou gov.br via
-// /api/govbr/authorize?atestado=).
+// Venerável Mestre assinam nesta ordem, sempre pelo gov.br (OAuth via
+// /api/govbr/authorize?atestado=, ou upload do PDF assinado no portal ITI).
 
 export async function solicitarAtestado(): Promise<ActionResult> {
   const user = await requireUser();
@@ -45,6 +44,7 @@ export async function solicitarAtestado(): Promise<ActionResult> {
     entidadeId: user.id,
   });
   revalidatePath("/secretaria/atestados");
+  revalidatePath("/secretaria/processos");
   return {
     ok: "Atestado solicitado — aguarde as assinaturas do Tesoureiro, do Secretário e do Venerável Mestre.",
   };
@@ -110,6 +110,7 @@ export async function uploadAtestadoAssinadoGovbr(
     entidadeId: atestadoId,
   });
   revalidatePath("/secretaria/atestados");
+  revalidatePath("/secretaria/processos");
   return {
     ok: ordem.ultimaAssinatura
       ? `Atestado de ${atestado.user.name} assinado via gov.br e concluído.`
@@ -119,68 +120,28 @@ export async function uploadAtestadoAssinadoGovbr(
   };
 }
 
-// Assinatura formal: a re-digitação da senha é o ato de assinatura (mesmo
-// padrão das atas); a imagem do assinante (signatureUrl) entra no PDF.
-export async function signAtestadoInline(
-  atestadoId: string,
-  _prev: ActionResult,
-  formData: FormData
-): Promise<ActionResult> {
-  const user = await requireRole("TESOUREIRO", "SECRETARIO", "VENERAVEL_MESTRE");
-  const password = String(formData.get("password") ?? "");
-  if (!password) return { error: "Digite sua senha para confirmar a assinatura." };
-  const dbUser = await prisma.user.findUniqueOrThrow({
-    where: { id: user.id },
-    select: { passwordHash: true },
-  });
-  if (!(await bcrypt.compare(password, dbUser.passwordHash))) {
-    return { error: "Senha incorreta — assinatura não registrada." };
-  }
-
-  const atestado = await prisma.atestadoRegularidade.findUnique({
+// Exclusão pela Secretaria (Secretário/VM) — para pedidos em duplicidade.
+// Só enquanto ainda não concluído; assinaturas parciais não impedem.
+export async function excluirAtestado(atestadoId: string): Promise<ActionResult> {
+  const user = await requireRole("SECRETARIO", "VENERAVEL_MESTRE");
+  const a = await prisma.atestadoRegularidade.findUnique({
     where: { id: atestadoId, lodgeId: user.lodgeId },
-    include: { user: { select: { name: true, status: true } } },
+    select: { status: true, userId: true, signedByTesAt: true, signedBySecAt: true },
   });
-  if (!atestado) return { error: "Atestado não encontrado." };
-  if (atestado.user.status !== "ATIVO") {
-    return {
-      error: `${atestado.user.name} não está com situação ATIVO — o atestado não pode ser assinado.`,
-    };
+  if (!a) return { error: "Atestado não encontrado." };
+  if (a.status === "ASSINADO") {
+    return { error: "O atestado já foi concluído — não pode ser excluído." };
   }
-  const ordem = ordemAssinaturaAtestado(user.role, atestado);
-  if (ordem.jaAssinou) {
-    return { error: "Você já assinou este atestado." };
-  }
-  if (ordem.aguardando) {
-    return {
-      error: `Aguarde a assinatura do ${ordem.aguardando} — a ordem é Tesoureiro, Secretário e Venerável Mestre.`,
-    };
-  }
-
-  await prisma.atestadoRegularidade.update({
-    where: { id: atestadoId, lodgeId: user.lodgeId },
-    data: {
-      ...camposAssinaturaAtestado(user.role, user.id),
-      ...(ordem.ultimaAssinatura ? { status: "ASSINADO" as const } : {}),
-    },
-  });
+  await prisma.atestadoRegularidade.delete({ where: { id: atestadoId } });
   await auditar({
     lodgeId: user.lodgeId,
     ator: user,
-    acao: "atestado.assinar",
+    acao: "atestado.excluir",
     entidade: "AtestadoRegularidade",
     entidadeId: atestadoId,
+    detalhes: { solicitante: a.userId, assinaturas: [a.signedByTesAt, a.signedBySecAt].filter(Boolean).length },
   });
   revalidatePath("/secretaria/atestados");
-  return {
-    ok: ordem.ultimaAssinatura
-      ? `Atestado de ${atestado.user.name} assinado e concluído.`
-      : `Assinatura registrada — falta a do ${
-          user.role === "TESOUREIRO"
-            ? "Secretário e a do Venerável Mestre"
-            : user.role === "SECRETARIO"
-              ? "Venerável Mestre"
-              : "Secretário"
-        }.`,
-  };
+  revalidatePath("/secretaria/processos");
+  return { ok: "Atestado excluído." };
 }

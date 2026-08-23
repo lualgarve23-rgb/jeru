@@ -9,7 +9,7 @@ import { resolveParaDataUri } from "@/lib/media";
 // demanda com o mesmo visual das atas (cabeçalho institucional + assinaturas).
 
 // Ordem de governança das assinaturas: Tesoureiro → Secretário → Venerável
-// Mestre. Vale para todos os fluxos (senha, gov.br OAuth e portal ITI).
+// Mestre. Vale para os dois fluxos gov.br (OAuth e portal ITI).
 export type AtestadoAssinaturas = {
   signedByTesAt: Date | null;
   signedBySecAt: Date | null;

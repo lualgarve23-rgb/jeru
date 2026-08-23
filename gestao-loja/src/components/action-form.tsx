@@ -39,17 +39,26 @@ export function ActionButton({
   action,
   label,
   variant = "default",
+  confirm,
 }: {
   action: () => Promise<ActionResult>;
   label: string;
   variant?: "default" | "outline" | "destructive" | "secondary";
+  /** Texto de confirmação exibido antes de executar (ações destrutivas). */
+  confirm?: string;
 }) {
   const [state, formAction, pending] = useActionState(
     async () => action(),
     undefined
   );
   return (
-    <form action={formAction} className="inline-flex flex-col gap-1">
+    <form
+      action={formAction}
+      className="inline-flex flex-col gap-1"
+      onSubmit={(e) => {
+        if (confirm && !window.confirm(confirm)) e.preventDefault();
+      }}
+    >
       <Button type="submit" variant={variant} disabled={pending}>
         {pending ? "..." : label}
       </Button>

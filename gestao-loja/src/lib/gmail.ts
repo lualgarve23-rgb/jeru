@@ -35,6 +35,7 @@ export async function isGmailConfigured(lodgeId: string) {
 export async function sendLodgeEmail(opts: {
   lodgeId: string;
   to: string;
+  cc?: string[];
   bcc?: string[];
   subject: string;
   text: string;

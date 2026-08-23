@@ -5,20 +5,71 @@ import { revalidatePath } from "next/cache";
 import {
   StatusPlacet } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/session";
+import { auditar } from "@/lib/audit";
+import { requireUser, requireRole } from "@/lib/session";
+import { canWriteSecretaria } from "@/lib/permissions";
 import { sendLodgeEmail, GUARDA_SELOS_EMAIL } from "@/lib/gmail";
+import {
+  ordemAssinaturaQuitte,
+  camposAssinaturaQuitte,
+  bloqueioAssinaturaQuitte,
+} from "@/lib/quitte";
 import { type ActionResult, requireSecretariaWriter, validarAnexo } from "./_shared";
 
 // ───────────────────── Quitte Placet ─────────────────────
 
+// A carta do pedido é escrita a próprio punho e assinada — chega como foto
+// (JPG/PNG) ou digitalizada em PDF; DOC/DOCX não fazem sentido aqui.
+const CARTA_TIPOS = ["application/pdf", "image/jpeg", "image/png"];
+
+// Qualquer irmão do quadro (situação ATIVO) solicita o próprio Quitte Placet;
+// a Secretaria segue podendo abrir o pedido em nome de um obreiro. A carta de
+// próprio punho é obrigatória em ambos os casos — sem ela nada é registrado.
 export async function requestQuittePlacet(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  const user = await requireSecretariaWriter();
-  const userId = String(formData.get("userId"));
+  const user = await requireUser();
+  const isWriter = canWriteSecretaria(user.role);
+  const userId = isWriter
+    ? String(formData.get("userId") || user.id)
+    : user.id;
   const motivo = (formData.get("motivo") as string) || null;
-  if (!userId) return { error: "Selecione o obreiro." };
+
+  const carta = formData.get("carta") as File | null;
+  if (!carta || carta.size === 0) {
+    return {
+      error:
+        "Anexe a carta escrita a próprio punho e assinada — ela é obrigatória no pedido.",
+    };
+  }
+  if (!CARTA_TIPOS.includes(carta.type)) {
+    return { error: "Envie a carta como foto (JPG/PNG) ou PDF." };
+  }
+  if (carta.size > 15_000_000) {
+    return { error: "Arquivo muito grande — use até 15 MB." };
+  }
+
+  const alvo = await prisma.user.findUnique({
+    where: { id: userId, lodgeId: user.lodgeId },
+    select: { status: true, name: true },
+  });
+  if (!alvo) return { error: "Obreiro não encontrado." };
+  if (alvo.status !== "ATIVO") {
+    return {
+      error: `${alvo.name} não está com situação ATIVO — regularize a situação com a Tesouraria antes do pedido.`,
+    };
+  }
+  const aberto = await prisma.quittePlacet.findFirst({
+    where: {
+      lodgeId: user.lodgeId,
+      userId,
+      status: { in: ["PENDENTE", "EM_ANALISE"] },
+    },
+  });
+  if (aberto) {
+    return { error: "Já existe um Quitte Placet em andamento para este irmão." };
+  }
 
   // Trava financeira: consulta a Tesouraria por pendências (Nada Consta).
   const pendencias = await prisma.invoice.count({
@@ -35,10 +86,16 @@ export async function requestQuittePlacet(
       userId,
       motivo,
       quitacaoFinanceira: pendencias === 0,
+      cartaArquivo: Buffer.from(await carta.arrayBuffer()),
+      cartaNome: carta.name.slice(0, 200),
+      cartaMime: carta.type,
     },
   });
   revalidatePath("/secretaria/quitte-placets");
-  return { ok: "Solicitação de Quitte Placet registrada." };
+  revalidatePath("/secretaria/processos");
+  return {
+    ok: "Solicitação de Quitte Placet registrada com a carta anexada — segue para análise da Secretaria.",
+  };
 }
 
 // Reconsulta a Tesouraria e atualiza a variável quitacaoFinanceira (Nada Consta)
@@ -61,6 +118,7 @@ export async function refreshQuitacaoFinanceira(
     data: { quitacaoFinanceira: pendencias === 0 },
   });
   revalidatePath("/secretaria/quitte-placets");
+  revalidatePath("/secretaria/processos");
   return {
     ok:
       pendencias === 0
@@ -69,50 +127,59 @@ export async function refreshQuitacaoFinanceira(
   };
 }
 
-// Dupla assinatura (VM + Secretário) — só emite com quitacaoFinanceira = true
-export async function signQuittePlacet(placetId: string): Promise<ActionResult> {
-  const user = await requireUser();
-  const placet = await prisma.quittePlacet.findUniqueOrThrow({
+// Assinatura gov.br pelo portal assinador.iti.br — mesmo processo do
+// atestado: o assinante baixa o Form. 122 (já com as assinaturas anteriores),
+// assina com a conta gov.br no portal e sobe o PDF aqui. Ordem de governança:
+// Secretário primeiro, Venerável Mestre por último. O OAuth gov.br direto
+// vive em /api/govbr/authorize?quitte=.
+export async function uploadQuittePlacetAssinadoGovbr(
+  placetId: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireRole("SECRETARIO", "VENERAVEL_MESTRE");
+  const placet = await prisma.quittePlacet.findUnique({
     where: { id: placetId, lodgeId: user.lodgeId },
   });
-  if (!placet.quitacaoFinanceira) {
+  if (!placet) return { error: "Quitte Placet não encontrado." };
+  const bloqueio = bloqueioAssinaturaQuitte(placet);
+  if (bloqueio) return { error: bloqueio };
+  const ordem = ordemAssinaturaQuitte(user.role, placet);
+  if (ordem.jaAssinou) return { error: "Você já assinou este Quitte Placet." };
+  if (ordem.aguardando) {
     return {
-      error:
-        "Trava financeira: a Tesouraria ainda não confirmou o Nada Consta.",
-    };
-  }
-  if (placet.status === "APROVADO" || placet.status === "NEGADO") {
-    return { error: "Quitte Placet já encerrado." };
-  }
-
-  const data: Record<string, unknown> = {};
-  if (user.role === "VENERAVEL_MESTRE" && !placet.signedByMasterId) {
-    data.signedByMasterId = user.id;
-    data.signedByMasterAt = new Date();
-  } else if (user.role === "SECRETARIO" && !placet.signedBySecId) {
-    data.signedBySecId = user.id;
-    data.signedBySecAt = new Date();
-  } else {
-    return {
-      error:
-        "Apenas o Venerável Mestre e o Secretário assinam o Quitte Placet (uma vez cada).",
+      error: `O ${ordem.aguardando} assina primeiro no gov.br — aguarde o upload dele e baixe o PDF já com a assinatura.`,
     };
   }
 
-  const willBeMaster = data.signedByMasterId ?? placet.signedByMasterId;
-  const willBeSec = data.signedBySecId ?? placet.signedBySecId;
-  data.status = willBeMaster && willBeSec ? "APROVADO" : "EM_ANALISE";
+  const file = formData.get("file") as File | null;
+  if (!file || file.size === 0) {
+    return { error: "Selecione o PDF assinado no gov.br." };
+  }
+  if (file.size > 15_000_000) {
+    return { error: "Arquivo muito grande — o PDF deve ter até 15 MB." };
+  }
+  const pdf = Buffer.from(await file.arrayBuffer());
+  if (!pdf.subarray(0, 5).toString("latin1").startsWith("%PDF-")) {
+    return { error: "O arquivo enviado não é um PDF." };
+  }
 
   await prisma.quittePlacet.update({
     where: { id: placetId, lodgeId: user.lodgeId },
-    data,
+    data: {
+      govbrPdf: new Uint8Array(pdf),
+      ...camposAssinaturaQuitte(user.role, user.id),
+      status: ordem.ultimaAssinatura
+        ? ("APROVADO" as const)
+        : ("EM_ANALISE" as const),
+    },
   });
   revalidatePath("/secretaria/quitte-placets");
+  revalidatePath("/secretaria/processos");
   return {
-    ok:
-      data.status === "APROVADO"
-        ? "Quitte Placet assinado por ambos — documento emitido."
-        : "Assinatura registrada. Aguardando a segunda assinatura.",
+    ok: ordem.ultimaAssinatura
+      ? "Quitte Placet assinado via gov.br pelos dois cargos — documento emitido."
+      : "PDF assinado recebido — agora o Venerável Mestre baixa esta versão, assina no gov.br e sobe aqui.",
   };
 }
 
@@ -123,6 +190,7 @@ export async function negarQuittePlacet(placetId: string): Promise<ActionResult>
     data: { status: "NEGADO" },
   });
   revalidatePath("/secretaria/quitte-placets");
+  revalidatePath("/secretaria/processos");
   return { ok: "Quitte Placet negado." };
 }
 
@@ -142,6 +210,9 @@ export async function anexarFormularioQuittePlacet(
     select: { id: true, status: true },
   });
   if (!placet) return { error: "Quitte Placet não encontrado." };
+  if (placet.status === "APROVADO") {
+    return { error: "Quitte Placet já emitido — o formulário não pode ser trocado." };
+  }
   const valid = validarAnexo(formData.get("arquivo") as File | null);
   if ("error" in valid) return valid;
   await prisma.quittePlacet.update({
@@ -151,9 +222,17 @@ export async function anexarFormularioQuittePlacet(
       formularioNome: valid.file.name.slice(0, 200),
       formularioMime: valid.file.type,
       formularioEnviadoAt: null,
+      // Trocar o formulário invalida as assinaturas gov.br já colhidas —
+      // elas se referem ao arquivo anterior
+      govbrPdf: null,
+      signedBySecId: null,
+      signedBySecAt: null,
+      signedByMasterId: null,
+      signedByMasterAt: null,
     },
   });
   revalidatePath("/secretaria/quitte-placets");
+  revalidatePath("/secretaria/processos");
   return { ok: "Formulário anexado ao Quitte Placet." };
 }
 
@@ -179,9 +258,14 @@ export async function enviarQuittePlacetGSelos(
   if (placet.status !== "APROVADO") {
     return {
       error:
-        "O Quitte Placet precisa das assinaturas do Venerável Mestre e do Secretário antes do envio.",
+        "O Quitte Placet precisa das assinaturas gov.br do Secretário e do Venerável Mestre antes do envio.",
     };
   }
+  // Vai a versão com as assinaturas PAdES do gov.br embutidas
+  const anexo = placet.govbrPdf ?? placet.formularioArquivo;
+  const anexoNome = placet.govbrPdf
+    ? "quitte-placet-assinado-govbr.pdf"
+    : (placet.formularioNome ?? "quitte-placet.pdf");
   try {
     await sendLodgeEmail({
       lodgeId: user.lodgeId,
@@ -191,11 +275,11 @@ export async function enviarQuittePlacetGSelos(
         `Loja ${placet.lodge.name} nº ${placet.lodge.number}\n` +
         `Obreiro: ${placet.user.name} (CIM ${placet.user.cim})\n` +
         (placet.motivo ? `Motivo: ${placet.motivo}\n` : "") +
-        `\nSegue em anexo o formulário de Quitte Placet assinado pelo Venerável Mestre e pelo Secretário.`,
+        `\nSegue em anexo o formulário de Quitte Placet assinado via gov.br pelo Secretário e pelo Venerável Mestre.`,
       attachments: [
         {
-          filename: placet.formularioNome ?? "quitte-placet.pdf",
-          content: Buffer.from(placet.formularioArquivo),
+          filename: anexoNome,
+          content: Buffer.from(anexo),
         },
       ],
     });
@@ -207,6 +291,7 @@ export async function enviarQuittePlacetGSelos(
     data: { formularioEnviadoAt: new Date() },
   });
   revalidatePath("/secretaria/quitte-placets");
+  revalidatePath("/secretaria/processos");
   return { ok: `Enviado para ${GUARDA_SELOS_EMAIL}.` };
 }
 
@@ -235,10 +320,37 @@ export async function moveQuittePlacet(
     data: { status: toStatus },
   });
   revalidatePath("/secretaria/quitte-placets");
+  revalidatePath("/secretaria/processos");
   return {
     ok:
       toStatus === "EM_ANALISE"
         ? "Processo de Quitte Placet iniciado (em análise)."
         : "Processo atualizado.",
   };
+}
+
+// Exclusão pela Secretaria (Secretário/VM) — para pedidos em duplicidade.
+// Só enquanto não aprovado/enviado; assinaturas parciais não impedem.
+export async function excluirQuittePlacet(placetId: string): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const p = await prisma.quittePlacet.findUnique({
+    where: { id: placetId, lodgeId: user.lodgeId },
+    select: { status: true, userId: true, formularioEnviadoAt: true, signedBySecAt: true },
+  });
+  if (!p) return { error: "Quitte Placet não encontrado." };
+  if (p.status === "APROVADO" || p.formularioEnviadoAt) {
+    return { error: "O Quitte Placet já foi aprovado/enviado — não pode ser excluído." };
+  }
+  await prisma.quittePlacet.delete({ where: { id: placetId } });
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "quitte.excluir",
+    entidade: "QuittePlacet",
+    entidadeId: placetId,
+    detalhes: { solicitante: p.userId, status: p.status, assinaturaSec: !!p.signedBySecAt },
+  });
+  revalidatePath("/secretaria/quitte-placets");
+  revalidatePath("/secretaria/processos");
+  return { ok: "Quitte Placet excluído." };
 }

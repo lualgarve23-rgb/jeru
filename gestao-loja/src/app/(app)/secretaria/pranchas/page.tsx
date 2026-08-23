@@ -7,8 +7,9 @@ import { canWriteSecretaria } from "@/lib/permissions";
 import {
   createPrancha,
   sendPranchaToGSelos,
-  uploadPranchaAssinadaGovbr,
+  criarProcessoDaPrancha,
 } from "../actions";
+import { SelecaoCadeia } from "../processos/cadeia-fields";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,6 +49,7 @@ export default async function PranchasPage() {
     prisma.prancha.findMany({
       where: { lodgeId: user.lodgeId },
       orderBy: [{ year: "desc" }, { number: "desc" }],
+      include: { processo: { select: { id: true, status: true } } },
     }),
     prisma.document.findMany({
       where: { lodgeId: user.lodgeId },
@@ -245,40 +247,27 @@ export default async function PranchasPage() {
                     ✅ assinado em{" "}
                     {p.govbrSignedAt.toLocaleDateString("pt-BR")}
                   </span>
+                ) : p.processo ? (
+                  <Link
+                    href="/secretaria/processos"
+                    className="text-sm font-medium text-primary hover:underline"
+                  >
+                    Em assinatura na seção Processos →
+                  </Link>
                 ) : p.driveFileId ? (
                   isWriter ? (
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground">
-                        1.{" "}
-                        <a
-                          href={`/api/pranchas/anexo?prancha=${p.id}`}
-                          className="font-medium text-primary hover:underline"
-                        >
-                          Baixe o anexo
-                        </a>{" "}
-                        · 2. Assine em{" "}
-                        <a
-                          href="https://assinador.iti.br"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="font-medium text-primary hover:underline"
-                        >
-                          assinador.iti.br
-                        </a>{" "}
-                        · 3. Suba o PDF assinado:
+                        O anexo (em PDF) segue para a cadeia de assinaturas
+                        gov.br na seção Processos — o Venerável Mestre assina
+                        por último.
                       </p>
                       <ActionForm
-                        action={uploadPranchaAssinadaGovbr.bind(null, p.id)}
-                        submitLabel="Subir PDF assinado"
+                        action={criarProcessoDaPrancha.bind(null, p.id)}
+                        submitLabel="Encaminhar para assinaturas"
                         className="space-y-1"
                       >
-                        <Input
-                          name="file"
-                          type="file"
-                          accept="application/pdf"
-                          required
-                          className="h-8 text-xs"
-                        />
+                        <SelecaoCadeia prefixo={`p-${p.id}-`} />
                       </ActionForm>
                     </div>
                   ) : (

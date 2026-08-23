@@ -14,7 +14,7 @@ Documento de produção para gravar **um vídeo por menu**, separado por cargo, 
 
 # PARTE 1 — OBREIRO (todo irmão do quadro)
 
-O Obreiro comum vê: Dashboard, Notificações, Carteirinha Digital, Biblioteca Digital, Membros, Sessões e Presenças, Atas, Candidatos, Atestado de Regularidade, Meu perfil, Privacidade (LGPD), Alterar senha e Tour.
+O Obreiro comum vê: Dashboard, Notificações, Carteirinha Digital, Biblioteca Digital, Membros, Sessões e Presenças, Atas, Candidatos, Atestado de Regularidade, Quitte Placets, Meu perfil, Privacidade (LGPD), Alterar senha e Tour.
 
 ## 1.1 — Login e primeiro acesso (`obreiro-login.mp4`)
 
@@ -108,12 +108,12 @@ O Obreiro comum vê: Dashboard, Notificações, Carteirinha Digital, Biblioteca 
 
 ![Tela: obreiro-atestado](roteiros-prints/obreiro-atestado.png)
 
-- **Objetivo:** solicitar o atestado e acompanhar as três assinaturas.
-- **Duração:** ~60 s.
-- **Na tela:** menu Atestado de Regularidade → botão "Solicitar Atestado de Regularidade" → status aguardando assinaturas (Tesoureiro → Secretário → Venerável Mestre) → atestado concluído → botão Baixar PDF.
+- **Objetivo:** solicitar o atestado e acompanhar, na linha do tempo, com quem a assinatura está pendente.
+- **Duração:** ~55 s.
+- **Na tela:** menu Atestado de Regularidade → botão "Solicitar Atestado de Regularidade" → linha do tempo Tesoureiro → Secretário → Venerável Mestre com a etiqueta "Pendente com: Tesoureiro" → atestado concluído ("Documento pronto") → botões Ver PDF / Baixar PDF.
 - **Narração:**
 
-> Precisa comprovar que está regular com a Loja? O Atestado de Regularidade declara que você é membro efetivo e está em dia com os metais e demais deveres maçônicos. Qualquer irmão ativo pode solicitar: um clique, e o pedido segue automaticamente para as três assinaturas — primeiro o Tesoureiro, que confirma a regularidade financeira; depois o Secretário; e, por fim, o Venerável Mestre. Cada um pode assinar com a senha do sistema ou com a assinatura digital do gov.br. Você acompanha o andamento pela própria tela e, quando concluído, baixa o PDF assinado na hora.
+> Precisa comprovar que está regular com a Loja? O Atestado de Regularidade declara que você é membro efetivo e está em dia com os metais e demais deveres maçônicos. Qualquer irmão ativo pode solicitar: um clique, e o pedido segue automaticamente para as três assinaturas digitais do gov.br — primeiro o Tesoureiro, que confirma a regularidade financeira; depois o Secretário; e, por fim, o Venerável Mestre. Você não precisa entender o fluxo interno: a linha do tempo mostra exatamente com quem o documento está pendente. E, quando o Venerável conclui, aparece "Documento pronto" — é só baixar o PDF assinado.
 
 ## 1.10 — Meu perfil, Privacidade e senha (`obreiro-conta.mp4`)
 
@@ -128,9 +128,20 @@ O Obreiro comum vê: Dashboard, Notificações, Carteirinha Digital, Biblioteca 
 
 ---
 
+## 1.11 — Meu Quitte Placet (`obreiro-quitte.mp4`)
+
+![Tela: obreiro-quitte](roteiros-prints/obreiro-quitte.png)
+
+- **Objetivo:** o irmão pede o próprio Quitte Placet e acompanha com quem está pendente.
+- **Duração:** ~50 s.
+- **Na tela:** menu Quitte Placets → card "Meu Quitte Placet" → motivo + anexar a carta de próprio punho (foto ou PDF) → Solicitar → card "Andamento" com a linha do tempo: Carta entregue → Nada Consta → Form. 122 → Secretário → Venerável Mestre → Guarda dos Selos → etiqueta "Pendente com: …" → ao final, "Enviado à Guarda dos Selos" e botão Baixar documento.
+- **Narração:**
+
+> O Quitte Placet é o documento de desligamento ou transferência — e o pedido é do próprio irmão. No menu Quitte Placets, escreva o motivo e anexe a carta escrita a próprio punho e assinada: sem ela, o pedido não é registrado. A partir daí, você só acompanha. A linha do tempo mostra cada etapa — a carta, o Nada Consta da Tesouraria, o formulário oficial, a assinatura do Secretário, a do Venerável Mestre e o envio à Guarda dos Selos — e diz, a cada momento, com quem o pedido está pendente. Concluído, o documento assinado fica disponível para download. Transparência do início ao fim.
+
 # PARTE 2 — SECRETÁRIO
 
-O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da Loja, Documentos (Drive), Progressões, Visitas a Oficinas, Quitte Placets, Configurações da Loja e Auditoria.
+O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da Loja, Documentos (Drive), Processos, Progressões, Visitas a Oficinas, Quitte Placets, Configurações da Loja e Auditoria.
 
 ## 2.1 — Dashboard do Secretário (`secretario-dashboard.mp4`)
 
@@ -187,10 +198,10 @@ O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da L
 ![Tela: secretario-pranchas](roteiros-prints/secretario-pranchas.png)
 
 - **Duração:** ~75 s.
-- **Na tela:** catálogo de formulários oficiais por categoria → baixar formulário já preenchido → criar prancha → anexar → assinar anexo no gov.br (portal) → subir PDF assinado → expedir à Guarda dos Selos pelo Gmail da Loja → registro da expedição.
+- **Na tela:** catálogo de formulários oficiais por categoria → baixar formulário já preenchido → criar prancha → anexar PDF → botão "Encaminhar para assinaturas" com a escolha da cadeia (1º Secretário, 2º …; o VM sempre por último) → a coluna passa a "Em assinatura na seção Processos →" → (corte para o vídeo 2.15) → prancha com ✅ assinada e "Enviada".
 - **Narração:**
 
-> Prancha é o ofício formal da Loja — a carta oficial que segue à Potência. O sistema traz o catálogo com os formulários oficiais do GOB-SP, organizados por categoria: admissão, filiação e regularização, vida do Obreiro, mútua e administração. Melhor ainda: os formulários já saem preenchidos com os dados da Loja e do irmão. O fluxo é direto: baixe o formulário, confira, anexe à prancha e assine o anexo com a assinatura digital do gov.br. Com o PDF assinado no sistema, a prancha é expedida à Guarda dos Selos pelo próprio Gmail da Loja, com registro de envio. Ofício expedido, protocolo guardado.
+> Prancha é o ofício formal da Loja — a carta oficial que segue à Potência. O sistema traz o catálogo com os formulários oficiais do GOB-SP, organizados por categoria: admissão, filiação e regularização, vida do Obreiro, mútua e administração. Melhor ainda: os formulários já saem preenchidos com os dados da Loja e do irmão. O fluxo é direto: baixe o formulário, confira, anexe à prancha e encaminhe para as assinaturas, escolhendo a ordem dos cargos — o Venerável Mestre assina sempre por último. A partir daí, a prancha segue para a seção Processos, onde cada cargo assina com o gov.br na sua vez. Assinada, ela é expedida à Guarda dos Selos pelo próprio Gmail da Loja, com registro de envio. Ofício expedido, protocolo guardado.
 
 ## 2.7 — E-mails da Loja (`secretario-emails.mp4`)
 
@@ -217,20 +228,20 @@ O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da L
 ![Tela: secretario-admissoes](roteiros-prints/secretario-admissoes.png)
 
 - **Duração:** ~80 s.
-- **Na tela:** quadro Kanban do processo → candidato com formulários devolvidos → edital → comissão de sindicância → escrutínio (votação) → Placet → iniciação.
+- **Na tela:** quadro Kanban do processo → candidato com formulários devolvidos → edital → comissão de sindicância → escrutínio (votação) → Placet (card mostra a prancha vinculada: só avança assinada + enviada) → iniciação.
 - **Narração:**
 
-> Depois que um irmão apadrinha um candidato, a condução do processo é da Secretaria — e o sistema organiza tudo em um quadro de etapas. Com os formulários de indicação devolvidos, publica-se o edital. Em seguida, a sindicância: a comissão é designada e registra seus pareceres. Vem então o escrutínio — a votação secreta da Loja — e, aprovado, o pedido do Placet, a autorização final da Potência. Cada etapa tem seus registros e suas travas: nada avança fora da ordem. Do primeiro contato à iniciação, o processo inteiro documentado.
+> Depois que um irmão apadrinha um candidato, a condução do processo é da Secretaria — e o sistema organiza tudo em um quadro de etapas. Com os formulários de indicação devolvidos, publica-se o edital. Em seguida, a sindicância: a comissão é designada e registra seus pareceres. Vem então o escrutínio — a votação secreta da Loja — e, aprovado, o pedido do Placet, a autorização final da Potência. Aqui entra mais uma trava: a prancha do Placet precisa estar assinada na seção Processos e enviada à Guarda dos Selos para o candidato avançar no quadro. Cada etapa tem seus registros e suas travas: nada avança fora da ordem. Do primeiro contato à iniciação, o processo inteiro documentado.
 
 ## 2.10 — Progressões de grau (`secretario-progressoes.mp4`)
 
 ![Tela: secretario-progressoes](roteiros-prints/secretario-progressoes.png)
 
 - **Duração:** ~75 s.
-- **Na tela:** Kanban de progressões → interstício cumprido (alerta) → instrução e frequência (travas) → exame de proficiência → escrutínio → Placet → cerimônia → comunicação de 15 dias.
+- **Na tela:** Kanban de progressões → interstício cumprido (alerta) → instrução e frequência (travas) → exame de proficiência → escrutínio → Placet (prancha vinculada: só avança assinada + enviada) → cerimônia → comunicação de 15 dias.
 - **Narração:**
 
-> A caminhada do irmão ao próximo grau — a Elevação a Companheiro, a Exaltação a Mestre — segue requisitos que o sistema confere automaticamente. O interstício: o tempo mínimo no grau, com aviso quando é cumprido. As instruções ministradas pelos Vigilantes e a frequência mínima nas sessões — travas que precisam estar verdes para o processo andar. Depois, o exame de proficiência, o escrutínio e o Placet da Potência. Realizada a cerimônia, o sistema ainda lembra do prazo regulamentar de quinze dias para comunicar o portal da Potência, com matéria e fotos. Nenhum requisito esquecido, nenhum prazo perdido.
+> A caminhada do irmão ao próximo grau — a Elevação a Companheiro, a Exaltação a Mestre — segue requisitos que o sistema confere automaticamente. O interstício: o tempo mínimo no grau, com aviso quando é cumprido. As instruções ministradas pelos Vigilantes e a frequência mínima nas sessões — travas que precisam estar verdes para o processo andar. Depois, o exame de proficiência, o escrutínio e o Placet da Potência — cuja prancha precisa estar assinada na seção Processos e enviada para o irmão avançar no quadro. Realizada a cerimônia, o sistema ainda lembra do prazo regulamentar de quinze dias para comunicar o portal da Potência, com matéria e fotos. Nenhum requisito esquecido, nenhum prazo perdido.
 
 ## 2.11 — Visitas a Oficinas (`secretario-visitas.mp4`)
 
@@ -247,20 +258,20 @@ O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da L
 ![Tela: secretario-atestado](roteiros-prints/secretario-atestado.png)
 
 - **Duração:** ~50 s.
-- **Na tela:** notificação "aguarda assinatura do Secretário" → página de atestados → pendentes → assinar com senha OU fluxo gov.br (baixar PDF com a assinatura do Tesoureiro, assinar no portal, subir) → segue ao VM.
+- **Na tela:** notificação "aguarda assinatura do Secretário" → clique leva à seção Processos → card "Atestados de Regularidade" com o atestado na sua vez (Tesoureiro ✓, Secretário pendente) → "Assinar com gov.br" (conta) OU bloco "portal assinador.iti.br" (baixar PDF já com a assinatura do Tesoureiro, assinar no portal, subir) → segue ao VM. Mostrar rapidamente a página Atestado de Regularidade do Secretário: só o aviso "as assinaturas ficam em Processos".
 - **Narração:**
 
-> Quando um irmão solicita o Atestado de Regularidade, a ordem das assinaturas é: Tesoureiro, Secretário e Venerável Mestre. Assim que o Tesoureiro assina, chega a sua vez — e o sistema avisa: a pendência aparece no seu painel e na central de notificações. Na página de atestados, você assina com a sua senha, aplicando a imagem da sua assinatura ao documento, ou pelo gov.br: baixa o PDF já com a assinatura do Tesoureiro, assina no portal oficial e sobe o arquivo. Feito isso, o atestado segue ao Venerável Mestre para a assinatura final.
+> Quando um irmão solicita o Atestado de Regularidade, a ordem das assinaturas é: Tesoureiro, Secretário e Venerável Mestre. Assim que o Tesoureiro assina, chega a sua vez — e o sistema avisa no painel e na central de notificações. Todas as assinaturas dos cargos ficam num único lugar: a seção Processos. Lá, o atestado aparece com a assinatura do Tesoureiro já registrada e a sua pendente. Você assina com a sua conta gov.br — ou, se preferir, baixa o PDF, assina no portal oficial e sobe o arquivo. Feito isso, o atestado segue ao Venerável Mestre para a assinatura final, e o irmão acompanha tudo pela linha do tempo dele.
 
 ## 2.13 — Quitte Placets (`secretario-quitte.mp4`)
 
 ![Tela: secretario-quitte](roteiros-prints/secretario-quitte.png)
 
 - **Duração:** ~60 s.
-- **Na tela:** quadro de etapas → trava do Nada Consta da Tesouraria → dupla assinatura VM + Secretário → Form. 122 preenchido → anexar assinado → envio à Guarda dos Selos.
+- **Na tela:** aviso no topo "a assinatura é feita na aba Processos" → pedido chegando do irmão (com a carta) ou "Nova solicitação" em nome dele → quadro de etapas → trava do Nada Consta (Reconsultar Tesouraria) → card Form. 122: baixar modelo preenchido → anexar em PDF → "Pronto para assinatura" → (corte para Processos: assinatura do Secretário e depois do VM) → status Aprovado → "Enviar à Guarda dos Selos".
 - **Narração:**
 
-> O Quitte Placet é o documento de desligamento ou transferência de um irmão — e exige rigor. O sistema impõe duas travas de governança: primeiro, o Nada Consta da Tesouraria — sem a quitação financeira confirmada, a emissão fica bloqueada; depois, a dupla assinatura do Venerável Mestre e do Secretário. O formulário oficial, o Form. 122, sai já preenchido; assinado, é anexado e expedido à Guarda dos Selos pelo e-mail da Loja. Acompanhe cada etapa pelo quadro — o desligamento conduzido com a seriedade que merece.
+> O Quitte Placet é o documento de desligamento ou transferência de um irmão — e exige rigor. O pedido nasce com o próprio irmão, que anexa a carta escrita a próprio punho; a Secretaria também pode abrir em nome dele. Daqui em diante, a página é a sua mesa de triagem. Primeira trava: o Nada Consta da Tesouraria — sem a quitação financeira confirmada, nada segue. Depois, o formulário oficial, o Form. 122, que sai já preenchido: confira e anexe em PDF. Com a carta, o Nada Consta e o formulário no lugar, o documento fica pronto para as assinaturas — que acontecem na seção Processos: o Secretário primeiro, o Venerável Mestre por último. Aprovado, um clique o expede à Guarda dos Selos pelo e-mail da Loja. E o irmão acompanhou cada etapa pela linha do tempo, sem precisar perguntar.
 
 ## 2.14 — Configurações da Loja e Auditoria (`secretario-config.mp4`)
 
@@ -273,6 +284,17 @@ O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da L
 > Nas Configurações da Loja ficam os parâmetros que moldam o sistema à sua Oficina: dados cadastrais, logotipo, o cabeçalho institucional que sai nas atas, a frequência mínima exigida para progressão, o limite de mensalidades vencidas antes de o irmão ficar irregular, e as integrações — o gateway de pagamentos, o Google Drive e o Gmail da Loja, e até o modelo do convite de sessão. E, para a transparência da gestão, a tela de Auditoria registra quem fez o quê e quando, em todas as ações sensíveis do sistema. Governança de ponta a ponta.
 
 ---
+
+## 2.15 — Processos: a caixa de entrada de assinaturas (`secretario-processos.mp4`)
+
+![Tela: secretario-processos](roteiros-prints/secretario-processos.png)
+
+- **Objetivo:** mostrar que toda assinatura gov.br de qualquer cargo acontece num só lugar.
+- **Duração:** ~75 s.
+- **Na tela:** menu Processos → cards "Atestados de Regularidade" e "Quitte Placets" na vez do cargo → "Documentos da Secretaria": card "Novo processo" (PDF + cadeia de assinantes) → processo vindo de uma prancha (badge "vez do Secretário") → "Assinar com gov.br" / bloco portal ITI → após a última assinatura, "Assinado por toda a cadeia" → bloco de envio com Guarda dos Selos em destaque + cópia a irmãos do quadro → "Enviado a … em …" → "Baixar documento (com assinaturas)".
+- **Narração:**
+
+> Processos é a mesa de assinaturas da Loja. Tudo o que precisa de assinatura digital do gov.br chega aqui, separado por tipo: os Atestados de Regularidade dos irmãos, os Quitte Placets e os documentos oficiais da Secretaria — anexos de pranchas, formulários do GOB preenchidos, ofícios. Cada documento traz a sua cadeia de assinantes, em ordem, e o Venerável Mestre assina sempre por último, selando o documento. Quando chega a sua vez, o sistema avisa; você assina com a sua conta gov.br ou pelo portal oficial, e as assinaturas ficam embutidas no próprio PDF. Concluída a cadeia, o sistema pergunta para quem enviar — a Guarda dos Selos em destaque, com a opção de copiar irmãos do quadro. E, se o documento veio de uma prancha, a versão assinada volta para ela automaticamente, liberando o candidato ou a progressão no quadro. Um só lugar, uma só ordem, nenhuma assinatura perdida.
 
 # PARTE 3 — TESOUREIRO
 
@@ -323,10 +345,10 @@ O Tesoureiro vê os menus comuns e mais: Mensalidades, Despesas e Balancete.
 ![Tela: tesoureiro-atestado](roteiros-prints/tesoureiro-atestado.png)
 
 - **Duração:** ~50 s.
-- **Na tela:** notificação e card no dashboard "é a vez do Tesoureiro" → página de atestados → assinar com senha OU baixar PDF, assinar no gov.br (portal) e subir → segue ao Secretário.
+- **Na tela:** notificação e card no dashboard "Atestados aguardando minha assinatura" → "Assinar na aba Processos →" → card "Atestados de Regularidade" com o irmão na sua vez → "Assinar com gov.br" OU bloco portal assinador.iti.br (baixar PDF, assinar, subir) → badges Tesoureiro ✓ → segue ao Secretário.
 - **Narração:**
 
-> Quando um irmão solicita o Atestado de Regularidade, você é o primeiro da fila — afinal, é o Tesoureiro quem atesta que o irmão está em dia com os metais. O sistema avisa no seu painel e na central de notificações. Você assina de duas formas: com a sua senha, aplicando a imagem da sua assinatura ao PDF; ou pelo gov.br — baixa o documento, assina no portal oficial com a sua conta, e sobe o arquivo assinado. A sua assinatura abre o caminho: em seguida, o atestado passa ao Secretário e, por fim, ao Venerável Mestre.
+> Quando um irmão solicita o Atestado de Regularidade, você é o primeiro da fila — afinal, é o Tesoureiro quem atesta que o irmão está em dia com os metais. O sistema avisa no seu painel e na central de notificações, e o atalho leva direto à seção Processos, onde ficam todas as assinaturas dos cargos. Lá, você assina com a sua conta gov.br — ou baixa o documento, assina no portal oficial e sobe o arquivo assinado. A sua assinatura abre o caminho: em seguida, o atestado passa ao Secretário e, por fim, ao Venerável Mestre. E o irmão vê, na linha do tempo dele, que a etapa do Tesoureiro já foi cumprida.
 
 ---
 
@@ -349,10 +371,10 @@ O VM tem visão total: menus da Secretaria, da Tesouraria e da gestão da Loja.
 ![Tela: veneravel-assinaturas](roteiros-prints/veneravel-assinaturas.png)
 
 - **Duração:** ~70 s.
-- **Na tela:** assinar ata inline (senha) → assinar Quitte Placet → atestado (último da fila: senha ou gov.br) → mostrar alternativa gov.br.
+- **Na tela:** atas: assinar inline (senha) ou gov.br → menu Processos: cards Atestados (VM último: Tesoureiro ✓, Secretário ✓, "Assinar com gov.br"), Quitte Placets (Secretário ✓ → VM) e Documentos da Secretaria (prancha na vez do VM) → após assinar, bloco de envio à Guarda dos Selos.
 - **Narração:**
 
-> Boa parte do dia a dia do Venerável são as assinaturas — e o sistema as organiza todas. Nas atas, o Venerável assina primeiro, e o Secretário sela em seguida. Nos Quitte Placets, a dupla assinatura com o Secretário, sempre depois do Nada Consta da Tesouraria. No Atestado de Regularidade, a sua é a assinatura final, depois do Tesoureiro e do Secretário — é ela que conclui o documento. Em todos os casos, dois caminhos: a assinatura no sistema, confirmada por senha e com a imagem da sua assinatura no PDF; ou a assinatura digital do gov.br, com validade jurídica plena, feita no portal oficial. A autoridade do cargo, com a praticidade da tecnologia.
+> Boa parte do dia a dia do Venerável são as assinaturas — e o sistema as organiza todas. Nas atas, o Venerável assina primeiro, e o Secretário sela em seguida. Todo o resto está numa única seção: Processos. Nos Atestados de Regularidade, a sua é a assinatura final, depois do Tesoureiro e do Secretário — é ela que entrega o documento pronto ao irmão. Nos Quitte Placets, você sela depois do Secretário, sempre após o Nada Consta da Tesouraria. E nas pranchas e formulários oficiais, o Venerável assina sempre por último, fechando a cadeia — e é aí que o sistema oferece o envio à Guarda dos Selos. Tudo com a assinatura digital do gov.br, de validade jurídica plena: direto pela sua conta ou pelo portal oficial. A autoridade do cargo, com a praticidade da tecnologia.
 
 ## 4.3 — Governança e travas do sistema (`veneravel-governanca.mp4`)
 
@@ -454,6 +476,7 @@ O VM tem visão total: menus da Secretaria, da Tesouraria e da gestão da Loja.
 | 1.8 | obreiro-candidatos.mp4 | Obreiro | ☐ |
 | 1.9 | obreiro-atestado.mp4 | Obreiro | ☐ |
 | 1.10 | obreiro-conta.mp4 | Obreiro | ☐ |
+| 1.11 | obreiro-quitte.mp4 | Obreiro | ☐ |
 | 2.1 | secretario-dashboard.mp4 | Secretário | ☐ |
 | 2.2 | secretario-membros.mp4 | Secretário | ☐ |
 | 2.3 | secretario-cargos.mp4 | Secretário | ☐ |
@@ -468,6 +491,7 @@ O VM tem visão total: menus da Secretaria, da Tesouraria e da gestão da Loja.
 | 2.12 | secretario-atestado.mp4 | Secretário | ☐ |
 | 2.13 | secretario-quitte.mp4 | Secretário | ☐ |
 | 2.14 | secretario-config.mp4 | Secretário | ☐ |
+| 2.15 | secretario-processos.mp4 | Secretário | ☐ |
 | 3.1 | tesoureiro-dashboard.mp4 | Tesoureiro | ☐ |
 | 3.2 | tesoureiro-mensalidades.mp4 | Tesoureiro | ☐ |
 | 3.3 | tesoureiro-despesas.mp4 | Tesoureiro | ☐ |

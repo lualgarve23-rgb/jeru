@@ -5,5 +5,6 @@ export * from "./_actions/sessoes";
 export * from "./_actions/atas";
 export * from "./_actions/admissao";
 export * from "./_actions/quitte";
+export * from "./_actions/processos";
 export * from "./_actions/progressao";
 export * from "./_actions/familiares";

@@ -111,6 +111,7 @@ model Lodge {
   notifications       Notification[]
   cargosRito          CargoRito[]
   bibliotecaItens     BibliotecaItem[]
+  processoDocumentos  ProcessoDocumento[]
 
   @@map("lodges")
 }
@@ -234,6 +235,8 @@ model User {
   bibliotecaItens       BibliotecaItem[]
   metaRegistros         MetaRegistro[]
   candidatosApadrinhados ProcessoAdmissao[] @relation("AdmissaoPadrinho")
+  processosCriados       ProcessoDocumento[] @relation("ProcessoCriadoPor")
+  processosAssinados     ProcessoAssinante[] @relation("ProcessoAssinanteUser")
 
   @@unique([lodgeId, cim])
   @@unique([lodgeId, cpf])
@@ -516,12 +519,72 @@ model Prancha {
   driveFileId String?
   govbrPdf      Bytes?    // anexo assinado no assinador.iti.br
   govbrSignedAt DateTime? // upload do anexo assinado (gov.br)
+  enviadaAt     DateTime? // envio por e-mail (Guarda dos Selos ou outro destino)
   createdAt   DateTime @default(now())
 
-  lodge Lodge @relation(fields: [lodgeId], references: [id])
+  lodge      Lodge               @relation(fields: [lodgeId], references: [id])
+  processo   ProcessoDocumento?
+  progressao ProcessoProgressao?
+  admissao   ProcessoAdmissao?
 
   @@unique([lodgeId, year, number])
   @@map("pranchas")
+}
+
+// ─────────── Processos: cadeia ordenada de assinaturas gov.br ───────────
+// Motor genérico da Secretaria para documentos oficiais (anexos de pranchas,
+// formulários GOB etc.): o Secretário define a ordem dos cargos assinantes e
+// o Venerável Mestre é SEMPRE o último. Todas as assinaturas são gov.br
+// (OAuth ITI ou upload do portal assinador.iti.br), embutidas no PDF (PAdES).
+
+enum StatusProcessoDoc {
+  EM_ASSINATURA
+  ASSINADO
+}
+
+model ProcessoDocumento {
+  id          String            @id @default(cuid())
+  lodgeId     String
+  titulo      String
+  // Documento base em PDF (guardado no banco, como os demais anexos)
+  arquivo     Bytes
+  arquivoNome String
+  // Versão com as assinaturas PAdES do ITI embutidas (incremental)
+  govbrPdf    Bytes?
+  status      StatusProcessoDoc @default(EM_ASSINATURA)
+  criadoPorId String
+  // Vínculo opcional com a prancha de origem — ao concluir, a versão
+  // assinada volta para a prancha (govbrPdf/govbrSignedAt)
+  pranchaId   String?           @unique
+  // Envio após todas as assinaturas: o Secretário escolhe o destinatário
+  // (Guarda dos Selos em destaque) e pode copiar irmãos do quadro
+  enviadoAt   DateTime?
+  enviadoPara String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  lodge      Lodge               @relation(fields: [lodgeId], references: [id])
+  criadoPor  User                @relation("ProcessoCriadoPor", fields: [criadoPorId], references: [id])
+  prancha    Prancha?            @relation(fields: [pranchaId], references: [id])
+  assinantes ProcessoAssinante[]
+
+  @@index([lodgeId])
+  @@map("processo_documentos")
+}
+
+model ProcessoAssinante {
+  id          String    @id @default(cuid())
+  documentoId String
+  ordem       Int // 1..n — o último é sempre o Venerável Mestre
+  cargo       Role
+  signedById  String?
+  signedAt    DateTime?
+
+  documento ProcessoDocumento @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  signedBy  User?             @relation("ProcessoAssinanteUser", fields: [signedById], references: [id])
+
+  @@unique([documentoId, ordem])
+  @@map("processo_assinantes")
 }
 
 enum DocumentType {
@@ -785,11 +848,15 @@ model ProcessoAdmissao {
   // Token opaco do link público entregue ao candidato (/candidato/<token>):
   // ele baixa os formulários de indicação e anexa os preenchidos
   token            String         @unique @default(cuid())
+  // Prancha do pedido de Placet de Iniciação expedida ao entrar em
+  // AGUARDANDO_PLACET — INICIADO só com ela assinada (Processos) e enviada
+  pranchaId        String?        @unique
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
   lodge    Lodge             @relation(fields: [lodgeId], references: [id])
   padrinho User?             @relation("AdmissaoPadrinho", fields: [padrinhoId], references: [id])
+  prancha  Prancha?          @relation(fields: [pranchaId], references: [id])
   anexos   CandidatoAnexo[]
 
   @@index([lodgeId])
@@ -823,8 +890,10 @@ enum StatusPlacet {
   NEGADO
 }
 
-// Quitte Placet (desligamento/filiação) — trava: exige Nada Consta da Tesouraria
-// e dupla assinatura (VM + Secretário) para emissão final
+// Quitte Placet (desligamento/filiação) — qualquer irmão do quadro solicita,
+// anexando a carta escrita a próprio punho e assinada. Travas: Nada Consta da
+// Tesouraria e dupla assinatura gov.br em ordem — Secretário e, por último,
+// o Venerável Mestre.
 model QuittePlacet {
   id                 String       @id @default(cuid())
   userId             String
@@ -838,6 +907,14 @@ model QuittePlacet {
   signedByMasterAt DateTime?
   signedBySecId    String?
   signedBySecAt    DateTime?
+
+  // Carta de próprio punho (foto/PDF) anexada pelo irmão junto do pedido —
+  // obrigatória; sem ela as assinaturas ficam bloqueadas
+  cartaArquivo Bytes?
+  cartaNome    String?
+  cartaMime    String?
+  // Form. 122 com as assinaturas PAdES do ITI (gov.br) embutidas
+  govbrPdf     Bytes?
 
   driveFileId String?
   // Formulário oficial (Form. 122) preenchido e assinado, anexado pela
@@ -861,8 +938,8 @@ model QuittePlacet {
 }
 
 // Atestado de Regularidade: o irmão solicita e o documento segue para a tripla
-// assinatura — Tesoureiro, depois Secretário e por último o Venerável Mestre
-// (senha/imagem ou gov.br).
+// assinatura — Tesoureiro, depois Secretário e por último o Venerável Mestre —
+// sempre pelo gov.br (OAuth ou upload do portal ITI).
 // O PDF é gerado sob demanda a partir dos dados; govbrPdf guarda a versão
 // com assinaturas PAdES do ITI quando algum assinante usa o gov.br.
 enum StatusAtestado {
@@ -922,12 +999,16 @@ model ProcessoProgressao {
   placetDeferido    Boolean          @default(false) // trava da Guarda dos Selos
   dataCerimonia     DateTime? // data da Elevação ou Exaltação
   comunicadoEnviado Boolean          @default(false) // trava dos 15 dias (Sua Sessão no GOB-SP)
+  // Prancha do pedido de Placet expedida ao entrar em AGUARDANDO_PLACET —
+  // o kanban só avança com ela assinada (Processos) e enviada
+  pranchaId         String?          @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user  User  @relation(fields: [userId], references: [id])
-  lodge Lodge @relation(fields: [lodgeId], references: [id])
+  user    User     @relation(fields: [userId], references: [id])
+  lodge   Lodge    @relation(fields: [lodgeId], references: [id])
+  prancha Prancha? @relation(fields: [pranchaId], references: [id])
 
   @@index([lodgeId])
   @@map("processos_progressao")

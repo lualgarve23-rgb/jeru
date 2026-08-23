@@ -48,7 +48,7 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { signAtaInline, signQuittePlacetInline } from "./sign-actions";
+import { signAtaInline } from "./sign-actions";
 
 function brl(cents: number) {
   return (cents / 100).toLocaleString("pt-BR", {
@@ -135,7 +135,7 @@ function AtestadosPendentesCard({
             {atestados.map((a) => (
               <li key={a.id}>
                 <Link
-                  href="/secretaria/atestados"
+                  href="/secretaria/processos"
                   className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background p-3 transition-colors hover:bg-muted/50"
                 >
                   <span className="min-w-0">
@@ -149,10 +149,10 @@ function AtestadosPendentesCard({
           </ul>
         )}
         <Link
-          href="/secretaria/atestados"
+          href="/secretaria/processos"
           className="mt-3 block text-sm font-medium text-primary hover:underline"
         >
-          Ir para os atestados →
+          Assinar na aba Processos →
         </Link>
       </CardContent>
     </Card>
@@ -834,10 +834,12 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
         },
         orderBy: { createdAt: "asc" },
       }),
+      // Placets na vez do VM (Secretário já assinou — o VM assina por último)
       prisma.quittePlacet.findMany({
         where: {
           lodgeId,
           quitacaoFinanceira: true, // trava financeira já liberada
+          signedBySecId: { not: null },
           signedByMasterId: null,
           status: { in: ["PENDENTE", "EM_ANALISE"] },
         },
@@ -991,21 +993,21 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
                       {p.user.name} (CIM {p.user.cim}) — solicitado em{" "}
                       {p.dataSolicitacao.toLocaleDateString("pt-BR")}
                     </span>
-                    <InlineSignDialog
-                      title={`Assinar Quitte Placet de ${p.user.name}`}
-                      description="Documento de desligamento com Nada Consta da Tesouraria. Ao completar a dupla assinatura o documento é emitido."
-                      preview={`Obreiro: ${p.user.name} (CIM ${p.user.cim})\nSolicitado em: ${p.dataSolicitacao.toLocaleDateString("pt-BR")}\nMotivo: ${p.motivo || "não informado"}\nQuitação financeira: confirmada (Nada Consta)`}
-                      action={signQuittePlacetInline.bind(null, p.id)}
-                    />
+                    <a
+                      href={`/api/govbr/authorize?quitte=${p.id}`}
+                      className="shrink-0 text-sm font-medium text-primary hover:underline"
+                    >
+                      Assinar com gov.br →
+                    </a>
                   </li>
                 ))}
               </ul>
             )}
             <Link
-              href="/secretaria/quitte-placets"
+              href="/secretaria/processos"
               className="mt-3 block text-sm font-medium text-primary hover:underline"
             >
-              Ir para os Quitte Placets →
+              Assinar na aba Processos →
             </Link>
           </CardContent>
         </Card>

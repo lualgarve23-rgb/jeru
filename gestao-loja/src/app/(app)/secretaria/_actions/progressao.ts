@@ -184,7 +184,39 @@ export async function moveProcessoProgressao(
     }
   }
 
-  // Trava 3 — Guarda dos Selos: cerimônia só com o Placet deferido
+  // Trava 3a — prancha do Placet: o card só sai de AGUARDANDO_PLACET com a
+  // prancha assinada na seção Processos (cadeia gov.br) e enviada
+  if (toIdx >= ORDEM_PROGRESSAO.indexOf("AGUARDANDO_CERIMONIA") && processo.pranchaId) {
+    const prancha = await prisma.prancha.findUnique({
+      where: { id: processo.pranchaId },
+      select: {
+        govbrSignedAt: true,
+        enviadaAt: true,
+        driveFileId: true,
+        processo: { select: { id: true } },
+      },
+    });
+    // Prancha com anexo (ou já encaminhada aos Processos) exige a cadeia
+    // de assinaturas gov.br concluída antes do envio
+    if (
+      prancha &&
+      (prancha.driveFileId || prancha.processo) &&
+      !prancha.govbrSignedAt
+    ) {
+      return {
+        error:
+          "A prancha do Placet ainda não foi assinada — conclua a cadeia de assinaturas gov.br na seção Processos.",
+      };
+    }
+    if (prancha && !prancha.enviadaAt) {
+      return {
+        error:
+          "A prancha do Placet ainda não foi enviada — faça o envio à Guarda dos Selos (seção Processos ou Pranchas).",
+      };
+    }
+  }
+
+  // Trava 3b — Guarda dos Selos: cerimônia só com o Placet deferido
   if (toIdx >= ORDEM_PROGRESSAO.indexOf("AGUARDANDO_CERIMONIA") && !processo.placetDeferido) {
     return {
       error:
@@ -194,8 +226,10 @@ export async function moveProcessoProgressao(
 
   const data: Record<string, unknown> = { status: toStatus };
 
-  // Escrutínio aprovado → registra a data e expede a prancha do Placet
-  if (toStatus === "AGUARDANDO_PLACET") {
+  // Escrutínio aprovado → registra a data e expede a prancha do Placet,
+  // vinculada ao processo: é ela que trava a saída de AGUARDANDO_PLACET
+  // (assinaturas na seção Processos + envio)
+  if (toStatus === "AGUARDANDO_PLACET" && !processo.pranchaId) {
     if (!processo.dataAprovacao) data.dataAprovacao = new Date();
     const year = new Date().getFullYear();
     const last = await prisma.prancha.findFirst({
@@ -203,7 +237,7 @@ export async function moveProcessoProgressao(
       orderBy: { number: "desc" },
     });
     const rito = processo.grauAlvo === "MESTRE" ? "Exaltação" : "Elevação";
-    await prisma.prancha.create({
+    const prancha = await prisma.prancha.create({
       data: {
         lodgeId: user.lodgeId,
         year,
@@ -216,6 +250,7 @@ export async function moveProcessoProgressao(
           `para o grau de ${processo.grauAlvo === "MESTRE" ? "Mestre" : "Companheiro"}.`,
       },
     });
+    data.pranchaId = prancha.id;
     revalidatePath("/secretaria/pranchas");
   }
 
