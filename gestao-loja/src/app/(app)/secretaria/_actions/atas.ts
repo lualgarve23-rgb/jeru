@@ -13,7 +13,11 @@ import {
   ataFechadaParaPresencas,
   ERRO_PRESENCAS_TRAVADAS } from "@/lib/ata-regras";
 import { cargoCorresponde, type CargoPadrao } from "@/lib/cargos";
-import { uploadToLodgeDrive, isDriveAvailable } from "@/lib/google-drive";
+import {
+  uploadToLodgeDrive,
+  isDriveAvailable,
+  arquivarVersaoFinalNoDrive,
+} from "@/lib/google-drive";
 import { sendLodgeEmail, getGmailAuth, GUARDA_SELOS_EMAIL } from "@/lib/gmail";
 import { gerarTextoAta } from "@/lib/ata-template";
 import { enfileirar } from "@/lib/fila";
@@ -627,29 +631,24 @@ export async function uploadPranchaAssinadaGovbr(
     data: { govbrPdf: new Uint8Array(pdf), govbrSignedAt: new Date() },
   });
 
-  // Arquiva a versão assinada no Drive da Loja (best-effort)
-  let driveAviso = "";
-  try {
-    if (await isDriveAvailable(user.lodgeId)) {
-      const driveFileId = await uploadToLodgeDrive(
-        user.lodgeId,
-        `prancha-${prancha.number}-${prancha.year}-assinada-govbr.pdf`,
-        "application/pdf",
-        pdf
-      );
-      await prisma.prancha.update({
-        where: { id: pranchaId, lodgeId: user.lodgeId },
-        data: { driveFileId },
-      });
-    } else {
-      driveAviso =
-        " Drive não conectado — a versão assinada não foi arquivada no Drive.";
-    }
-  } catch (e) {
-    driveAviso = ` Falha ao arquivar no Drive: ${
-      e instanceof Error ? e.message : "erro desconhecido"
-    }`;
+  // Arquiva a versão final assinada no Drive da Loja e na Biblioteca,
+  // substituindo o anexo preliminar (só a última versão fica no Drive)
+  const r = await arquivarVersaoFinalNoDrive({
+    lodgeId: user.lodgeId,
+    uploadedById: user.id,
+    fileName: `prancha-${prancha.number}-${prancha.year}-assinada-govbr.pdf`,
+    title: `Prancha nº ${prancha.number}/${prancha.year} — ${prancha.subject} (assinada gov.br)`,
+    pdf,
+    substituiDriveFileId: prancha.driveFileId,
+  });
+  const driveAviso = r.aviso;
+  if (r.driveFileId) {
+    await prisma.prancha.update({
+      where: { id: pranchaId, lodgeId: user.lodgeId },
+      data: { driveFileId: r.driveFileId },
+    });
   }
+
 
   revalidatePath("/secretaria/pranchas");
   return {

@@ -119,3 +119,74 @@ export async function downloadFromLodgeDrive(
     name: meta.data.name ?? "anexo",
   };
 }
+
+// Remove um arquivo do Drive da Loja (best-effort — versões preliminares
+// substituídas pela versão final assinada).
+export async function deleteFromLodgeDrive(lodgeId: string, fileId: string) {
+  const lodge = await prisma.lodge.findUniqueOrThrow({ where: { id: lodgeId } });
+  const drive = driveClientFor(lodge);
+  await drive.files.delete({ fileId }).catch(() => undefined);
+}
+
+// Regra da Loja: todo documento que passa por cadeia de assinatura fica no
+// Drive SOMENTE na sua versão final. Sobe o PDF, registra na Biblioteca
+// (Document) e apaga a versão preliminar (se houver). Devolve o id do Drive,
+// ou um aviso (string) para anexar à mensagem de sucesso quando não arquivou.
+export async function arquivarVersaoFinalNoDrive(opts: {
+  lodgeId: string;
+  uploadedById: string;
+  fileName: string;
+  title: string;
+  pdf: Buffer;
+  type?: "ATA_ESCANEADA" | "HISTORICO" | "REGULAMENTO" | "FINANCEIRO" | "OUTRO";
+  substituiDriveFileId?: string | null;
+}): Promise<{ driveFileId: string; aviso: "" } | { driveFileId: null; aviso: string }> {
+  try {
+    if (!(await isDriveAvailable(opts.lodgeId))) {
+      return {
+        driveFileId: null,
+        aviso: " Drive não conectado — o arquivo não foi arquivado no Drive.",
+      };
+    }
+    const driveFileId = await uploadToLodgeDrive(
+      opts.lodgeId,
+      opts.fileName,
+      "application/pdf",
+      opts.pdf
+    );
+    await prisma.document.create({
+      data: {
+        lodgeId: opts.lodgeId,
+        uploadedById: opts.uploadedById,
+        title: opts.title,
+        type: opts.type ?? "OUTRO",
+        driveFileId,
+        mimeType: "application/pdf",
+        sizeBytes: opts.pdf.length,
+      },
+    });
+    if (opts.substituiDriveFileId && opts.substituiDriveFileId !== driveFileId) {
+      await deleteFromLodgeDrive(opts.lodgeId, opts.substituiDriveFileId);
+      await prisma.document.deleteMany({
+        where: { lodgeId: opts.lodgeId, driveFileId: opts.substituiDriveFileId },
+      });
+    }
+    return { driveFileId, aviso: "" };
+  } catch (e) {
+    return {
+      driveFileId: null,
+      aviso: ` Falha ao arquivar no Drive: ${
+        e instanceof Error ? e.message : "erro desconhecido"
+      }`,
+    };
+  }
+}
+
+export function slugNome(nome: string) {
+  return nome
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}

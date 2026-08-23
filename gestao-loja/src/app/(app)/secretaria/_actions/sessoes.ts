@@ -11,7 +11,11 @@ import { requireUser } from "@/lib/session";
 import {
   ataFechadaParaPresencas,
   ERRO_PRESENCAS_TRAVADAS } from "@/lib/ata-regras";
-import { uploadToLodgeDrive, isDriveAvailable } from "@/lib/google-drive";
+import {
+  uploadToLodgeDrive,
+  isDriveAvailable,
+  deleteFromLodgeDrive,
+} from "@/lib/google-drive";
 import { getGmailAuth } from "@/lib/gmail";
 import { enviarCertificadoVisita } from "@/lib/certificado";
 import { enfileirar } from "@/lib/fila";
@@ -592,6 +596,10 @@ export async function anexarCertificadoVisitaExterna(
     where: { id: visitaId },
     data: { certificadoDriveId: enviado.driveFileId },
   });
+  // Só a última versão fica no Drive: remove o certificado anterior
+  if (visita.certificadoDriveId && visita.certificadoDriveId !== enviado.driveFileId) {
+    await deleteFromLodgeDrive(user.lodgeId, visita.certificadoDriveId);
+  }
   revalidatePath("/secretaria/visitas");
   revalidatePath(`/secretaria/membros/${visita.userId}`);
   return { ok: "Certificado arquivado no Drive da Loja." };

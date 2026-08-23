@@ -220,14 +220,15 @@ export async function uploadProcessoAssinadoGovbr(
       },
     }),
   ]);
+  let driveAviso = "";
   if (estado.ultimaAssinatura) {
-    await concluirProcessoNaPrancha(documentoId, user.lodgeId);
+    driveAviso = await concluirProcessoNaPrancha(documentoId, user.lodgeId, user.id);
     revalidatePath("/secretaria/pranchas");
   }
   revalidatePath("/secretaria/processos");
   return {
     ok: estado.ultimaAssinatura
-      ? "Documento assinado por toda a cadeia — processo concluído."
+      ? `Documento assinado por toda a cadeia — processo concluído.${driveAviso}`
       : "PDF assinado recebido — o processo segue para o próximo assinante da cadeia.",
   };
 }

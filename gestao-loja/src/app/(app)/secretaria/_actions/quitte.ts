@@ -15,6 +15,7 @@ import {
   ordemAssinaturaQuitte,
   camposAssinaturaQuitte,
   bloqueioAssinaturaQuitte,
+  arquivarQuitteNoDrive,
 } from "@/lib/quitte";
 import { type ActionResult, requireSecretariaWriter, validarAnexo } from "./_shared";
 
@@ -142,6 +143,7 @@ export async function uploadQuittePlacetAssinadoGovbr(
   const user = await requireRole("SECRETARIO", "VENERAVEL_MESTRE");
   const placet = await prisma.quittePlacet.findUnique({
     where: { id: placetId, lodgeId: user.lodgeId },
+    include: { user: { select: { name: true } } },
   });
   if (!placet) return { error: "Quitte Placet não encontrado." };
   const bloqueio = bloqueioAssinaturaQuitte(placet);
@@ -176,11 +178,21 @@ export async function uploadQuittePlacetAssinadoGovbr(
         : ("EM_ANALISE" as const),
     },
   });
+  let driveAviso = "";
+  if (ordem.ultimaAssinatura) {
+    driveAviso = await arquivarQuitteNoDrive(
+      user.lodgeId,
+      user.id,
+      placetId,
+      placet.user.name,
+      pdf
+    );
+  }
   revalidatePath("/secretaria/quitte-placets");
   revalidatePath("/secretaria/processos");
   return {
     ok: ordem.ultimaAssinatura
-      ? "Quitte Placet assinado via gov.br pelos dois cargos — documento emitido."
+      ? `Quitte Placet assinado via gov.br pelos dois cargos — documento emitido.${driveAviso}`
       : "PDF assinado recebido — agora o Venerável Mestre baixa esta versão, assina no gov.br e sobe aqui.",
   };
 }

@@ -1,3 +1,5 @@
+import { prisma } from "@/lib/prisma";
+import { arquivarVersaoFinalNoDrive, slugNome } from "@/lib/google-drive";
 // Quitte Placet — regras de assinatura gov.br.
 // Ordem de governança: Secretário assina primeiro e o Venerável Mestre por
 // último (padrão de todos os documentos oficiais: o VM sela o documento).
@@ -59,4 +61,28 @@ export function bloqueioAssinaturaQuitte(p: {
     return "O Form. 122 anexado precisa estar em PDF para receber as assinaturas gov.br — substitua o anexo.";
   }
   return null;
+}
+
+// Versão final do Quitte Placet (assinado pelos dois cargos) no Drive da Loja.
+export async function arquivarQuitteNoDrive(
+  lodgeId: string,
+  uploadedById: string,
+  placetId: string,
+  nomeMembro: string,
+  pdf: Buffer
+): Promise<string> {
+  const r = await arquivarVersaoFinalNoDrive({
+    lodgeId,
+    uploadedById,
+    fileName: `quitte-placet-${slugNome(nomeMembro)}-${placetId.slice(-6)}-assinado-govbr.pdf`,
+    title: `Quitte Placet — ${nomeMembro} (assinado gov.br)`,
+    pdf,
+  });
+  if (r.driveFileId) {
+    await prisma.quittePlacet.update({
+      where: { id: placetId, lodgeId },
+      data: { driveFileId: r.driveFileId },
+    });
+  }
+  return r.aviso;
 }

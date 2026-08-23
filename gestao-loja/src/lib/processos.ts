@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { arquivarVersaoFinalNoDrive, slugNome } from "@/lib/google-drive";
 import { roleLabels } from "@/lib/labels";
 import { cargoCorresponde } from "@/lib/cargos";
 
@@ -107,20 +108,59 @@ export function estadoProcesso(
   };
 }
 
-// Ao concluir a última assinatura, sincroniza a prancha de origem (se houver):
-// a versão assinada vira o govbrPdf da prancha, liberando o envio à G. Selos.
+// Ao concluir a última assinatura: sincroniza a prancha de origem (se houver —
+// a versão assinada vira o govbrPdf da prancha, liberando o envio à G. Selos)
+// e arquiva a versão final no Drive da Loja, substituindo a preliminar da
+// prancha. Devolve aviso (vazio se arquivou).
 export async function concluirProcessoNaPrancha(
   documentoId: string,
-  lodgeId: string
-) {
+  lodgeId: string,
+  uploadedById: string
+): Promise<string> {
   const doc = await prisma.processoDocumento.findUnique({
     where: { id: documentoId, lodgeId },
-    select: { pranchaId: true, govbrPdf: true, status: true },
+    select: {
+      pranchaId: true,
+      govbrPdf: true,
+      status: true,
+      titulo: true,
+      driveFileId: true,
+      prancha: { select: { number: true, year: true, driveFileId: true } },
+    },
   });
-  if (doc?.status === "ASSINADO" && doc.pranchaId && doc.govbrPdf) {
+  if (doc?.status !== "ASSINADO" || !doc.govbrPdf) return "";
+  const pdf = Buffer.from(doc.govbrPdf);
+  if (doc.pranchaId) {
     await prisma.prancha.update({
       where: { id: doc.pranchaId, lodgeId },
       data: { govbrPdf: doc.govbrPdf, govbrSignedAt: new Date() },
     });
   }
+  if (doc.driveFileId) return "";
+  const fileName = doc.prancha
+    ? `prancha-${doc.prancha.number}-${doc.prancha.year}-assinada-govbr.pdf`
+    : `processo-${slugNome(doc.titulo)}-${documentoId.slice(-6)}-assinado-govbr.pdf`;
+  const r = await arquivarVersaoFinalNoDrive({
+    lodgeId,
+    uploadedById,
+    fileName,
+    title: doc.prancha
+      ? `Prancha nº ${doc.prancha.number}/${doc.prancha.year} — ${doc.titulo} (assinada gov.br)`
+      : `${doc.titulo} (assinado gov.br)`,
+    pdf,
+    substituiDriveFileId: doc.prancha?.driveFileId,
+  });
+  if (r.driveFileId) {
+    await prisma.processoDocumento.update({
+      where: { id: documentoId, lodgeId },
+      data: { driveFileId: r.driveFileId },
+    });
+    if (doc.pranchaId) {
+      await prisma.prancha.update({
+        where: { id: doc.pranchaId, lodgeId },
+        data: { driveFileId: r.driveFileId },
+      });
+    }
+  }
+  return r.aviso;
 }

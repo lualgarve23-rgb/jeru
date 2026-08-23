@@ -8,7 +8,7 @@ import {
   ordemAssinaturaAtestado,
   camposAssinaturaAtestado,
 } from "@/lib/atestado";
-import { isDriveAvailable, uploadToLodgeDrive } from "@/lib/google-drive";
+import { arquivarVersaoFinalNoDrive, slugNome } from "@/lib/google-drive";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
@@ -142,45 +142,20 @@ export async function arquivarAtestadoNoDrive(
   nomeMembro: string,
   pdf: Buffer
 ): Promise<string> {
-  try {
-    if (!(await isDriveAvailable(lodgeId))) {
-      return " Drive não conectado — o arquivo não foi arquivado no Drive.";
-    }
-    const slug = nomeMembro
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
-    const driveFileId = await uploadToLodgeDrive(
-      lodgeId,
-      `atestado-regularidade-${slug}-${atestadoId.slice(-6)}.pdf`,
-      "application/pdf",
-      pdf
-    );
-    await Promise.all([
-      prisma.atestadoRegularidade.update({
-        where: { id: atestadoId, lodgeId },
-        data: { driveFileId },
-      }),
-      prisma.document.create({
-        data: {
-          lodgeId,
-          uploadedById,
-          title: `Atestado de Regularidade — ${nomeMembro} (assinado gov.br)`,
-          type: "OUTRO",
-          driveFileId,
-          mimeType: "application/pdf",
-          sizeBytes: pdf.length,
-        },
-      }),
-    ]);
-    return "";
-  } catch (e) {
-    return ` Falha ao arquivar no Drive: ${
-      e instanceof Error ? e.message : "erro desconhecido"
-    }`;
+  const r = await arquivarVersaoFinalNoDrive({
+    lodgeId,
+    uploadedById,
+    fileName: `atestado-regularidade-${slugNome(nomeMembro)}-${atestadoId.slice(-6)}.pdf`,
+    title: `Atestado de Regularidade — ${nomeMembro} (assinado gov.br)`,
+    pdf,
+  });
+  if (r.driveFileId) {
+    await prisma.atestadoRegularidade.update({
+      where: { id: atestadoId, lodgeId },
+      data: { driveFileId: r.driveFileId },
+    });
   }
+  return r.aviso;
 }
 
 // Exclusão pela Secretaria (Secretário/VM) — para pedidos em duplicidade.

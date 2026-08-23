@@ -18,6 +18,7 @@ import {
   camposAssinaturaQuitte,
   cargoAssinanteQuitte,
   bloqueioAssinaturaQuitte,
+  arquivarQuitteNoDrive,
 } from "@/lib/quitte";
 import {
   estadoProcesso,
@@ -25,6 +26,7 @@ import {
   cargoLabel,
   concluirProcessoNaPrancha,
 } from "@/lib/processos";
+import { arquivarVersaoFinalNoDrive } from "@/lib/google-drive";
 import { arquivarAtestadoNoDrive } from "@/app/(app)/secretaria/_actions/atestados";
 
 // Callback do OAuth gov.br: troca o code pelo token da sessão de assinatura,
@@ -149,6 +151,23 @@ export async function GET(req: NextRequest) {
           : { govbrSecAt: new Date(), status: "ASSINADA" as const }),
       },
     });
+    if (!isMaster) {
+      const r = await arquivarVersaoFinalNoDrive({
+        lodgeId: ata.lodgeId,
+        uploadedById: session.user.id,
+        fileName: `ata-${ata.number}-assinada-govbr.pdf`,
+        title: `Ata nº ${ata.number} (assinada gov.br)`,
+        type: "ATA_ESCANEADA",
+        pdf: signed,
+        substituiDriveFileId: ata.driveFileId,
+      });
+      if (r.driveFileId) {
+        await prisma.ata.update({
+          where: { id: ataId, lodgeId: session.user.lodgeId },
+          data: { driveFileId: r.driveFileId },
+        });
+      } else console.warn("govbr callback (ata) drive:", r.aviso);
+    }
   } catch (e) {
     console.error("govbr callback:", e);
     return fail("falhou");
@@ -226,7 +245,12 @@ async function assinarProcesso(
       }),
     ]);
     if (estado.ultimaAssinatura) {
-      await concluirProcessoNaPrancha(processoId, sessionUser.lodgeId);
+      const aviso = await concluirProcessoNaPrancha(
+        processoId,
+        sessionUser.lodgeId,
+        sessionUser.id
+      );
+      if (aviso) console.warn("govbr callback (processo) drive:", aviso);
     }
   } catch (e) {
     console.error("govbr callback (processo):", e);
@@ -265,6 +289,7 @@ async function assinarQuitte(
 
   const placet = await prisma.quittePlacet.findUnique({
     where: { id: quitteId, lodgeId: sessionUser.lodgeId },
+    include: { user: { select: { name: true } } },
   });
   if (!placet) return fail("falhou");
   if (bloqueioAssinaturaQuitte(placet)) return fail("bloqueado");
@@ -300,6 +325,16 @@ async function assinarQuitte(
           : ("EM_ANALISE" as const),
       },
     });
+    if (ordem.ultimaAssinatura) {
+      const aviso = await arquivarQuitteNoDrive(
+        sessionUser.lodgeId,
+        sessionUser.id,
+        quitteId,
+        placet.user.name,
+        signed
+      );
+      if (aviso) console.warn("govbr callback (quitte) drive:", aviso);
+    }
   } catch (e) {
     console.error("govbr callback (quitte):", e);
     return fail("falhou");

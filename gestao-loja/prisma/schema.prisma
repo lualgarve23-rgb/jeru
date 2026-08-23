@@ -551,6 +551,7 @@ model ProcessoDocumento {
   arquivoNome String
   // Versão com as assinaturas PAdES do ITI embutidas (incremental)
   govbrPdf    Bytes?
+  driveFileId String? // versão final assinada no Google Drive da Loja
   status      StatusProcessoDoc @default(EM_ASSINATURA)
   criadoPorId String
   // Vínculo opcional com a prancha de origem — ao concluir, a versão
