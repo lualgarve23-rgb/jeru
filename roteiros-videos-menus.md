@@ -178,10 +178,10 @@ O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da L
 ![Tela: secretario-sessoes](roteiros-prints/secretario-sessoes.png)
 
 - **Duração:** ~75 s.
-- **Na tela:** criar sessão (tipo, grau, data — ao escolher o tipo Evento, o grau trava em N/A) → convite com a arte da Loja gerado e enviado (WhatsApp) → QR de check-in → lançar presenças → Livro de Presenças → botão "Lavrar ata".
+- **Na tela:** criar sessão (tipo, grau, data — ao escolher o tipo Evento, o grau trava em N/A e o campo de pauta vale como descrição do evento) → convite com a arte da Loja gerado e enviado (WhatsApp) → QR de check-in → lançar presenças → Livro de Presenças → botão "Lavrar ata".
 - **Narração:**
 
-> A vida da Loja gira em torno das sessões — e aqui está todo o ciclo. Crie a sessão informando tipo, grau e data. Além das sessões ritualísticas, há o tipo Evento — para confraternizações e atividades abertas: o grau fica como N/A e o convite vai sem a confirmação de Ágape. O sistema gera o convite com a arte da própria Loja, pronto para enviar aos irmãos pelo WhatsApp. No dia, o QR Code de check-in registra a presença de membros e de visitantes — que recebem certificado de visita. Depois, o Livro de Presenças consolida a frequência anual de cada irmão, com alertas de quem está abaixo do mínimo. E, encerrada a sessão, um clique em "Lavrar ata" já abre o rascunho no modelo da Loja. Da convocação à ata, sem papel perdido.
+> A vida da Loja gira em torno das sessões — e aqui está todo o ciclo. Crie a sessão informando tipo, grau e data. Além das sessões ritualísticas, há o tipo Evento — para confraternizações e atividades abertas: o grau fica como N/A, os convites e telas falam em Evento em vez de sessão, a pauta sai como descrição do evento e o convite vai sem a confirmação de Ágape. O sistema gera o convite com a arte da própria Loja, pronto para enviar aos irmãos pelo WhatsApp. No dia, o QR Code de check-in registra a presença de membros e de visitantes — que recebem certificado de visita. Depois, o Livro de Presenças consolida a frequência anual de cada irmão, com alertas de quem está abaixo do mínimo. E, encerrada a sessão, um clique em "Lavrar ata" já abre o rascunho no modelo da Loja. Da convocação à ata, sem papel perdido.
 
 ## 2.5 — Atas: do rascunho à assinatura (`secretario-atas.mp4`)
 
