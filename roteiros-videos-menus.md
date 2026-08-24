@@ -14,7 +14,7 @@ Documento de produção para gravar **um vídeo por menu**, separado por cargo, 
 
 # PARTE 1 — OBREIRO (todo irmão do quadro)
 
-O Obreiro comum vê: Dashboard, Notificações, Carteirinha Digital, Biblioteca Digital, Mútua (CABM), Membros, Sessões e Presenças, Atas, Candidatos, Atestado de Regularidade, Quitte Placets, Meu perfil, Privacidade (LGPD), Alterar senha e Tour.
+O Obreiro comum vê: Dashboard, Notificações, Carteirinha Digital, Biblioteca Digital, Mútua (CABM), Bolsa de Benemerência, Membros, Sessões e Presenças, Atas, Candidatos, Atestado de Regularidade, Quitte Placets, Meu perfil, Privacidade (LGPD), Alterar senha e Tour.
 
 ## 1.1 — Login e primeiro acesso (`obreiro-login.mp4`)
 
@@ -149,6 +149,17 @@ O Obreiro comum vê: Dashboard, Notificações, Carteirinha Digital, Biblioteca 
 - **Narração:**
 
 > A Mútua — a Caixa de Assistência e Beneficência Maçônica — é o amparo da sua família, e a Declaração de Beneficiários é o documento que garante esse direito. Na seção Mútua, você vê na hora se a sua declaração já foi entregue. Se ainda não foi, o sistema entrega o Formulário 108 pré-preenchido, com os seus dados e os da Loja — você só completa os beneficiários, com o grau de parentesco, o RG e o percentual de cada um, assina e reconhece a firma em cartório. Depois, é digitalizar, anexar e enviar: a Secretaria, o Venerável, o Tesoureiro e o Esmoler são avisados na hora, e a sua situação muda para Entregue. E, enquanto não entregar, o sistema lembra você nas notificações. Na mesma tela, um botão leva à consulta oficial do relatório de entregas no Conecta GOB-SP. Um documento simples — e uma tranquilidade enorme para quem você ama.
+
+## 1.13 — Bolsa de Benemerência: doação por Pix (`obreiro-benemerencia.mp4`)
+
+![Tela: obreiro-benemerencia](roteiros-prints/obreiro-benemerencia.png)
+
+- **Objetivo:** o irmão faz uma doação à Bolsa de Benemerência da Loja em segundos.
+- **Duração:** ~40 s.
+- **Na tela:** menu Bolsa de Benemerência → card com a mensagem "Contribua com fraternidade. Sua ajuda transforma vidas e fortalece os laços da nossa ordem" → QR Code Pix na tela → celular do banco escaneando → botão "Copiar código Pix (Copia e Cola)" → chave Pix exibida por extenso.
+- **Narração:**
+
+> A Bolsa de Benemerência é a mão estendida da Loja — e contribuir ficou simples assim. Na seção Bolsa de Benemerência, você encontra o QR Code Pix da Loja: aponte a câmera do aplicativo do seu banco, escolha o valor que o coração mandar e confirme. Prefere o Copia e Cola? Um toque no botão e o código está na área de transferência. Contribua com fraternidade: sua ajuda transforma vidas e fortalece os laços da nossa ordem.
 
 # PARTE 2 — SECRETÁRIO
 
@@ -430,6 +441,17 @@ O VM tem visão total: menus da Secretaria, da Tesouraria e da gestão da Loja.
 
 ---
 
+## 4.6 — Chave Pix da Benemerência (`veneravel-benemerencia.mp4`)
+
+![Tela: veneravel-benemerencia](roteiros-prints/veneravel-benemerencia.png)
+
+- **Objetivo:** o Venerável cadastra a chave Pix que recebe as doações da Bolsa de Benemerência.
+- **Duração:** ~35 s.
+- **Na tela:** menu Configurações da Loja → card "Bolsa de Benemerência (Pix)" → digitar a chave (CNPJ, e-mail, telefone ou chave aleatória) → "Salvar chave Pix" → abrir a seção Bolsa de Benemerência e mostrar o QR Code gerado com a nova chave.
+- **Narração:**
+
+> As doações da Bolsa de Benemerência caem direto na conta da Loja — e quem define o destino é o Venerável Mestre. Nas Configurações da Loja, o card Bolsa de Benemerência recebe a chave Pix: pode ser o CNPJ, um e-mail, um telefone ou uma chave aleatória. Salvou, pronto: a página de doação de todos os irmãos passa a gerar o QR Code e o Copia e Cola com essa chave, na hora. Se o campo ficar vazio, o sistema usa a chave Pix das capitações, cadastrada pela Tesouraria — e só o Venerável altera a da Benemerência, com registro na auditoria.
+
 # PARTE 5 — CONSELHO DE CONTAS
 
 ## 5.1 — Painel e fiscalização (`conselho-fiscalizacao.mp4`)
@@ -513,6 +535,7 @@ O VM tem visão total: menus da Secretaria, da Tesouraria e da gestão da Loja.
 | 1.10 | obreiro-conta.mp4 | Obreiro | ☐ |
 | 1.11 | obreiro-quitte.mp4 | Obreiro | ☐ |
 | 1.12 | obreiro-mutua.mp4 | Obreiro | ☐ |
+| 1.13 | obreiro-benemerencia.mp4 | Obreiro | ☐ |
 | 2.1 | secretario-dashboard.mp4 | Secretário | ☐ |
 | 2.2 | secretario-membros.mp4 | Secretário | ☐ |
 | 2.3 | secretario-cargos.mp4 | Secretário | ☐ |
@@ -539,6 +562,7 @@ O VM tem visão total: menus da Secretaria, da Tesouraria e da gestão da Loja.
 | 4.3 | veneravel-governanca.mp4 | Venerável | ☐ |
 | 4.4 | veneravel-financeiro.mp4 | Venerável | ☐ |
 | 4.5 | veneravel-config.mp4 | Venerável | ☐ |
+| 4.6 | veneravel-benemerencia.mp4 | Venerável | ☐ |
 | 5.1 | conselho-fiscalizacao.mp4 | Conselho | ☐ |
 | 6.1 | esmoler-alertas.mp4 | Esmoler | ☐ |
 | 7.1 | vigilantes-instrucoes.mp4 | Vigilantes | ☐ |
