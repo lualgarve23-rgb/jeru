@@ -11,6 +11,7 @@ export const CONVITE_PLACEHOLDERS = [
   "{{HORA}}",
   "{{TIPO}}",
   "{{GRAU}}",
+  "{{LINHA_GRAU}}",
   "{{LINK}}",
   "{{FRASE}}",
   "{{PAUTA}}",
@@ -40,7 +41,7 @@ export const CONVITE_TEMPLATE_PADRAO = `<!doctype html>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;border:1px solid #e4e4e7;border-radius:6px;">
                 <tr><td style="padding:16px 20px;font-size:14px;color:#18181b;line-height:1.9;">
                   <strong>Sessão:</strong> {{TIPO}}<br/>
-                  <strong>Grau:</strong> {{GRAU}}<br/>
+                  {{LINHA_GRAU}}
                   <strong>Data:</strong> {{DATA}}, às {{HORA}}{{PAUTA}}
                 </td></tr>
               </table>
@@ -198,7 +199,14 @@ export function renderConvite(
       minute: "2-digit",
     }),
     "{{TIPO}}": sessionTypeLabels[session.type] ?? session.type,
-    "{{GRAU}}": degreeLabels[session.degree] ?? session.degree,
+    "{{LINHA_GRAU}}":
+      session.degree === "NA"
+        ? ""
+        : `<strong>Grau:</strong> ${degreeLabels[session.degree] ?? session.degree}<br/>`,
+    "{{GRAU}}":
+      session.degree === "NA"
+        ? "N/A"
+        : (degreeLabels[session.degree] ?? session.degree),
     "{{LINK}}": inviteUrl,
     "{{FRASE}}": escapeHtml(renderFrase(lodge, session)).replaceAll(
       "\n",
@@ -210,8 +218,12 @@ export function renderConvite(
         ? `<br/><strong>Pauta:</strong> ${escapeHtml(session.pauta).replaceAll("\n", "<br/>")}`
         : "",
   };
-  return Object.entries(valores).reduce(
+  const html = Object.entries(valores).reduce(
     (html, [ph, valor]) => html.replaceAll(ph, valor),
     template
   );
+  // Eventos não têm Ágape: remove a menção da frase de confirmação
+  return session.type === "EVENTO"
+    ? html.replaceAll(" — e se ficará para o <strong>Ágape</strong> —", "")
+    : html;
 }

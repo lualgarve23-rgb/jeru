@@ -74,6 +74,7 @@ export default async function SessaoPage({
 
   // RSVP pelo convite: confirmados (antes do dia) e total do Ágape
   const confirmados = session.attendances.filter((a) => a.rsvpAt);
+  const isEvento = session.type === "EVENTO";
   const agapeTotal = session.attendances.filter(
     (a) => a.agapeConfirmed
   ).length;
@@ -179,18 +180,21 @@ export default async function SessaoPage({
           hour: "2-digit",
           minute: "2-digit",
         })}{" "}
-        <span className="text-base font-normal text-muted-foreground">
-          (grau {degreeLabels[session.degree] ?? session.degree})
-        </span>
+        {session.degree !== "NA" && (
+          <span className="text-base font-normal text-muted-foreground">
+            (grau {degreeLabels[session.degree] ?? session.degree})
+          </span>
+        )}
       </h1>
 
       {isWriter && (
         <Card>
           <CardHeader>
-            <CardTitle>Convite da Sessão (RSVP + Ágape)</CardTitle>
+            <CardTitle>{isEvento ? "Convite do Evento (RSVP)" : "Convite da Sessão (RSVP + Ágape)"}</CardTitle>
             <CardDescription>
-              Compartilhe o link do convite para os irmãos e visitantes
-              confirmarem presença — e o Ágape — antes da sessão.
+              {isEvento
+                ? "Compartilhe o link do convite para os irmãos e visitantes confirmarem presença antes do evento."
+                : "Compartilhe o link do convite para os irmãos e visitantes confirmarem presença — e o Ágape — antes da sessão."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -230,9 +234,11 @@ export default async function SessaoPage({
               <Badge variant="secondary">
                 {confirmados.length} presença(s) confirmada(s)
               </Badge>
-              <Badge className="border-amber-200 bg-amber-50 text-warning">
-                {agapeTotal} para o Ágape
-              </Badge>
+              {!isEvento && (
+                <Badge className="border-amber-200 bg-amber-50 text-warning">
+                  {agapeTotal} para o Ágape
+                </Badge>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -474,7 +480,7 @@ export default async function SessaoPage({
                               hour: "2-digit",
                               minute: "2-digit",
                             })}
-                            {att.agapeConfirmed ? " · Ágape" : ""}
+                            {att.agapeConfirmed && !isEvento ? " · Ágape" : ""}
                           </Badge>
                           {isWriter && (!session.ata || ataEditavel) && (
                             <ActionButton
@@ -504,7 +510,7 @@ export default async function SessaoPage({
                         </span>
                       ) : att ? (
                         <Badge className="border-blue-200 bg-blue-50 text-blue-700">
-                          Confirmado{att.agapeConfirmed ? " · Ágape" : ""}
+                          Confirmado{att.agapeConfirmed && !isEvento ? " · Ágape" : ""}
                         </Badge>
                       ) : (
                         <Badge variant="secondary">Ausente</Badge>
@@ -561,7 +567,7 @@ export default async function SessaoPage({
                   {a.visitorName}
                   {a.visitorLodge ? ` · ${a.visitorLodge}` : ""}
                   {a.visitorPotencia ? ` / ${a.visitorPotencia}` : ""}
-                  {a.agapeConfirmed && (
+                  {a.agapeConfirmed && !isEvento && (
                     <Badge className="ml-2 border-amber-200 bg-amber-50 text-warning">
                       Ágape
                     </Badge>

@@ -5,11 +5,11 @@ import { INTERSTICE_MONTHS } from "@/lib/permissions";
 // ordem Aprendiz → Companheiro → Mestre, respeitado o interstício mínimo no
 // grau atual contado da última elevação (ou da iniciação).
 
-export const ORDEM_GRAUS = [
+export const ORDEM_GRAUS: readonly Degree[] = [
   Degree.APRENDIZ,
   Degree.COMPANHEIRO,
   Degree.MESTRE,
-] as const;
+];
 
 export function progressaoSequencial(atual: Degree, novo: Degree) {
   return ORDEM_GRAUS.indexOf(novo) === ORDEM_GRAUS.indexOf(atual) + 1;

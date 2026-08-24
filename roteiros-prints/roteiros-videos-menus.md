@@ -80,7 +80,7 @@ O Obreiro comum vê: Dashboard, Notificações, Carteirinha Digital, Biblioteca 
 - **Na tela:** menu Sessões e Presenças → lista de sessões → QR Code de check-in exibido na sessão → celular escaneando e confirmando presença → Livro de Presenças com a frequência anual.
 - **Narração:**
 
-> Em Sessões e Presenças você acompanha a agenda da Loja: data, tipo de sessão — Ordinária, Magna, Econômica, Branca ou Evento — e grau. No dia da sessão, a presença é registrada de um jeito moderno: um QR Code é exibido na entrada, você aponta a câmera do celular, confirma — e pronto, presença lançada. Visitantes de outras Lojas também fazem o check-in pelo mesmo código, e recebem um certificado de visita. Tudo alimenta o Livro de Presenças, que mostra a frequência anual de cada irmão — um dado importante, porque a frequência mínima é requisito para a progressão de grau.
+> Em Sessões e Presenças você acompanha a agenda da Loja: data, tipo de sessão e grau. No dia da sessão, a presença é registrada de um jeito moderno: um QR Code é exibido na entrada, você aponta a câmera do celular, confirma — e pronto, presença lançada. Visitantes de outras Lojas também fazem o check-in pelo mesmo código, e recebem um certificado de visita. Tudo alimenta o Livro de Presenças, que mostra a frequência anual de cada irmão — um dado importante, porque a frequência mínima é requisito para a progressão de grau.
 
 ## 1.7 — Atas (visão do Obreiro) (`obreiro-atas.mp4`)
 
@@ -178,10 +178,10 @@ O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da L
 ![Tela: secretario-sessoes](roteiros-prints/secretario-sessoes.png)
 
 - **Duração:** ~75 s.
-- **Na tela:** criar sessão (tipo, grau, data — ao escolher o tipo Evento, o grau trava em N/A) → convite com a arte da Loja gerado e enviado (WhatsApp) → QR de check-in → lançar presenças → Livro de Presenças → botão "Lavrar ata".
+- **Na tela:** criar sessão (tipo, grau, data) → convite com a arte da Loja gerado e enviado (WhatsApp) → QR de check-in → lançar presenças → Livro de Presenças → botão "Lavrar ata".
 - **Narração:**
 
-> A vida da Loja gira em torno das sessões — e aqui está todo o ciclo. Crie a sessão informando tipo, grau e data. Além das sessões ritualísticas, há o tipo Evento — para confraternizações e atividades abertas: o grau fica como N/A e o convite vai sem a confirmação de Ágape. O sistema gera o convite com a arte da própria Loja, pronto para enviar aos irmãos pelo WhatsApp. No dia, o QR Code de check-in registra a presença de membros e de visitantes — que recebem certificado de visita. Depois, o Livro de Presenças consolida a frequência anual de cada irmão, com alertas de quem está abaixo do mínimo. E, encerrada a sessão, um clique em "Lavrar ata" já abre o rascunho no modelo da Loja. Da convocação à ata, sem papel perdido.
+> A vida da Loja gira em torno das sessões — e aqui está todo o ciclo. Crie a sessão informando tipo, grau e data. O sistema gera o convite com a arte da própria Loja, pronto para enviar aos irmãos pelo WhatsApp. No dia, o QR Code de check-in registra a presença de membros e de visitantes — que recebem certificado de visita. Depois, o Livro de Presenças consolida a frequência anual de cada irmão, com alertas de quem está abaixo do mínimo. E, encerrada a sessão, um clique em "Lavrar ata" já abre o rascunho no modelo da Loja. Da convocação à ata, sem papel perdido.
 
 ## 2.5 — Atas: do rascunho à assinatura (`secretario-atas.mp4`)
 

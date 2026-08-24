@@ -63,7 +63,7 @@ export function HistoricoGraus({ entries }: { entries: DegreeEntry[] }) {
                 }}
               >
                 <select name="degree" defaultValue={d.degree} className={selectClass + " w-40"}>
-                  {Object.entries(degreeLabels).map(([value, label]) => (
+                  {Object.entries(degreeLabels).filter(([value]) => value !== "NA").map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
                     </option>

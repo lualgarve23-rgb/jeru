@@ -124,6 +124,7 @@ export default async function ConvitePage({
     include: { lodge: true },
   });
   if (!session) notFound();
+  const isEvento = session.type === "EVENTO";
 
   // Loja com template próprio (HTML ou arte): exibe o convite preenchido com
   // os dados da sessão, igual ao e-mail enviado; o {{LINK}} vira âncora para o
@@ -189,8 +190,12 @@ export default async function ConvitePage({
                 hour: "2-digit",
                 minute: "2-digit",
               })}
-              {" — grau "}
-              {degreeLabels[session.degree] ?? session.degree}
+              {session.degree !== "NA" && (
+                <>
+                  {" — grau "}
+                  {degreeLabels[session.degree] ?? session.degree}
+                </>
+              )}
             </CardDescription>
           </CardHeader>
         )}
@@ -216,7 +221,7 @@ export default async function ConvitePage({
                 Logado como <strong>{authSession.user.name}</strong>.
               </p>
               <ActionForm action={memberAction} submitLabel="Confirmar presença">
-                <AgapeCheckbox />
+                {!isEvento && <AgapeCheckbox />}
               </ActionForm>
               <details className="rounded-md border p-3">
                 <summary className="cursor-pointer text-sm font-medium">
@@ -263,7 +268,7 @@ export default async function ConvitePage({
                 <Label htmlFor="email">E-mail</Label>
                 <Input id="email" name="email" type="email" />
               </div>
-              <AgapeCheckbox />
+              {!isEvento && <AgapeCheckbox />}
             </ActionForm>
           )}
           {!authSession?.user && (
@@ -289,8 +294,9 @@ export default async function ConvitePage({
             </details>
           )}
           <p className="text-center text-xs text-muted-foreground">
-            A confirmação antecipada ajuda a Secretaria a organizar a sessão e o
-            Ágape. TFA!
+            {isEvento
+              ? "A confirmação antecipada ajuda a Secretaria a organizar o evento. TFA!"
+              : "A confirmação antecipada ajuda a Secretaria a organizar a sessão e o Ágape. TFA!"}
           </p>
         </CardContent>
       </Card>

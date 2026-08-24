@@ -69,6 +69,8 @@ export async function arteComDados(
 
   const tipo = sessionTypeLabels[session.type] ?? session.type;
   const grau = degreeLabels[session.degree] ?? session.degree;
+  const tipoLinha =
+    session.degree === "NA" ? tipo : `${tipo} · Grau ${grau}`;
   const data = session.date.toLocaleDateString("pt-BR", {
     weekday: "long",
     day: "2-digit",
@@ -106,7 +108,7 @@ export async function arteComDados(
     .join("\n  ");
   const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
   <rect x="${px}" y="${py + Math.round(6 * f)}" width="${panelW}" height="${panelH - Math.round(12 * f)}" rx="${Math.round(14 * f)}" fill="#fffdf7" fill-opacity="0.88" stroke="#c9a84c" stroke-width="${Math.max(2, Math.round(3 * f))}"/>
-  <text x="${cx}" y="${yTipo}" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="${Math.round(30 * f)}" letter-spacing="${3 * f}" fill="#8a6d1f">${escXml(`${tipo} · Grau ${grau}`.toUpperCase())}</text>
+  <text x="${cx}" y="${yTipo}" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="${Math.round(30 * f)}" letter-spacing="${3 * f}" fill="#8a6d1f">${escXml(tipoLinha.toUpperCase())}</text>
   <text x="${cx}" y="${yData}" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="${Math.round(38 * f)}" font-weight="bold" fill="#1e3a5f">${escXml(`${data}, às ${hora}`)}</text>
   ${pautaSvg}
 </svg>`;

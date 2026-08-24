@@ -12,6 +12,7 @@ export const degreeLabels: Record<string, string> = {
   APRENDIZ: "Aprendiz",
   COMPANHEIRO: "Companheiro",
   MESTRE: "Mestre",
+  NA: "N/A",
 };
 
 export const memberStatusLabels: Record<string, string> = {
@@ -26,6 +27,7 @@ export const sessionTypeLabels: Record<string, string> = {
   MAGNA: "Magna",
   ECONOMICA: "Econômica",
   BRANCA: "Branca",
+  EVENTO: "Evento",
 };
 
 export const ataStatusLabels: Record<string, string> = {

@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
 import { createSession } from "../actions";
 import { ActionForm } from "@/components/action-form";
+import { TipoGrauSelects } from "./tipo-grau-selects";
 import {
   sessionTypeLabels,
   degreeLabels,
@@ -76,34 +77,7 @@ export default async function SessoesPage() {
                     defaultValue="20:00"
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label htmlFor="type">Tipo</Label>
-                  <select
-                    id="type"
-                    name="type"
-                    className="h-9 w-full rounded-md border bg-transparent px-2 text-sm"
-                  >
-                    {Object.entries(sessionTypeLabels).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="degree">Grau</Label>
-                  <select
-                    id="degree"
-                    name="degree"
-                    className="h-9 w-full rounded-md border bg-transparent px-2 text-sm"
-                  >
-                    {Object.entries(degreeLabels).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <TipoGrauSelects />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="pauta">Pauta do dia (opcional)</Label>

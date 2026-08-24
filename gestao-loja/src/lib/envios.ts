@@ -55,7 +55,10 @@ export async function enviarConvitesSessao(lodgeId: string, sessionId: string) {
     to: await remetenteDa(lodgeId),
     bcc: emails,
     subject: `Convite — Sessão de ${dataFmt} · ${session.lodge.name}`,
-    text: `Convite para a sessão de ${dataFmt}. Confirme sua presença e o Ágape em: ${inviteUrl}`,
+    text:
+      session.type === "EVENTO"
+        ? `Convite para o evento de ${dataFmt}. Confirme sua presença em: ${inviteUrl}`
+        : `Convite para a sessão de ${dataFmt}. Confirme sua presença e o Ágape em: ${inviteUrl}`,
     html,
     attachments: arteFinal
       ? [

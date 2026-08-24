@@ -122,6 +122,7 @@ enum Degree {
   APRENDIZ
   COMPANHEIRO
   MESTRE
+  NA // sessões do tipo Evento — sem grau
 }
 
 enum Role {
@@ -361,6 +362,7 @@ enum SessionType {
   MAGNA
   ECONOMICA
   BRANCA
+  EVENTO
 }
 
 model LodgeSession {
