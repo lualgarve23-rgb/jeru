@@ -29,6 +29,7 @@ import {
   CreditCard,
   DoorOpen,
   PlayCircle,
+  HeartHandshake,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -60,6 +61,7 @@ const icons: Record<string, LucideIcon> = {
   carteirinha: CreditCard,
   visitas: DoorOpen,
   tour: PlayCircle,
+  mutua: HeartHandshake,
 };
 
 export type NavItem = {

@@ -413,6 +413,49 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
     });
   }
 
+  // Mútua (CABM): irmãos do quadro sem a Declaração de Beneficiários
+  // (Form. 108) — lembrete pessoal a cada um e alerta agregado à gestão.
+  // Filiados ficam de fora (entregam na loja-mãe). Resolve-se sozinho pelo
+  // sync quando a entrega (ou a marcação de entrega anterior) é registrada.
+  const mutuaPendentes = await prisma.user.findMany({
+    where: {
+      lodgeId,
+      status: { not: "EX_MEMBRO" },
+      filiado: false,
+      currentRole: { not: "SUPER_ADMIN" },
+      mutuaEntrega: null,
+    },
+    select: { id: true, name: true, cim: true },
+  });
+  for (const m of mutuaPendentes) {
+    pending.push({
+      sourceKey: `mutua-self:${m.id}`,
+      type: "MISSING_DATA",
+      userId: m.id,
+      title: "Mútua: entregue sua Declaração de Beneficiários",
+      description:
+        "Você ainda não entregou o Form. 108 (Declaração de Beneficiários da Mútua/CABM). Baixe o formulário pré-preenchido, assine com firma reconhecida e envie pela seção Mútua.",
+      link: "/dashboard/mutua",
+    });
+  }
+  if (mutuaPendentes.length > 0) {
+    pending.push({
+      // A quantidade compõe a chave: o alerta é recriado quando o nº muda
+      sourceKey: `mutua-pendentes:${mutuaPendentes.length}`,
+      type: "MISSING_DATA",
+      title: `Mútua: ${mutuaPendentes.length} irmão(s) sem a Declaração de Beneficiários`,
+      description: `Ainda não entregaram o Form. 108: ${mutuaPendentes
+        .slice(0, 15)
+        .map((m) => `${m.name} (CIM ${m.cim})`)
+        .join(", ")}${
+        mutuaPendentes.length > 15
+          ? ` e mais ${mutuaPendentes.length - 15} — veja a lista completa na seção Mútua`
+          : ""
+      }.`,
+      link: "/dashboard/mutua",
+    });
+  }
+
   return pending;
 }
 

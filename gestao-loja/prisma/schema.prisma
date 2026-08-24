@@ -108,6 +108,7 @@ model Lodge {
   processosProgressao ProcessoProgressao[]
   quittePlacets       QuittePlacet[]
   atestados           AtestadoRegularidade[]
+  mutuaEntregas       MutuaEntrega[]
   notifications       Notification[]
   cargosRito          CargoRito[]
   bibliotecaItens     BibliotecaItem[]
@@ -223,6 +224,7 @@ model User {
   quittePlacetsAsMaster QuittePlacet[]  @relation("QuittePlacetMaster")
   quittePlacetsAsSec    QuittePlacet[]  @relation("QuittePlacetSecretary")
   atestados             AtestadoRegularidade[] @relation("AtestadoUser")
+  mutuaEntrega          MutuaEntrega?
   atestadosAsMaster     AtestadoRegularidade[] @relation("AtestadoMaster")
   atestadosAsSec        AtestadoRegularidade[] @relation("AtestadoSec")
   atestadosAsTes        AtestadoRegularidade[] @relation("AtestadoTes")
@@ -591,6 +593,32 @@ model ProcessoAssinante {
 
   @@unique([documentoId, ordem])
   @@map("processo_assinantes")
+}
+
+// ─────────────── Mútua (CABM) — Declaração de Beneficiários ───────────────
+// Form. 108 entregue pelo irmão à Secretaria. Uma entrega vigente por membro
+// (reenvio substitui a anterior). Filiados não entregam aqui — a Declaração
+// fica na loja-mãe, onde recolhem a Mútua. Entregas feitas em papel antes da
+// implantação do sistema são registradas sem arquivo (entregueAntes = true,
+// flag do Secretário/VM); o anexo passa a existir se o irmão reenviar.
+model MutuaEntrega {
+  id        String   @id @default(cuid())
+  lodgeId   String
+  userId    String   @unique
+  nome      String? // nome original do arquivo anexado
+  mimeType  String?
+  sizeBytes Int?
+  arquivo   Bytes?
+  // Entrega anterior ao sistema, marcada pelo Secretário ou VM (sem anexo)
+  entregueAntes Boolean @default(false)
+  marcadaPor    String? // nome de quem marcou a entrega anterior
+  enviadaAt DateTime @default(now())
+
+  lodge Lodge @relation(fields: [lodgeId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@index([lodgeId])
+  @@map("mutua_entregas")
 }
 
 enum DocumentType {

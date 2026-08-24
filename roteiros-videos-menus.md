@@ -14,7 +14,7 @@ Documento de produção para gravar **um vídeo por menu**, separado por cargo, 
 
 # PARTE 1 — OBREIRO (todo irmão do quadro)
 
-O Obreiro comum vê: Dashboard, Notificações, Carteirinha Digital, Biblioteca Digital, Membros, Sessões e Presenças, Atas, Candidatos, Atestado de Regularidade, Quitte Placets, Meu perfil, Privacidade (LGPD), Alterar senha e Tour.
+O Obreiro comum vê: Dashboard, Notificações, Carteirinha Digital, Biblioteca Digital, Mútua (CABM), Membros, Sessões e Presenças, Atas, Candidatos, Atestado de Regularidade, Quitte Placets, Meu perfil, Privacidade (LGPD), Alterar senha e Tour.
 
 ## 1.1 — Login e primeiro acesso (`obreiro-login.mp4`)
 
@@ -139,9 +139,20 @@ O Obreiro comum vê: Dashboard, Notificações, Carteirinha Digital, Biblioteca 
 
 > O Quitte Placet é o documento de desligamento ou transferência — e o pedido é do próprio irmão. No menu Quitte Placets, escreva o motivo e anexe a carta escrita a próprio punho e assinada: sem ela, o pedido não é registrado. A partir daí, você só acompanha. A linha do tempo mostra cada etapa — a carta, o Nada Consta da Tesouraria, o formulário oficial, a assinatura do Secretário, a do Venerável Mestre e o envio à Guarda dos Selos — e diz, a cada momento, com quem o pedido está pendente. Concluído, o documento assinado fica disponível para download. Transparência do início ao fim.
 
+## 1.12 — Mútua (CABM): Declaração de Beneficiários (`obreiro-mutua.mp4`)
+
+![Tela: obreiro-mutua](roteiros-prints/obreiro-mutua.png)
+
+- **Objetivo:** o irmão confere se entregou a Declaração de Beneficiários e, se não, entrega sem sair do sistema.
+- **Duração:** ~55 s.
+- **Na tela:** menu Mútua (CABM) → card "Minha entrega" com a etiqueta Não entregue e o passo a passo → botão "Baixar formulário pré-preenchido" (Form. 108 já com nome, CIM, Loja, número, oriente e data) → anexar o formulário assinado → "Anexar e enviar à Secretaria" → etiqueta muda para Entregue → card "Consulta oficial no GOB-SP" com o botão do Conecta.
+- **Narração:**
+
+> A Mútua — a Caixa de Assistência e Beneficência Maçônica — é o amparo da sua família, e a Declaração de Beneficiários é o documento que garante esse direito. Na seção Mútua, você vê na hora se a sua declaração já foi entregue. Se ainda não foi, o sistema entrega o Formulário 108 pré-preenchido, com os seus dados e os da Loja — você só completa os beneficiários, com o grau de parentesco, o RG e o percentual de cada um, assina e reconhece a firma em cartório. Depois, é digitalizar, anexar e enviar: a Secretaria, o Venerável, o Tesoureiro e o Esmoler são avisados na hora, e a sua situação muda para Entregue. E, enquanto não entregar, o sistema lembra você nas notificações. Na mesma tela, um botão leva à consulta oficial do relatório de entregas no Conecta GOB-SP. Um documento simples — e uma tranquilidade enorme para quem você ama.
+
 # PARTE 2 — SECRETÁRIO
 
-O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da Loja, Documentos (Drive), Processos, Progressões, Visitas a Oficinas, Quitte Placets, Configurações da Loja e Auditoria.
+O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da Loja, Documentos (Drive), Processos, Progressões, Visitas a Oficinas, Quitte Placets, Configurações da Loja e Auditoria. Na Mútua, enxerga as entregas de todo o quadro.
 
 ## 2.1 — Dashboard do Secretário (`secretario-dashboard.mp4`)
 
@@ -295,6 +306,17 @@ O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da L
 - **Narração:**
 
 > Processos é a mesa de assinaturas da Loja. Tudo o que precisa de assinatura digital do gov.br chega aqui, separado por tipo: os Atestados de Regularidade dos irmãos, os Quitte Placets e os documentos oficiais da Secretaria — anexos de pranchas, formulários do GOB preenchidos, ofícios. Cada documento traz a sua cadeia de assinantes, em ordem: ao abrir o processo, você define até quatro assinantes — Secretário, Tesoureiro, Orador, Primeiro ou Segundo Vigilante —, e o Venerável Mestre assina sempre por último, selando o documento. Os cargos do rito entram pelo cadastro do membro: quem está nomeado Orador ou Vigilante passa a ver o menu Processos e assina na sua vez. Quando chega a vez de alguém, o sistema avisa; você assina com a sua conta gov.br ou pelo portal oficial, e as assinaturas ficam embutidas no próprio PDF. Concluída a cadeia, o sistema pergunta para quem enviar — a Guarda dos Selos em destaque, com a opção de copiar irmãos do quadro. E, se o documento veio de uma prancha, a versão assinada volta para ela automaticamente, liberando o candidato ou a progressão no quadro. Um só lugar, uma só ordem, nenhuma assinatura perdida.
+
+## 2.16 — Mútua: entregas do quadro (`secretario-mutua.mp4`)
+
+![Tela: secretario-mutua](roteiros-prints/secretario-mutua.png)
+
+- **Objetivo:** acompanhar quem entregou a Declaração de Beneficiários e registrar as entregas antigas em papel.
+- **Duração:** ~60 s.
+- **Na tela:** menu Mútua (CABM) → card "Entregas do quadro": lista com data e botão Baixar em cada entrega → entregas com a etiqueta "Anterior ao sistema · por [nome]" e o botão Desfazer → lista "Ainda sem entrega" com o botão "Já entregou antes do sistema" em cada irmão → central de Notificações com o alerta "Mútua: X irmão(s) sem a Declaração de Beneficiários".
+- **Narração:**
+
+> Na seção Mútua, o Secretário, o Venerável, o Tesoureiro e o Esmoler enxergam a situação de todo o quadro: quem já entregou a Declaração de Beneficiários — com o arquivo disponível para baixar — e quem ainda não. Cada nova entrega gera um aviso na hora para os quatro cargos. E as declarações antigas, entregues em papel antes do sistema? O Secretário e o Venerável marcam o irmão com um clique no botão "Já entregou antes do sistema" — o registro guarda quem fez a marcação e pode ser desfeito enquanto não houver arquivo anexado. Os irmãos filiados ficam de fora da lista, porque entregam na loja-mãe. E ninguém cai no esquecimento: a central de notificações lembra cada irmão pendente da sua entrega e mostra à gestão, num só alerta, quantos ainda faltam. A Mútua em dia é zelo com as famílias da Loja.
 
 # PARTE 3 — TESOUREIRO
 
@@ -490,6 +512,7 @@ O VM tem visão total: menus da Secretaria, da Tesouraria e da gestão da Loja.
 | 1.9 | obreiro-atestado.mp4 | Obreiro | ☐ |
 | 1.10 | obreiro-conta.mp4 | Obreiro | ☐ |
 | 1.11 | obreiro-quitte.mp4 | Obreiro | ☐ |
+| 1.12 | obreiro-mutua.mp4 | Obreiro | ☐ |
 | 2.1 | secretario-dashboard.mp4 | Secretário | ☐ |
 | 2.2 | secretario-membros.mp4 | Secretário | ☐ |
 | 2.3 | secretario-cargos.mp4 | Secretário | ☐ |
@@ -505,6 +528,7 @@ O VM tem visão total: menus da Secretaria, da Tesouraria e da gestão da Loja.
 | 2.13 | secretario-quitte.mp4 | Secretário | ☐ |
 | 2.14 | secretario-config.mp4 | Secretário | ☐ |
 | 2.15 | secretario-processos.mp4 | Secretário | ☐ |
+| 2.16 | secretario-mutua.mp4 | Secretário | ☐ |
 | 3.1 | tesoureiro-dashboard.mp4 | Tesoureiro | ☐ |
 | 3.2 | tesoureiro-mensalidades.mp4 | Tesoureiro | ☐ |
 | 3.3 | tesoureiro-despesas.mp4 | Tesoureiro | ☐ |

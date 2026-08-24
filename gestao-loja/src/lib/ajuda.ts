@@ -31,6 +31,8 @@ export const AJUDA = {
     "Acervo digital da Loja: livros, rituais, decretos e regulamentos disponíveis a todos os irmãos para consulta e download. O envio e a remoção de arquivos são feitos pela Secretaria.",
   carteirinha:
     "Sua identificação maçônica digital, com QR Code de verificação. Apresente na tela do celular ao visitar outra Loja — quem escanear o código vê a confirmação de que você é membro regular. Use o botão de imprimir para levar em papel.",
+  mutua:
+    "A Mútua (CABM — Caixa de Assistência e Beneficência Maçônica) ampara a família do irmão. Aqui você confere se já entregou a Declaração de Beneficiários (Form. 108); se ainda não, baixe o formulário pré-preenchido, complete os beneficiários, assine (com firma reconhecida em cartório) e anexe para enviar à Secretaria. A entrega fica visível ao Secretário, ao Venerável Mestre, ao Tesoureiro e ao Esmoler. O link do Conecta GOB-SP permite consultar o relatório oficial de entregas. O Secretário e o Venerável Mestre podem marcar os irmãos que já haviam entregue em papel, antes da implantação do sistema. Obreiros filiados entregam a declaração na loja-mãe.",
   admissoes:
     "Qualquer irmão pode apadrinhar um candidato: abra o cadastro inicial e o sistema gera um link pessoal para ele baixar os formulários de indicação (já preenchidos com os dados da Loja) e devolvê-los preenchidos. A Secretaria conduz as etapas seguintes: edital, sindicância (comissão), escrutínio (votação) e Placet — a autorização final da Potência.",
   progressoes:
