@@ -173,7 +173,10 @@ export default async function SessaoPage({
   return (
     <div className="max-w-3xl space-y-6">
       <h1 className="text-2xl font-bold">
-        Sessão {sessionTypeLabels[session.type] ?? session.type} —{" "}
+        {isEvento
+          ? "Evento"
+          : `Sessão ${sessionTypeLabels[session.type] ?? session.type}`}{" "}
+        —{" "}
         {session.date.toLocaleDateString("pt-BR")}
         {" às "}
         {session.date.toLocaleTimeString("pt-BR", {
@@ -200,7 +203,7 @@ export default async function SessaoPage({
           <CardContent className="space-y-4">
             <ActionForm action={updateSessionPauta.bind(null, session.id)} submitLabel="Salvar pauta">
               <div className="space-y-1">
-                <Label htmlFor="pauta">Pauta do dia</Label>
+                <Label htmlFor="pauta">{isEvento ? "Descrição do evento" : "Pauta do dia"}</Label>
                 <textarea
                   id="pauta"
                   name="pauta"
@@ -218,7 +221,7 @@ export default async function SessaoPage({
                     ? `${inviteUrl}/imagem`
                     : null
                 }
-                text={`Convite — ${session.lodge.name}\nSessão ${sessionTypeLabels[session.type] ?? session.type} · ${session.date.toLocaleDateString("pt-BR")} às ${session.date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}\nConfirme sua presença (ou justifique a ausência) em:\n${inviteUrl}`}
+                text={`Convite — ${session.lodge.name}\n${isEvento ? "Evento" : `Sessão ${sessionTypeLabels[session.type] ?? session.type}`} · ${session.date.toLocaleDateString("pt-BR")} às ${session.date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}\nConfirme sua presença (ou justifique a ausência) em:\n${inviteUrl}`}
               />
               <CopyButton text={inviteUrl!} label="Copiar link do convite" />
               <ActionButton

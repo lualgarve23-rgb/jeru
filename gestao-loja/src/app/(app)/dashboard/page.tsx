@@ -699,9 +699,11 @@ async function SecretarioDashboard({ lodgeId }: { lodgeId: string }) {
                       {s.date.toLocaleDateString("pt-BR")} —{" "}
                       {sessionTypeLabels[s.type] ?? s.type}
                     </span>
-                    <Badge variant="outline">
-                      {degreeLabels[s.degree] ?? s.degree}
-                    </Badge>
+                    {s.degree !== "NA" && (
+                      <Badge variant="outline">
+                        {degreeLabels[s.degree] ?? s.degree}
+                      </Badge>
+                    )}
                   </li>
                 ))}
               </ul>

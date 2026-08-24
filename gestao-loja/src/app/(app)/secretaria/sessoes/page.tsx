@@ -80,7 +80,7 @@ export default async function SessoesPage() {
                 <TipoGrauSelects />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="pauta">Pauta do dia (opcional)</Label>
+                <Label htmlFor="pauta">Pauta do dia / descrição do evento (opcional)</Label>
                 <textarea
                   id="pauta"
                   name="pauta"

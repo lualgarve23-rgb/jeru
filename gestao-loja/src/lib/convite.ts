@@ -21,6 +21,10 @@ export const CONVITE_PLACEHOLDERS = [
 export const CONVITE_FRASE_PADRAO =
   "Prezado Irmão, é com satisfação que o convidamos para a nossa próxima sessão:";
 
+// Variante usada quando a sessão é do tipo Evento
+export const CONVITE_FRASE_PADRAO_EVENTO =
+  "Prezado Irmão, é com satisfação que o convidamos para o nosso Evento:";
+
 export const CONVITE_TEMPLATE_PADRAO = `<!doctype html>
 <html lang="pt-BR">
   <body style="margin:0;padding:0;background:#f4f4f5;font-family:Georgia,'Times New Roman',serif;">
@@ -119,7 +123,9 @@ export function renderFrase(
   lodge: Pick<Lodge, "name" | "conviteFrase" | "address" | "oriente">,
   session: Pick<LodgeSession, "date" | "type" | "degree" | "pauta">
 ) {
-  const frase = lodge.conviteFrase?.trim() || CONVITE_FRASE_PADRAO;
+  const frase =
+    lodge.conviteFrase?.trim() ||
+    (session.type === "EVENTO" ? CONVITE_FRASE_PADRAO_EVENTO : CONVITE_FRASE_PADRAO);
   const marcadores: Record<string, string> = {
     pauta: session.pauta ?? "____",
     dia: session.date.toLocaleDateString("pt-BR", {
@@ -215,15 +221,17 @@ export function renderConvite(
     // Bloco inteiro (rótulo + texto); some sem pauta ou quando a frase já a cita
     "{{PAUTA}}":
       session.pauta && !fraseCitaPauta(lodge.conviteFrase)
-        ? `<br/><strong>Pauta:</strong> ${escapeHtml(session.pauta).replaceAll("\n", "<br/>")}`
+        ? `<br/><strong>${session.type === "EVENTO" ? "Descrição" : "Pauta"}:</strong> ${escapeHtml(session.pauta).replaceAll("\n", "<br/>")}`
         : "",
   };
   const html = Object.entries(valores).reduce(
     (html, [ph, valor]) => html.replaceAll(ph, valor),
     template
   );
-  // Eventos não têm Ágape: remove a menção da frase de confirmação
+  // Eventos: sem menção ao Ágape e rótulo "Evento" no lugar de "Sessão"
   return session.type === "EVENTO"
-    ? html.replaceAll(" — e se ficará para o <strong>Ágape</strong> —", "")
+    ? html
+        .replaceAll(" — e se ficará para o <strong>Ágape</strong> —", "")
+        .replaceAll("<strong>Sessão:</strong> Evento", "<strong>Evento</strong>")
     : html;
 }
