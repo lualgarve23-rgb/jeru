@@ -40,6 +40,9 @@ model Lodge {
   address            String? // endereço da sede (citado no texto das atas)
   driveFolderId      String? // pasta raiz da Loja no Google Drive
   pixKey             String? // chave Pix da Loja (recebimento das capitações)
+  // Chave Pix da Bolsa de Benemerência (doações dos irmãos); se vazia, a
+  // página de doação usa a chave Pix das capitações como fallback
+  pixKeyBenemerencia String?
   logoUrl            String? // logo da Loja (data URI ou URL)
   // Cabeçalho institucional das atas em PDF (linhas centralizadas sob o
   // nome da Loja, ex.: título honorífico, fundação, federação) e divisa

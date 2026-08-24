@@ -16,6 +16,7 @@ import {
   updateAtaCabecalho,
   updateGmailLoja,
   backupParaDrive,
+  updatePixBenemerencia,
 } from "./actions";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
@@ -167,6 +168,45 @@ export default async function LojaConfigPage({
               />
             </div>
           </ActionForm>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Bolsa de Benemerência (Pix)</CardTitle>
+          <CardDescription>
+            Chave Pix que recebe as doações dos irmãos na seção Bolsa de
+            Benemerência. Se ficar vazia, a página de doação usa a chave Pix
+            das capitações (Tesouraria). Somente o Venerável Mestre altera.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {user.role === "VENERAVEL_MESTRE" ? (
+            <ActionForm
+              action={updatePixBenemerencia}
+              submitLabel="Salvar chave Pix"
+            >
+              <div className="space-y-1">
+                <Label htmlFor="pixKeyBenemerencia">
+                  Chave Pix da Benemerência
+                </Label>
+                <Input
+                  id="pixKeyBenemerencia"
+                  name="pixKeyBenemerencia"
+                  placeholder="CNPJ, e-mail, telefone ou chave aleatória"
+                  defaultValue={lodge.pixKeyBenemerencia ?? ""}
+                />
+              </div>
+            </ActionForm>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Chave cadastrada:{" "}
+              {lodge.pixKeyBenemerencia ??
+                (lodge.pixKey
+                  ? `${lodge.pixKey} (herdada das capitações)`
+                  : "nenhuma")}
+            </p>
+          )}
         </CardContent>
       </Card>
 

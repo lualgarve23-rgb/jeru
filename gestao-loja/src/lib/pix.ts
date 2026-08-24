@@ -31,11 +31,15 @@ export function buildPixPayload(opts: {
   pixKey: string;
   merchantName: string; // nome da Loja
   merchantCity: string;
-  amountCents: number;
-  txid: string; // [a-zA-Z0-9]{1,25}
+  // Sem valor = QR estático: o doador digita o valor no app do banco
+  amountCents?: number;
+  // [a-zA-Z0-9]{1,25}; "***" = QR estático sem conciliação (padrão Bacen)
+  txid: string;
 }): string {
-  const txid = opts.txid.replace(/[^a-zA-Z0-9]/g, "").slice(0, 25);
-  const amount = (opts.amountCents / 100).toFixed(2);
+  const txid =
+    opts.txid === "***"
+      ? "***"
+      : opts.txid.replace(/[^a-zA-Z0-9]/g, "").slice(0, 25);
 
   const payload =
     emv("00", "01") + // Payload Format Indicator
@@ -45,7 +49,9 @@ export function buildPixPayload(opts: {
     ) +
     emv("52", "0000") + // Merchant Category Code
     emv("53", "986") + // Moeda BRL
-    emv("54", amount) +
+    (opts.amountCents != null
+      ? emv("54", (opts.amountCents / 100).toFixed(2))
+      : "") +
     emv("58", "BR") +
     emv("59", sanitize(opts.merchantName, 25) || "LOJA") +
     emv("60", sanitize(opts.merchantCity, 15) || "SAO PAULO") +

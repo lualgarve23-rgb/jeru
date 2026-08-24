@@ -30,6 +30,7 @@ import {
   DoorOpen,
   PlayCircle,
   HeartHandshake,
+  HandCoins,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -62,6 +63,7 @@ const icons: Record<string, LucideIcon> = {
   visitas: DoorOpen,
   tour: PlayCircle,
   mutua: HeartHandshake,
+  benemerencia: HandCoins,
 };
 
 export type NavItem = {

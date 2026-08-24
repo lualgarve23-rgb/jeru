@@ -32,6 +32,7 @@ function navFor(role: string, cargoRito: string | null, unread: number): NavItem
     { href: "/dashboard/carteirinha", label: "Carteirinha Digital", icon: "carteirinha" },
     { href: "/dashboard/biblioteca", label: "Biblioteca Digital", icon: "biblioteca" },
     { href: "/dashboard/mutua", label: "Mútua (CABM)", icon: "mutua" },
+    { href: "/dashboard/benemerencia", label: "Bolsa de Benemerência", icon: "benemerencia" },
     { href: "/secretaria/membros", label: "Membros", icon: "membros", section: "Secretaria" },
     { href: "/secretaria/cargos", label: "Cargos do Rito", icon: "cargos", section: "Secretaria", roles: fiscal },
     { href: "/secretaria/sessoes", label: "Sessões e Presenças", icon: "sessoes", section: "Secretaria" },

@@ -25,6 +25,32 @@ export async function disconnectGoogle(): Promise<ActionResult> {
   return { ok: "Conta Google desconectada." };
 }
 
+// Chave Pix da Bolsa de Benemerência (doações) — só o Venerável Mestre
+export async function updatePixBenemerencia(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireRole("VENERAVEL_MESTRE");
+  const chave = String(formData.get("pixKeyBenemerencia") ?? "").trim();
+  if (chave.length > 140) {
+    return { error: "Chave Pix longa demais — confira o valor." };
+  }
+  await prisma.lodge.update({
+    where: { id: user.lodgeId },
+    data: { pixKeyBenemerencia: chave || null },
+  });
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "loja.pix-benemerencia",
+    entidade: "Lodge",
+    entidadeId: user.lodgeId,
+  });
+  revalidatePath("/dashboard/loja");
+  revalidatePath("/dashboard/benemerencia");
+  return { ok: chave ? "Chave Pix da Benemerência salva." : "Chave Pix da Benemerência removida." };
+}
+
 // Cabeçalho institucional e divisa exibidos no PDF das atas
 export async function updateAtaCabecalho(
   _prev: ActionResult,
