@@ -23,6 +23,7 @@ import { gerarTextoAta } from "@/lib/ata-template";
 import { enfileirar } from "@/lib/fila";
 import { arquivarAtaAssinadaNoDrive } from "@/lib/envios";
 import { type ActionResult, requireSecretariaWriter } from "./_shared";
+import { validarUploadAssinado } from "@/lib/pdf-assinaturas";
 
 // ───────────────────────── Atas ─────────────────────────
 
@@ -452,13 +453,16 @@ export async function uploadAtaAssinadaGovbr(
   if (!pdf.subarray(0, 5).toString("latin1").startsWith("%PDF-")) {
     return { error: "O arquivo enviado não é um PDF." };
   }
-  // Um PDF assinado digitalmente (PAdES) carrega um dicionário de assinatura
-  // com /ByteRange — sem isso, o arquivo veio sem a assinatura gov.br.
-  if (!pdf.includes("/ByteRange")) {
-    return {
-      error:
-        "O PDF não contém assinatura digital. Assine o arquivo em assinador.iti.br antes de enviar.",
-    };
+  // Confere que é a MESMA ata (versão anterior preservada como prefixo
+  // PAdES), que há assinatura nova e que ela é do próprio remetente.
+  const erroAssinatura = validarUploadAssinado({
+    pdf,
+    anterior:
+      !etapaVm && ata.govbrPdf ? Buffer.from(ata.govbrPdf) : null,
+    nomeAssinante: user.name,
+  });
+  if (erroAssinatura) {
+    return { error: erroAssinatura };
   }
 
   await prisma.ata.update({
@@ -617,13 +621,15 @@ export async function uploadPranchaAssinadaGovbr(
   if (!pdf.subarray(0, 5).toString("latin1").startsWith("%PDF-")) {
     return { error: "O arquivo enviado não é um PDF." };
   }
-  // Um PDF assinado digitalmente (PAdES) carrega um dicionário de assinatura
-  // com /ByteRange — sem isso, o arquivo veio sem a assinatura gov.br.
-  if (!pdf.includes("/ByteRange")) {
-    return {
-      error:
-        "O PDF não contém assinatura digital. Assine o arquivo em assinador.iti.br antes de enviar.",
-    };
+  // O anexo original fica no Drive (sem versão anterior comparável), então a
+  // validação cobre a assinatura em si: precisa existir e ser do remetente.
+  const erroAssinatura = validarUploadAssinado({
+    pdf,
+    anterior: null,
+    nomeAssinante: user.name,
+  });
+  if (erroAssinatura) {
+    return { error: erroAssinatura };
   }
 
   await prisma.prancha.update({
