@@ -9,6 +9,7 @@ import {
   camposAssinaturaAtestado,
 } from "@/lib/atestado";
 import { arquivarVersaoFinalNoDrive, slugNome } from "@/lib/google-drive";
+import { validarUploadAssinado } from "@/lib/pdf-assinaturas";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
@@ -93,6 +94,17 @@ export async function uploadAtestadoAssinadoGovbr(
   const pdf = Buffer.from(await file.arrayBuffer());
   if (!pdf.subarray(0, 5).toString("latin1").startsWith("%PDF-")) {
     return { error: "O arquivo enviado não é um PDF." };
+  }
+  // Confere que é o mesmo documento (versão anterior preservada como prefixo
+  // PAdES), que há assinatura nova e que ela é do próprio remetente — evita
+  // subir um PDF antigo ou o documento de outro irmão por engano.
+  const erroAssinatura = validarUploadAssinado({
+    pdf,
+    anterior: atestado.govbrPdf ? Buffer.from(atestado.govbrPdf) : null,
+    nomeAssinante: user.name,
+  });
+  if (erroAssinatura) {
+    return { error: erroAssinatura };
   }
 
   await prisma.atestadoRegularidade.update({
