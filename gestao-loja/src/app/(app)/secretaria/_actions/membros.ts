@@ -36,9 +36,16 @@ export async function createMember(
   if (!data.cim || !data.cpf || !data.name || !data.email) {
     return { error: "Preencha CIM, CPF, nome e e-mail." };
   }
-  const bcrypt = (await import("bcryptjs")).default;
-  // Senha inicial = CPF; o sistema força a troca no primeiro acesso.
-  const passwordHash = await bcrypt.hash(data.cpf, 10);
+  // Senha inicial aleatória (nunca o CPF): vai por e-mail da loja quando
+  // possível; senão é mostrada uma única vez ao Secretário para repassar.
+  // O sistema força a troca no primeiro acesso.
+  const { criarSenhaInicial } = await import("@/lib/senha-inicial");
+  const { passwordHash, senhaParaRepassar } = await criarSenhaInicial({
+    lodgeId: user.lodgeId,
+    nome: data.name,
+    email: data.email,
+    cim: data.cim,
+  });
   try {
     const member = await prisma.user.create({
       data: { ...data, lodgeId: user.lodgeId, passwordHash, mustChangePassword: true },
@@ -65,6 +72,15 @@ export async function createMember(
     return { error: "CIM, CPF ou e-mail já cadastrado." };
   }
   revalidatePath("/secretaria/membros");
+  if (senhaParaRepassar) {
+    // Sem e-mail entregável: a senha aparece aqui uma única vez
+    return {
+      ok:
+        `Membro cadastrado. Não foi possível enviar a senha por e-mail — ` +
+        `senha inicial: ${senhaParaRepassar} (anote e repasse ao irmão; ` +
+        `ela não será mostrada de novo).`,
+    };
+  }
   redirect("/secretaria/membros");
 }
 

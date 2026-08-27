@@ -50,16 +50,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           (u) => !u.lockedUntil || u.lockedUntil <= agora
         );
 
-        // Aceita a senha como digitada e, como fallback, só os dígitos —
-        // a senha inicial é o CPF, que muitos digitam com máscara
-        const digits = password.replace(/\D/g, "");
+        // A senha vale exatamente como digitada (sem fallback de "só
+        // dígitos", removido na análise de segurança 2026-08 — a senha
+        // inicial não é mais o CPF)
         const comSenha: typeof livres = [];
         for (const u of livres) {
-          let valid = await bcrypt.compare(password.trim(), u.passwordHash);
-          if (!valid && digits) {
-            valid = await bcrypt.compare(digits, u.passwordHash);
+          if (await bcrypt.compare(password.trim(), u.passwordHash)) {
+            comSenha.push(u);
           }
-          if (valid) comSenha.push(u);
         }
 
         if (comSenha.length !== 1) {

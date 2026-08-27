@@ -30,7 +30,8 @@ export async function forcePasswordChange(
     where: { id: user.id },
     select: { passwordHash: true, cpf: true },
   });
-  // aceita a provisória com ou sem máscara (senha inicial = CPF)
+  // aceita a provisória com ou sem máscara (contas antigas ainda têm a
+  // senha inicial = CPF; nas novas a senha é aleatória e o fallback é inócuo)
   let valid = await bcrypt.compare(current.trim(), dbUser.passwordHash);
   if (!valid) {
     const digits = current.replace(/\D/g, "");

@@ -27,7 +27,8 @@ async function readLogo(formData: FormData): Promise<string | null | { error: st
 }
 
 // Cria uma nova Loja (tenant) com seu Venerável Mestre inicial.
-// Senha inicial do VM = dígitos do CPF (trocável em /dashboard/senha).
+// Senha inicial do VM = aleatória, exibida uma única vez ao super admin
+// (a loja nova ainda não tem e-mail configurado para envio).
 export async function createLodge(
   _prev: ActionResult,
   formData: FormData
@@ -76,6 +77,8 @@ export async function createLodge(
   const lodgeExists = await prisma.lodge.findUnique({ where: { number } });
   if (lodgeExists) return { error: `Já existe loja com o número ${number}.` };
 
+  const { gerarSenhaInicial } = await import("@/lib/senha-inicial");
+  const vmSenha = gerarSenhaInicial();
   await prisma.lodge.create({
     data: {
       name,
@@ -90,7 +93,7 @@ export async function createLodge(
           cpf: vmCpf,
           name: vmName,
           email: vmEmail,
-          passwordHash: await bcrypt.hash(vmCpf, 10),
+          passwordHash: await bcrypt.hash(vmSenha, 10),
           mustChangePassword: true,
           degree: "MESTRE",
           currentRole: "VENERAVEL_MESTRE",
@@ -154,7 +157,7 @@ export async function createLodge(
   });
   revalidatePath("/admin");
   return {
-    ok: `Loja "${name}" criada. VM ${vmName} acessa com CIM ${vmCim} e senha inicial igual ao CPF (somente dígitos).${licencaMsg}`,
+    ok: `Loja "${name}" criada. VM ${vmName} acessa com CIM ${vmCim} e senha inicial ${vmSenha} (anote e repasse — ela não será mostrada de novo; troca obrigatória no 1º acesso).${licencaMsg}`,
   };
 }
 

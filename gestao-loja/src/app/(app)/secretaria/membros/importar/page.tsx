@@ -31,7 +31,8 @@ export default async function ImportarMembrosPage() {
             Use o CPF e a senha de um irmão com acesso ao quadro no Meta
             (Secretário ou Venerável). As credenciais servem apenas para esta
             consulta e <strong>não são armazenadas</strong>. Novos membros
-            entram com senha provisória igual ao CPF (troca obrigatória no
+            recebem uma senha inicial aleatória — por e-mail quando possível,
+            senão exibida no relatório da importação (troca obrigatória no
             primeiro acesso); membros já cadastrados têm a ficha atualizada
             (nome, grau, status, telefone, nascimento, endereço, profissão,
             RG, filiação, naturalidade, estado civil, cônjuge, tipo sanguíneo,

@@ -23,14 +23,11 @@ export async function loginAction(
   if (!lodgeId) {
     const contas = await contasPorCim(cim);
     if (contas.length > 1) {
-      const digits = password.replace(/\D/g, "");
       const comSenha = [];
       for (const u of contas) {
-        let valid = await bcrypt.compare(password.trim(), u.passwordHash);
-        if (!valid && digits) {
-          valid = await bcrypt.compare(digits, u.passwordHash);
+        if (await bcrypt.compare(password.trim(), u.passwordHash)) {
+          comSenha.push(u);
         }
-        if (valid) comSenha.push(u);
       }
       if (comSenha.length > 1) {
         return {

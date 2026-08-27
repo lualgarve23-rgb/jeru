@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { buscarMembrosMeta, mapGrau, mapStatus, type MetaMember } from "@/lib/meta-gob";
+import { criarSenhaInicial } from "@/lib/senha-inicial";
 import { saveUserImageBytes, deleteMedia } from "@/lib/media";
 
 // Foto do Meta chega como data URI — grava em disco (lib/media) e devolve a
@@ -128,7 +129,8 @@ export type ImportResult =
 
 // Importa o quadro de obreiros do METAGOB (meta.gob.org.br).
 // Casa por CIM: existente → atualiza dados cadastrais; novo → cria com senha
-// provisória = CPF (troca obrigatória no primeiro acesso). Nunca altera o
+// inicial aleatória (por e-mail ou no relatório; troca obrigatória no
+// primeiro acesso). Nunca altera o
 // nível de acesso (currentRole) nem o cargo do rito dos já cadastrados.
 export async function importarMembrosMeta(
   _prev: ImportResult,
@@ -159,7 +161,6 @@ export async function importarMembrosMeta(
     select: { id: true, cim: true, lodgeId: true, email: true, photoUrl: true },
   });
   const porCim = new Map(existentes.map((u) => [u.cim, u]));
-  const bcrypt = (await import("bcryptjs")).default;
 
   const linhas: LinhaImportacao[] = [];
   let criados = 0;
@@ -256,6 +257,14 @@ export async function importarMembrosMeta(
     linhas.push({ ...base, acao: "criar" });
     if (!simulacao) {
       try {
+        // Senha inicial aleatória (nunca o CPF) — por e-mail quando possível;
+        // senão fica visível no relatório para o Secretário repassar
+        const senha = await criarSenhaInicial({
+          lodgeId: user.lodgeId,
+          nome: m.nome,
+          email,
+          cim: m.cim,
+        });
         const criado = await prisma.user.create({
           data: {
             lodgeId: user.lodgeId,
@@ -278,7 +287,7 @@ export async function importarMembrosMeta(
             tipoSanguineo: m.tipoSanguineo,
             degree: grau,
             status,
-            passwordHash: await bcrypt.hash(m.cpf, 10),
+            passwordHash: senha.passwordHash,
             mustChangePassword: true,
           },
         });
@@ -308,6 +317,9 @@ export async function importarMembrosMeta(
         }
         await importarDependentes(criado.id, m);
         await importarRegistros(criado.id, m);
+        linhas[linhas.length - 1].motivo = senha.senhaParaRepassar
+          ? `senha inicial: ${senha.senhaParaRepassar} (anote e repasse — e-mail não enviado)`
+          : "senha inicial enviada por e-mail";
         criados++;
       } catch {
         const l = linhas[linhas.length - 1];
@@ -392,7 +404,6 @@ export async function importarMembrosPlanilha(
     select: { id: true, cim: true },
   });
   const porCim = new Map(existentes.map((u) => [u.cim, u]));
-  const bcrypt = (await import("bcryptjs")).default;
 
   const linhas: LinhaImportacao[] = [];
   let criados = 0;
@@ -456,6 +467,14 @@ export async function importarMembrosPlanilha(
     linhas.push({ ...base, acao: "criar" });
     if (!simulacao) {
       try {
+        // Senha inicial aleatória (nunca o CPF) — por e-mail quando possível;
+        // senão fica visível no relatório para o Secretário repassar
+        const senha = await criarSenhaInicial({
+          lodgeId: user.lodgeId,
+          nome,
+          email,
+          cim,
+        });
         const criado = await prisma.user.create({
           data: {
             ...dados,
@@ -463,7 +482,7 @@ export async function importarMembrosPlanilha(
             cim,
             cpf,
             email,
-            passwordHash: await bcrypt.hash(cpf, 10),
+            passwordHash: senha.passwordHash,
             mustChangePassword: true,
           },
         });
@@ -477,6 +496,9 @@ export async function importarMembrosPlanilha(
             },
           });
         }
+        linhas[linhas.length - 1].motivo = senha.senhaParaRepassar
+          ? `senha inicial: ${senha.senhaParaRepassar} (anote e repasse — e-mail não enviado)`
+          : "senha inicial enviada por e-mail";
         criados++;
       } catch {
         const l = linhas[linhas.length - 1];

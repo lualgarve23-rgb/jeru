@@ -73,7 +73,9 @@ export default async function NovoMembroPage() {
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          A senha inicial do membro é o próprio CPF (somente números).
+          A senha inicial é gerada pelo sistema e enviada ao e-mail do membro
+          (se o envio não for possível, ela aparece aqui uma única vez para
+          você repassar). A troca é obrigatória no primeiro acesso.
         </p>
       </ActionForm>
     </div>
