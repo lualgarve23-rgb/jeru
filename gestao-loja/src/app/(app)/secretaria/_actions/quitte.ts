@@ -17,6 +17,7 @@ import {
   bloqueioAssinaturaQuitte,
   arquivarQuitteNoDrive,
 } from "@/lib/quitte";
+import { validarUploadAssinado } from "@/lib/pdf-assinaturas";
 import { type ActionResult, requireSecretariaWriter, validarAnexo } from "./_shared";
 
 // ───────────────────── Quitte Placet ─────────────────────
@@ -166,6 +167,18 @@ export async function uploadQuittePlacetAssinadoGovbr(
   const pdf = Buffer.from(await file.arrayBuffer());
   if (!pdf.subarray(0, 5).toString("latin1").startsWith("%PDF-")) {
     return { error: "O arquivo enviado não é um PDF." };
+  }
+  // Confere que é a continuação do documento em curso (versão gov.br anterior
+  // preservada como prefixo PAdES), que há assinatura nova e que ela é do
+  // próprio remetente — mesma proteção do atestado/atas contra subir um PDF
+  // antigo ou de outro documento por engano.
+  const erroAssinatura = validarUploadAssinado({
+    pdf,
+    anterior: placet.govbrPdf ? Buffer.from(placet.govbrPdf) : null,
+    nomeAssinante: user.name,
+  });
+  if (erroAssinatura) {
+    return { error: erroAssinatura };
   }
 
   await prisma.quittePlacet.update({

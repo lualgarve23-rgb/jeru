@@ -7,6 +7,7 @@ import { logError } from "@/lib/log";
 import { auditar } from "@/lib/audit";
 import { requireUser } from "@/lib/session";
 import { downloadFromLodgeDrive } from "@/lib/google-drive";
+import { validarUploadAssinado } from "@/lib/pdf-assinaturas";
 import { sendLodgeEmail, GUARDA_SELOS_EMAIL } from "@/lib/gmail";
 import {
   montarCadeiaProcesso,
@@ -199,11 +200,17 @@ export async function uploadProcessoAssinadoGovbr(
   if (!pdf.subarray(0, 5).toString("latin1").startsWith("%PDF-")) {
     return { error: "O arquivo enviado não é um PDF." };
   }
-  if (!pdf.includes("/ByteRange")) {
-    return {
-      error:
-        "O PDF não contém assinatura digital. Assine o arquivo em assinador.iti.br antes de enviar.",
-    };
+  // Confere que é a continuação do documento em curso (versão gov.br anterior
+  // preservada como prefixo PAdES), que há assinatura nova e que ela é do
+  // próprio remetente — mesma proteção do atestado/atas contra subir um PDF
+  // antigo ou de outro documento por engano.
+  const erroAssinatura = validarUploadAssinado({
+    pdf,
+    anterior: doc.govbrPdf ? Buffer.from(doc.govbrPdf) : null,
+    nomeAssinante: user.name,
+  });
+  if (erroAssinatura) {
+    return { error: erroAssinatura };
   }
 
   const meu = doc.assinantes.find((a) => a.cargo === estado.cargo)!;
