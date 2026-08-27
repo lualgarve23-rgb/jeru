@@ -535,3 +535,36 @@ export async function gerarCobrancaLicenca(
     ok: `Cobrança de R$ ${valor.toFixed(2).replace(".", ",")} gerada para ${lodge.name} — link disponível na tabela.`,
   };
 }
+
+// E-mail de recuperação do super admin — permite usar o "Esqueci minha senha"
+// (CIM + CPF → código por e-mail, via Gmail global do .env). Sem e-mail real
+// aqui, o reset só é possível pelo script scripts/reset-super-admin.ts no
+// servidor.
+export async function updateSuperAdminEmail(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const admin = await requireRole("SUPER_ADMIN");
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.endsWith(".local")) {
+    return { error: "Informe um e-mail real (ele recebe o código de recuperação de senha)." };
+  }
+  try {
+    await prisma.user.update({
+      where: { id: admin.id },
+      data: { email },
+    });
+  } catch {
+    return { error: "Este e-mail já está em uso por outro usuário da loja 0000." };
+  }
+  await auditar({
+    lodgeId: null,
+    ator: admin,
+    acao: "admin.email-recuperacao",
+    entidade: "User",
+    entidadeId: admin.id,
+    detalhes: { email },
+  });
+  revalidatePath("/admin");
+  return { ok: `E-mail de recuperação atualizado para ${email}.` };
+}

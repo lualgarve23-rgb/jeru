@@ -6,6 +6,7 @@ import {
   executarBackupLojas,
   criarLojaDemo,
   restaurarBackup,
+  updateSuperAdminEmail,
 } from "./actions";
 import { LodgeActions } from "./lodge-actions";
 import { RestoreFromDrive } from "./restore-drive";
@@ -37,7 +38,12 @@ const licencaStatusLabels: Record<string, string> = {
 };
 
 export default async function AdminPage() {
-  await requireRole("SUPER_ADMIN");
+  const admin = await requireRole("SUPER_ADMIN");
+  // E-mail direto do banco — o da sessão (JWT) pode estar defasado
+  const adminUser = await prisma.user.findUniqueOrThrow({
+    where: { id: admin.id },
+    select: { email: true },
+  });
 
   const [lodges, platformConfig] = await Promise.all([
     prisma.lodge.findMany({
@@ -416,6 +422,45 @@ export default async function AdminPage() {
                   placeholder="ex.: 1234"
                   required
                 />
+              </div>
+            </ActionForm>
+          </CardContent>
+        </Card>
+
+        <Card className="h-fit">
+          <CardHeader>
+            <CardTitle>Recuperação de senha do super admin</CardTitle>
+            <CardDescription>
+              Com um e-mail real cadastrado aqui, a senha do super admin pode
+              ser recuperada em &quot;Esqueci minha senha&quot; (CIM + CPF →
+              código por e-mail). Sem ele, o reset só é possível rodando{" "}
+              <code>npx tsx scripts/reset-super-admin.ts</code> no servidor.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ActionForm
+              action={updateSuperAdminEmail}
+              submitLabel="Salvar e-mail"
+            >
+              <div className="space-y-1">
+                <Label htmlFor="adminEmail">E-mail de recuperação</Label>
+                <Input
+                  id="adminEmail"
+                  name="email"
+                  type="email"
+                  defaultValue={
+                    adminUser.email.endsWith(".local") ? "" : adminUser.email
+                  }
+                  placeholder="seu-email@exemplo.com"
+                  required
+                />
+                {adminUser.email.endsWith(".local") && (
+                  <p className="text-xs text-amber-600">
+                    O e-mail atual ({adminUser.email}) é um placeholder — a
+                    recuperação por e-mail está desativada até você cadastrar
+                    um e-mail real.
+                  </p>
+                )}
               </div>
             </ActionForm>
           </CardContent>
