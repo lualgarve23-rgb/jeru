@@ -4,9 +4,12 @@ import { auth } from "@/auth";
 import {
   rsvpMember,
   rsvpPublico,
+  rsvpReconhecido,
   ausenciaMember,
   ausenciaPublico,
+  ausenciaReconhecida,
 } from "@/app/(app)/secretaria/actions";
+import { usuarioReconhecido } from "@/lib/reconhecimento";
 import { ActionForm } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,6 +54,50 @@ function AgapeCheckbox() {
       <input type="checkbox" name="agape" className="h-4 w-4" />
       Ficarei para o <strong>Ágape</strong> (jantar/refeição)
     </label>
+  );
+}
+
+// Formulário público (visitante ou membro identificando-se pelo CIM) — usado
+// quando ninguém é reconhecido e como saída "não sou eu" do reconhecimento
+function FormPublico({
+  action,
+  isEvento,
+}: {
+  action: (
+    prev: { error?: string; ok?: string } | undefined,
+    formData: FormData
+  ) => Promise<{ error?: string; ok?: string } | undefined>;
+  isEvento: boolean;
+}) {
+  return (
+    <ActionForm action={action} submitLabel="Confirmar presença">
+      <div className="space-y-1">
+        <Label htmlFor="nome">Nome completo</Label>
+        <Input id="nome" name="nome" required />
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor="cim">CIM</Label>
+        <Input id="cim" name="cim" placeholder="membro da Loja: informe o CIM" />
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Visitante de outra Loja? Preencha também os campos abaixo:
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label htmlFor="lojaOrigem">Loja de origem</Label>
+          <Input id="lojaOrigem" name="lojaOrigem" />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="potencia">Potência</Label>
+          <Input id="potencia" name="potencia" />
+        </div>
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor="email">E-mail</Label>
+        <Input id="email" name="email" type="email" />
+      </div>
+      {!isEvento && <AgapeCheckbox />}
+    </ActionForm>
   );
 }
 
@@ -149,10 +196,18 @@ export default async function ConvitePage({
         .replaceAll('width="560"', 'width="100%"')
     : null;
   const authSession = await auth();
+  // Sem sessão ativa (expira em 8h), o irmão que já logou neste aparelho é
+  // reconhecido pelo cookie de longa duração (lib/reconhecimento.ts) — assim
+  // o clique no convite do WhatsApp/e-mail não cai no formulário de visitante
+  const reconhecido = authSession?.user
+    ? null
+    : await usuarioReconhecido(session.lodgeId);
   const memberAction = rsvpMember.bind(null, token);
   const publicoAction = rsvpPublico.bind(null, token);
+  const reconhecidoAction = rsvpReconhecido.bind(null, token);
   const ausenciaMemberAction = ausenciaMember.bind(null, token);
   const ausenciaPublicoAction = ausenciaPublico.bind(null, token);
+  const ausenciaReconhecidaAction = ausenciaReconhecida.bind(null, token);
 
   return (
     <main className="mx-auto max-w-md space-y-6 p-6">
@@ -217,7 +272,44 @@ export default async function ConvitePage({
               </p>
             </div>
           )}
-          {authSession?.user ? (
+          {!authSession?.user && reconhecido ? (
+            <div className="space-y-3">
+              <p className="text-sm">
+                Que bom te ver de novo, Irmão{" "}
+                <strong>{reconhecido.name}</strong>!
+              </p>
+              <ActionForm
+                action={reconhecidoAction}
+                submitLabel="Confirmar presença"
+              >
+                {!isEvento && <AgapeCheckbox />}
+              </ActionForm>
+              <details className="rounded-md border p-3">
+                <summary className="cursor-pointer text-sm font-medium">
+                  Não poderei comparecer — justificar ausência
+                </summary>
+                <div className="mt-3">
+                  <ActionForm
+                    action={ausenciaReconhecidaAction}
+                    submitLabel="Justificar ausência"
+                  >
+                    <CampoJustificativa />
+                  </ActionForm>
+                </div>
+              </details>
+              <details className="rounded-md border p-3">
+                <summary className="cursor-pointer text-sm font-medium">
+                  Não sou {reconhecido.name} — confirmar com outro nome
+                </summary>
+                <div className="mt-3">
+                  <FormPublico
+                    action={publicoAction}
+                    isEvento={isEvento}
+                  />
+                </div>
+              </details>
+            </div>
+          ) : authSession?.user ? (
             <div className="space-y-3">
               <p className="text-sm">
                 Logado como <strong>{authSession.user.name}</strong>.
@@ -240,40 +332,9 @@ export default async function ConvitePage({
               </details>
             </div>
           ) : (
-            <ActionForm action={publicoAction} submitLabel="Confirmar presença">
-              <div className="space-y-1">
-                <Label htmlFor="nome">Nome completo</Label>
-                <Input id="nome" name="nome" required />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="cim">CIM</Label>
-                <Input
-                  id="cim"
-                  name="cim"
-                  placeholder="membro da Loja: informe o CIM"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Visitante de outra Loja? Preencha também os campos abaixo:
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="lojaOrigem">Loja de origem</Label>
-                  <Input id="lojaOrigem" name="lojaOrigem" />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="potencia">Potência</Label>
-                  <Input id="potencia" name="potencia" />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="email">E-mail</Label>
-                <Input id="email" name="email" type="email" />
-              </div>
-              {!isEvento && <AgapeCheckbox />}
-            </ActionForm>
+            <FormPublico action={publicoAction} isEvento={isEvento} />
           )}
-          {!authSession?.user && (
+          {!authSession?.user && !reconhecido && (
             <details className="rounded-md border p-3">
               <summary className="cursor-pointer text-sm font-medium">
                 Não poderei comparecer — justificar ausência

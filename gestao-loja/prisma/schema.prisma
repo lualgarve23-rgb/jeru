@@ -76,6 +76,8 @@ model Lodge {
   conviteTemplateHtml String?
   // Frase fixa do convite (saudação/texto da loja) — só data e tipo variam
   conviteFrase        String?
+  // Assistente IA (chatbot): o VM pode desligar nas Configurações da Loja
+  assistenteAtivo     Boolean @default(true)
   // Posição do painel de dados sobre a arte do convite (editor visual):
   // frações da imagem {x, y, w}; null = painel centralizado (padrão)
   conviteArteLayout   Json?
@@ -116,6 +118,7 @@ model Lodge {
   cargosRito          CargoRito[]
   bibliotecaItens     BibliotecaItem[]
   processoDocumentos  ProcessoDocumento[]
+  assistenteConversas AssistenteConversa[]
 
   @@map("lodges")
 }
@@ -243,6 +246,7 @@ model User {
   candidatosApadrinhados ProcessoAdmissao[] @relation("AdmissaoPadrinho")
   processosCriados       ProcessoDocumento[] @relation("ProcessoCriadoPor")
   processosAssinados     ProcessoAssinante[] @relation("ProcessoAssinanteUser")
+  assistenteConversas    AssistenteConversa[]
 
   @@unique([lodgeId, cim])
   @@unique([lodgeId, cpf])
@@ -1084,6 +1088,39 @@ model Notification {
   @@unique([lodgeId, sourceKey])
   @@index([lodgeId])
   @@map("notifications")
+}
+
+// ─────────────── Assistente IA (chatbot) ───────────────
+// Histórico de conversas do assistente por usuário. O conteúdo fica no
+// banco para retomada da conversa e para o limite diário de perguntas;
+// a retenção/limpeza roda pela fila (lib/fila.ts).
+model AssistenteConversa {
+  id        String   @id @default(cuid())
+  lodgeId   String
+  userId    String
+  titulo    String? // primeira pergunta, encurtada
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lodge     Lodge                @relation(fields: [lodgeId], references: [id], onDelete: Cascade)
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mensagens AssistenteMensagem[]
+
+  @@index([lodgeId, userId])
+  @@map("assistente_conversas")
+}
+
+model AssistenteMensagem {
+  id         String   @id @default(cuid())
+  conversaId String
+  role       String // "user" | "assistant"
+  content    String
+  createdAt  DateTime @default(now())
+
+  conversa AssistenteConversa @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+
+  @@index([conversaId, createdAt])
+  @@map("assistente_mensagens")
 }
 
 // Trilha de auditoria: quem alterou o quê (membros, baixas, configs, roles).

@@ -51,6 +51,30 @@ export async function updatePixBenemerencia(
   return { ok: chave ? "Chave Pix da Benemerência salva." : "Chave Pix da Benemerência removida." };
 }
 
+// Assistente IA: liga/desliga o chatbot da loja (só o Venerável)
+export async function updateAssistenteAtivo(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireRole("VENERAVEL_MESTRE");
+  const ativo = formData.get("assistenteAtivo") === "on";
+  await prisma.lodge.update({
+    where: { id: user.lodgeId },
+    data: { assistenteAtivo: ativo },
+  });
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "loja.assistente",
+    entidade: "Lodge",
+    entidadeId: user.lodgeId,
+    detalhes: { ativo },
+  });
+  revalidatePath("/dashboard/loja");
+  revalidatePath("/dashboard");
+  return { ok: ativo ? "Assistente IA ativado." : "Assistente IA desativado." };
+}
+
 // Cabeçalho institucional e divisa exibidos no PDF das atas
 export async function updateAtaCabecalho(
   _prev: ActionResult,

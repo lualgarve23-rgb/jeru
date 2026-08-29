@@ -17,6 +17,10 @@ import {
   deleteFromLodgeDrive,
 } from "@/lib/google-drive";
 import { getGmailAuth } from "@/lib/gmail";
+import {
+  gravarReconhecimento,
+  usuarioReconhecido,
+} from "@/lib/reconhecimento";
 import { enviarCertificadoVisita } from "@/lib/certificado";
 import { enfileirar } from "@/lib/fila";
 import { type ActionResult, requireSecretariaWriter } from "./_shared";
@@ -238,11 +242,76 @@ export async function rsvpMember(
     },
     update: { rsvpAt: new Date(), agapeConfirmed: agape },
   });
+  // Renova o reconhecimento do aparelho para os próximos convites
+  await gravarReconhecimento(user.id, user.lodgeId);
   return {
     ok: agape
       ? "Presença e Ágape confirmados. Até lá, TFA!"
       : "Presença confirmada. Até lá, TFA!",
   };
+}
+
+// RSVP pelo cookie de reconhecimento (lib/reconhecimento.ts) — o irmão já
+// logou neste aparelho alguma vez e é reconhecido sem novo login. A identidade
+// vem SEMPRE do cookie assinado, nunca do formulário.
+export async function rsvpReconhecido(
+  inviteToken: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const session = await prisma.lodgeSession.findUnique({
+    where: { inviteToken },
+  });
+  if (!session) return { error: "Convite não encontrado." };
+  const membro = await usuarioReconhecido(session.lodgeId);
+  if (!membro) {
+    return {
+      error:
+        "Não foi possível reconhecer você neste aparelho — confirme pelo formulário abaixo ou faça login.",
+    };
+  }
+  const agape = formData.get("agape") === "on";
+  await prisma.attendance.upsert({
+    where: { sessionId_userId: { sessionId: session.id, userId: membro.id } },
+    create: {
+      lodgeId: session.lodgeId,
+      sessionId: session.id,
+      userId: membro.id,
+      checkedIn: false,
+      rsvpAt: new Date(),
+      agapeConfirmed: agape,
+    },
+    update: { rsvpAt: new Date(), agapeConfirmed: agape },
+  });
+  await gravarReconhecimento(membro.id, membro.lodgeId);
+  return {
+    ok: agape
+      ? `Presença e Ágape confirmados, Irmão ${membro.name}. Até lá, TFA!`
+      : `Presença confirmada, Irmão ${membro.name}. Até lá, TFA!`,
+  };
+}
+
+// Ausência justificada pelo cookie de reconhecimento
+export async function ausenciaReconhecida(
+  inviteToken: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const session = await prisma.lodgeSession.findUnique({
+    where: { inviteToken },
+    select: { id: true, lodgeId: true },
+  });
+  if (!session) return { error: "Convite não encontrado." };
+  const membro = await usuarioReconhecido(session.lodgeId);
+  if (!membro) {
+    return {
+      error:
+        "Não foi possível reconhecer você neste aparelho — justifique informando o CIM.",
+    };
+  }
+  const justificativa = justificativaDoForm(formData);
+  if (!justificativa) return { error: "Escreva o motivo da ausência." };
+  return justificarPeloConvite(session, membro.id, justificativa);
 }
 
 // RSVP pelo link público do convite — sem login (membro identificado pelo CIM
@@ -281,6 +350,8 @@ export async function rsvpPublico(
         },
         update: { rsvpAt: new Date(), agapeConfirmed: agape },
       });
+      // Identificou-se pelo CIM: passa a ser reconhecido neste aparelho
+      await gravarReconhecimento(membro.id, membro.lodgeId);
       return {
         ok: `Presença confirmada, Irmão ${membro.name}.${agape ? " Ágape anotado." : ""} TFA!`,
       };
@@ -407,6 +478,7 @@ export async function ausenciaPublico(
         "CIM não encontrado no quadro da Loja — a justificativa de ausência é para irmãos do quadro.",
     };
   }
+  await gravarReconhecimento(membro.id, session.lodgeId);
   return justificarPeloConvite(session, membro.id, justificativa);
 }
 

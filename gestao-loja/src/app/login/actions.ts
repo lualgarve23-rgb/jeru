@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { signIn } from "@/auth";
 import { AuthError } from "next-auth";
 import { contasPorCim } from "@/lib/contas";
+import { gravarReconhecimento } from "@/lib/reconhecimento";
 
 export type LoginState =
   | { error?: string; lojas?: { id: string; nome: string }[] }
@@ -35,6 +36,27 @@ export async function loginAction(
         };
       }
     }
+  }
+
+  // Reconhecimento de 1 ano para os links de convite (RSVP sem novo login):
+  // gravado ANTES do signIn porque o redirect de sucesso interrompe a action.
+  // Só grava com a senha conferida em exatamente uma conta.
+  try {
+    const contas = await contasPorCim(cim);
+    const candidatas = lodgeId
+      ? contas.filter((u) => u.lodgeId === lodgeId)
+      : contas;
+    const comSenha = [];
+    for (const u of candidatas) {
+      if (await bcrypt.compare(password.trim(), u.passwordHash)) {
+        comSenha.push(u);
+      }
+    }
+    if (comSenha.length === 1) {
+      await gravarReconhecimento(comSenha[0].id, comSenha[0].lodgeId);
+    }
+  } catch {
+    // reconhecimento é conveniência — nunca impede o login
   }
 
   try {

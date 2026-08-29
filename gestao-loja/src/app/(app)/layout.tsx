@@ -8,6 +8,8 @@ import { roleLabels } from "@/lib/labels";
 import { unreadCount } from "@/lib/notifications";
 import { grausInstrucaoPermitidos } from "@/lib/permissions";
 import { cargosProcesso } from "@/lib/processos";
+import { Assistente } from "@/components/assistente/assistente";
+import { sugestoesVisiveis } from "@/lib/assistente/sugestoes";
 
 function navFor(role: string, cargoRito: string | null, unread: number): NavItem[] {
   if (role === "SUPER_ADMIN") {
@@ -85,6 +87,7 @@ export default async function AppLayout({
         number: true,
         oriente: true,
         licencaStatus: true,
+        assistenteAtivo: true,
       },
     }),
     user.role === "SUPER_ADMIN" ? Promise.resolve(0) : unreadCount(user),
@@ -112,6 +115,11 @@ export default async function AppLayout({
       signOutAction={handleSignOut}
     >
       {children}
+      {user.role !== "SUPER_ADMIN" &&
+        lodge?.assistenteAtivo &&
+        !!process.env.ANTHROPIC_API_KEY && (
+          <Assistente sugestoes={sugestoesVisiveis({ role: user.role, cargoRito })} />
+        )}
     </AppShell>
   );
 }

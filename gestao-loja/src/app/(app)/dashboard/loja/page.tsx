@@ -17,6 +17,7 @@ import {
   updateGmailLoja,
   backupParaDrive,
   updatePixBenemerencia,
+  updateAssistenteAtivo,
 } from "./actions";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
@@ -205,6 +206,36 @@ export default async function LojaConfigPage({
                 (lodge.pixKey
                   ? `${lodge.pixKey} (herdada das capitações)`
                   : "nenhuma")}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Assistente IA</CardTitle>
+          <CardDescription>
+            Chatbot que responde aos irmãos com base nos próprios dados no
+            sistema (capitações, frequência, sessões, processos). Somente o
+            Venerável Mestre liga ou desliga.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {user.role === "VENERAVEL_MESTRE" ? (
+            <ActionForm action={updateAssistenteAtivo} submitLabel="Salvar">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="assistenteAtivo"
+                  defaultChecked={lodge.assistenteAtivo}
+                  className="h-4 w-4 accent-primary"
+                />
+                Assistente IA ativo para os irmãos da loja
+              </label>
+            </ActionForm>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              O assistente está {lodge.assistenteAtivo ? "ativado" : "desativado"}.
             </p>
           )}
         </CardContent>
