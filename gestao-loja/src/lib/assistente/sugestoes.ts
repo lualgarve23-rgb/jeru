@@ -50,6 +50,12 @@ const CATALOGO: Sugestao[] = [
     rotas: ["/dashboard/mutua"],
     roles: ["VENERAVEL_MESTRE", "SECRETARIO", "CONSELHO_CONTAS"],
   },
+  { texto: "O que dizem as atas sobre ___?" },
+  {
+    texto: "Encontre no arquivo da loja o documento sobre ___",
+    rotas: ["/secretaria/documentos"],
+    roles: ["VENERAVEL_MESTRE", "SECRETARIO", "CONSELHO_CONTAS"],
+  },
   { texto: "Como faço para ___ no sistema?" },
   { texto: "Como funciona a assinatura do atestado de regularidade?", rotas: ["/secretaria/atestados", "/secretaria/processos"] },
   { texto: "Onde troco a minha senha?" },

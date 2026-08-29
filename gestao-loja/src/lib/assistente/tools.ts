@@ -12,6 +12,7 @@ import {
   canReadSecretariaAdmin,
   canReadTesouraria,
 } from "@/lib/permissions";
+import { downloadFromLodgeDrive } from "@/lib/google-drive";
 import { notificationWhere } from "@/lib/notifications";
 import { buscarFaq, FAQ_CHAVES } from "@/lib/assistente/faq";
 
@@ -61,6 +62,48 @@ function centavos(v: number) {
 
 function dataBr(d: Date) {
   return d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+}
+
+// Trechos do texto ao redor de cada ocorrência do termo (para citar a ata
+// sem despejar o documento inteiro no contexto do modelo)
+function trechos(texto: string, termo: string, max = 2, raio = 220) {
+  const baixo = texto.toLowerCase();
+  const alvo = termo.toLowerCase();
+  const saida: string[] = [];
+  let i = 0;
+  while (saida.length < max) {
+    const pos = baixo.indexOf(alvo, i);
+    if (pos < 0) break;
+    const ini = Math.max(0, pos - raio);
+    const fim = Math.min(texto.length, pos + alvo.length + raio);
+    saida.push(
+      `${ini > 0 ? "…" : ""}${texto.slice(ini, fim).replace(/\s+/g, " ").trim()}${fim < texto.length ? "…" : ""}`
+    );
+    i = fim;
+  }
+  return saida;
+}
+
+// Extrai texto de um PDF com o pdftotext (poppler) instalado no servidor
+async function textoDePdf(pdf: Buffer): Promise<string> {
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const { writeFile, rm } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { randomUUID } = await import("node:crypto");
+  const tmp = join(tmpdir(), `assistente-${randomUUID()}.pdf`);
+  await writeFile(tmp, pdf);
+  try {
+    const { stdout } = await promisify(execFile)(
+      "pdftotext",
+      ["-layout", tmp, "-"],
+      { maxBuffer: 20 * 1024 * 1024 }
+    );
+    return stdout;
+  } finally {
+    await rm(tmp, { force: true });
+  }
 }
 
 export const FERRAMENTAS: Ferramenta[] = [
@@ -515,6 +558,161 @@ export const FERRAMENTAS: Ferramenta[] = [
         totalMembros: membros.length,
         entregues: membros.length - pendentes.length,
         pendentes: pendentes.map((m) => m.name),
+      };
+    },
+  },
+  // ---------------- Atas e documentos do Drive ----------------
+  {
+    nome: "buscar_atas",
+    descricao:
+      "Busca um termo no TEXTO das atas da loja e devolve as atas encontradas (número, data da sessão, status) com trechos ao redor de cada ocorrência. Obreiros pesquisam só as atas ASSINADAS (as que foram ao quadro); VM, Secretário e Conselho também as em andamento.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        termo: {
+          type: "string",
+          description: "Palavra ou expressão a procurar no texto das atas",
+        },
+        ano: { type: "number", description: "Opcional: limitar ao ano da sessão" },
+      },
+      required: ["termo"],
+      additionalProperties: false,
+    },
+    disponivel: paraTodos,
+    executar: async (user, input) => {
+      const termo = String(input.termo ?? "").trim();
+      if (termo.length < 3) return { erro: "Informe um termo com 3+ letras." };
+      const ano = Number(input.ano) || null;
+      const atas = await prisma.ata.findMany({
+        where: {
+          lodgeId: user.lodgeId,
+          content: { contains: termo, mode: "insensitive" },
+          status: canReadSecretariaAdmin(user.role)
+            ? { not: "RASCUNHO" }
+            : "ASSINADA",
+          ...(ano
+            ? {
+                session: {
+                  date: {
+                    gte: new Date(ano, 0, 1),
+                    lt: new Date(ano + 1, 0, 1),
+                  },
+                },
+              }
+            : {}),
+        },
+        orderBy: { session: { date: "desc" } },
+        take: 5,
+        select: {
+          number: true,
+          status: true,
+          content: true,
+          session: { select: { date: true, type: true } },
+        },
+      });
+      if (!atas.length)
+        return { info: `Nenhuma ata encontrada com "${termo}".` };
+      return atas.map((a) => ({
+        ata: `nº ${a.number}`,
+        sessao: dataBr(a.session.date),
+        status: a.status,
+        trechos: trechos(a.content, termo),
+      }));
+    },
+  },
+  {
+    nome: "listar_documentos_drive",
+    descricao:
+      "Lista os documentos do arquivo digital da loja no Google Drive (atas assinadas arquivadas, regulamentos, ofícios), com id, título, tipo e data — o id serve para ler_documento_drive. Aceita um termo opcional para filtrar pelo título. Disponível para Venerável, Secretário e Conselho de Contas.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        termo: { type: "string", description: "Opcional: filtro pelo título" },
+      },
+      additionalProperties: false,
+    },
+    disponivel: leSecretaria,
+    executar: async (user, input) => {
+      const termo = String(input.termo ?? "").trim();
+      const docs = await prisma.document.findMany({
+        where: {
+          lodgeId: user.lodgeId,
+          ...(termo
+            ? { title: { contains: termo, mode: "insensitive" } }
+            : {}),
+        },
+        orderBy: { createdAt: "desc" },
+        take: 25,
+        select: { id: true, title: true, type: true, mimeType: true, createdAt: true },
+      });
+      if (!docs.length)
+        return {
+          info: termo
+            ? `Nenhum documento com "${termo}" no título.`
+            : "Nenhum documento arquivado no Drive da loja.",
+        };
+      return docs.map((d) => ({
+        id: d.id,
+        titulo: d.title,
+        tipo: d.type,
+        formato: d.mimeType,
+        arquivadoEm: dataBr(d.createdAt),
+      }));
+    },
+  },
+  {
+    nome: "ler_documento_drive",
+    descricao:
+      "Baixa um documento do Drive da loja (pelo id devolvido por listar_documentos_drive) e devolve o TEXTO extraído, para responder perguntas sobre o conteúdo. PDFs e arquivos de texto; documentos longos vêm truncados. Disponível para Venerável, Secretário e Conselho de Contas.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        documentoId: {
+          type: "string",
+          description: "id do documento (de listar_documentos_drive)",
+        },
+      },
+      required: ["documentoId"],
+      additionalProperties: false,
+    },
+    disponivel: leSecretaria,
+    executar: async (user, input) => {
+      // O id da IA só é aceito se o documento pertencer à loja do usuário
+      const doc = await prisma.document.findFirst({
+        where: { id: String(input.documentoId ?? ""), lodgeId: user.lodgeId },
+        select: { title: true, driveFileId: true },
+      });
+      if (!doc) return { erro: "Documento não encontrado no arquivo da loja." };
+      let arquivo;
+      try {
+        arquivo = await downloadFromLodgeDrive(user.lodgeId, doc.driveFileId);
+      } catch (e) {
+        return {
+          erro: `Não foi possível baixar do Drive: ${
+            e instanceof Error ? e.message : "erro desconhecido"
+          }`,
+        };
+      }
+      const LIMITE = 15_000;
+      let texto: string;
+      if (arquivo.mimeType === "application/pdf") {
+        try {
+          texto = await textoDePdf(arquivo.data);
+        } catch {
+          return { erro: "Falha ao extrair o texto do PDF." };
+        }
+      } else if (arquivo.mimeType.startsWith("text/")) {
+        texto = arquivo.data.toString("utf8");
+      } else {
+        return {
+          erro: `Formato ${arquivo.mimeType} não suportado para leitura — apenas PDF e texto.`,
+        };
+      }
+      texto = texto.replace(/\n{3,}/g, "\n\n").trim();
+      return {
+        titulo: doc.title,
+        truncado: texto.length > LIMITE,
+        texto: texto.slice(0, LIMITE),
       };
     },
   },

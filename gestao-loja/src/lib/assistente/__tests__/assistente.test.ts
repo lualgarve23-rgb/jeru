@@ -113,6 +113,19 @@ describe("assistente — ferramentas", () => {
     );
   });
 
+  it("atas: busca para todos; documentos do Drive: só quem lê a Secretaria", () => {
+    expect(nomes("MEMBER")).toContain("buscar_atas");
+    for (const role of ["MEMBER", "TESOUREIRO", "ESMOLER"]) {
+      expect(nomes(role)).not.toContain("listar_documentos_drive");
+      expect(nomes(role)).not.toContain("ler_documento_drive");
+    }
+    for (const role of ["VENERAVEL_MESTRE", "SECRETARIO", "CONSELHO_CONTAS"]) {
+      expect(nomes(role)).toEqual(
+        expect.arrayContaining(["listar_documentos_drive", "ler_documento_drive"])
+      );
+    }
+  });
+
   it("Esmoler vê só inadimplência e frequência entre as da loja", () => {
     const fs = nomes("ESMOLER");
     expect(fs).toEqual(
