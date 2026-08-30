@@ -708,13 +708,14 @@ export const FERRAMENTAS: Ferramenta[] = [
       // autor e descrição entram por ILIKE (poucos itens por loja).
       const rows = await prisma.$queryRaw<
         {
+          id: string;
           titulo: string;
           autor: string | null;
           categoria: string;
           trechos: string | null;
         }[]
       >`
-        SELECT b."titulo", b."autor", b."categoria"::text AS categoria,
+        SELECT b."id", b."titulo", b."autor", b."categoria"::text AS categoria,
                CASE WHEN to_tsvector('portuguese', coalesce(b."textoExtraido", ''))
                          @@ websearch_to_tsquery('portuguese', ${termo})
                     THEN ts_headline('portuguese', b."textoExtraido",
@@ -732,9 +733,45 @@ export const FERRAMENTAS: Ferramenta[] = [
       if (!rows.length)
         return { info: `Nada na biblioteca com "${termo}". O acervo fica em /dashboard/biblioteca.` };
       return rows.map((r) => ({
+        id: r.id,
         fonte: `"${r.titulo}"${r.autor ? `, de ${r.autor}` : ""} (${r.categoria})`,
         trechos: r.trechos ?? "(termo encontrado no título/autor/descrição)",
       }));
+    },
+  },
+  {
+    nome: "ler_biblioteca",
+    descricao:
+      "Devolve o TEXTO COMPLETO de um item da Biblioteca Digital da loja (regulamentos, regimentos, decretos, rituais) pelo id devolvido por buscar_biblioteca, para responder com precisão citando artigos e trechos. Documentos muito longos vêm truncados. Disponível a todos os irmãos da loja.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: {
+          type: "string",
+          description: "id do item (de buscar_biblioteca)",
+        },
+      },
+      required: ["itemId"],
+      additionalProperties: false,
+    },
+    disponivel: paraTodos,
+    executar: async (user, input) => {
+      // O id da IA só é aceito se o item pertencer à loja do usuário
+      const item = await prisma.bibliotecaItem.findFirst({
+        where: { id: String(input.itemId ?? ""), lodgeId: user.lodgeId },
+        select: { titulo: true, autor: true, categoria: true, textoExtraido: true },
+      });
+      if (!item) return { erro: "Item não encontrado na biblioteca da loja." };
+      if (!item.textoExtraido)
+        return {
+          erro: "Este item ainda não tem texto extraído (formato sem suporte ou PDF escaneado sem camada de texto).",
+        };
+      const LIMITE = 30_000;
+      return {
+        fonte: `"${item.titulo}"${item.autor ? `, de ${item.autor}` : ""} (${item.categoria})`,
+        truncado: item.textoExtraido.length > LIMITE,
+        texto: item.textoExtraido.slice(0, LIMITE),
+      };
     },
   },
   {

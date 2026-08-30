@@ -135,6 +135,7 @@ describe("assistente — ferramentas", () => {
       expect(nomes(role)).toContain("buscar_pranchas");
       expect(nomes(role)).toContain("buscar_biblioteca");
     }
+    expect(nomes("MEMBER")).toContain("ler_biblioteca");
     expect(nomes("SUPER_ADMIN")).not.toContain("buscar_biblioteca");
   });
 
