@@ -5,6 +5,7 @@ import {
   enviarMinutaAtaValidacao,
   enviarAtaAssinadaAosMembros,
 } from "@/lib/envios";
+import { enviarResumoMensal } from "@/lib/resumo-mensal";
 
 // Fila persistente (#13): tabela jobs no Postgres, worker disparado por
 // /api/cron/fila (systemd timer, a cada minuto). Payloads carregam só ids —
@@ -19,6 +20,8 @@ const handlers: Record<string, (p: Payload) => Promise<void>> = {
   "ata.minuta-validacao": (p) => enviarMinutaAtaValidacao(p.lodgeId, p.ataId),
   "ata.enviar-membros": (p) =>
     enviarAtaAssinadaAosMembros(p.lodgeId, p.ataId, p.solicitanteId),
+  "resumo.mensal": (p) =>
+    enviarResumoMensal(p.lodgeId, Number(p.ano), Number(p.mes)),
 };
 
 export async function enfileirar(
