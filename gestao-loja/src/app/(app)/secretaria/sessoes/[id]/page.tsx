@@ -16,7 +16,7 @@ import {
 } from "../../actions";
 import { CopyButton } from "@/components/copy-button";
 import { WhatsAppShareButton } from "@/components/whatsapp-share-button";
-import { arteDoConvite } from "@/lib/convite";
+import { arteDoConvite, pautaTexto } from "@/lib/convite";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Label } from "@/components/ui/label";
 import { sessionTypeLabels, degreeLabels } from "@/lib/labels";
@@ -54,7 +54,7 @@ export default async function SessaoPage({
     include: {
       attendances: { include: { user: true }, orderBy: { checkedInAt: "asc" } },
       ata: true,
-      lodge: { select: { name: true, conviteTemplateHtml: true } },
+      lodge: { select: { name: true, conviteTemplateHtml: true, conviteFrase: true } },
     },
   });
   if (!session) notFound();
@@ -75,6 +75,12 @@ export default async function SessaoPage({
   // RSVP pelo convite: confirmados (antes do dia) e total do Ágape
   const confirmados = session.attendances.filter((a) => a.rsvpAt);
   const isEvento = session.type === "EVENTO";
+
+  // Texto do convite para WhatsApp e para o botão de copiar (inclui a pauta)
+  const pautaLinha = pautaTexto(session, session.lodge.conviteFrase);
+  const conviteTexto = inviteUrl
+    ? `Convite — ${session.lodge.name}\n${isEvento ? "Evento" : `Sessão ${sessionTypeLabels[session.type] ?? session.type}`} · ${session.date.toLocaleDateString("pt-BR")} às ${session.date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}${pautaLinha ? `\n${pautaLinha}` : ""}\nConfirme sua presença (ou justifique a ausência) em:\n${inviteUrl}`
+    : null;
   const agapeTotal = session.attendances.filter(
     (a) => a.agapeConfirmed
   ).length;
@@ -221,9 +227,9 @@ export default async function SessaoPage({
                     ? `${inviteUrl}/imagem`
                     : null
                 }
-                text={`Convite — ${session.lodge.name}\n${isEvento ? "Evento" : `Sessão ${sessionTypeLabels[session.type] ?? session.type}`} · ${session.date.toLocaleDateString("pt-BR")} às ${session.date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}\nConfirme sua presença (ou justifique a ausência) em:\n${inviteUrl}`}
+                text={conviteTexto!}
               />
-              <CopyButton text={inviteUrl!} label="Copiar link do convite" />
+              <CopyButton text={conviteTexto!} label="Copiar convite com link" />
               <ActionButton
                 action={dispararConvitesEmail.bind(null, session.id)}
                 label="Disparar convites por e-mail"

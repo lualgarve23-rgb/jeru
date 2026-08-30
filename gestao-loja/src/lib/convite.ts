@@ -85,7 +85,7 @@ export function templateDeImagem(dataUri: string) {
             <a href="{{LINK}}"><img src="${dataUri}" alt="Convite — {{LOJA}}, sessão {{TIPO}} de {{DATA}}" width="560" style="display:block;width:100%;height:auto;"/></a>
           </td></tr>
           <tr><td style="padding:24px 32px;text-align:center;">
-            <p style="margin:0 0 12px;font-size:15px;color:#3f3f46;line-height:1.6;">{{FRASE}}</p>
+            <p style="margin:0 0 12px;font-size:15px;color:#3f3f46;line-height:1.6;">{{FRASE}}{{PAUTA}}</p>
             <p style="margin:0 0 16px;font-size:14px;color:#3f3f46;line-height:1.6;">
               Confirme sua presença — e se ficará para o <strong>Ágape</strong> — pelo botão abaixo. Não podendo comparecer, o mesmo link permite justificar a ausência.
             </p>
@@ -165,6 +165,17 @@ export function renderFrase(
 // A frase já cita a pauta? (evita repetir o bloco "Pauta do dia")
 export function fraseCitaPauta(conviteFrase: string | null) {
   return /<<\s*pauta\s*>>/i.test(conviteFrase ?? "");
+}
+
+// Linha "Pauta: ..." para os textos simples (e-mail texto puro e WhatsApp);
+// vazia sem pauta ou quando a frase fixa da loja já a cita via <<pauta>>
+export function pautaTexto(
+  session: Pick<LodgeSession, "type" | "pauta">,
+  conviteFrase: string | null
+) {
+  return session.pauta && !fraseCitaPauta(conviteFrase)
+    ? `${session.type === "EVENTO" ? "Descrição" : "Pauta"}: ${session.pauta}`
+    : "";
 }
 
 function escapeHtml(s: string) {
