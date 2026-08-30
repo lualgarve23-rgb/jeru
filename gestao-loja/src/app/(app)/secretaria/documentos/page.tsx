@@ -7,6 +7,7 @@ import { isDriveAvailable } from "@/lib/google-drive";
 import { uploadDocument } from "../actions";
 import { ActionForm } from "@/components/action-form";
 import { documentTypeLabels } from "@/lib/labels";
+import { grauWhere, grauMinimoLabels, GRAUS_ACERVO } from "@/lib/graus";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -32,8 +33,12 @@ export default async function DocumentosPage() {
     "CONSELHO_CONTAS"
   );
   const driveOk = await isDriveAvailable(user.lodgeId);
+  // Quem edita a Secretaria vê tudo; os demais leitores, só o permitido ao grau
   const docs = await prisma.document.findMany({
-    where: { lodgeId: user.lodgeId },
+    where: {
+      lodgeId: user.lodgeId,
+      ...(canWriteSecretaria(user.role) ? {} : grauWhere(user.degree)),
+    },
     orderBy: { createdAt: "desc" },
     include: { uploadedBy: true },
   });
@@ -78,6 +83,20 @@ export default async function DocumentosPage() {
                   <Input id="file" name="file" type="file" required />
                 </div>
               </div>
+              <div className="space-y-1">
+                <Label htmlFor="grauMinimo">Nível de acesso</Label>
+                <select
+                  id="grauMinimo"
+                  name="grauMinimo"
+                  className="h-9 w-full rounded-md border bg-transparent px-2 text-sm"
+                >
+                  {GRAUS_ACERVO.map((g) => (
+                    <option key={g} value={g}>
+                      {grauMinimoLabels[g]}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </ActionForm>
           </CardContent>
         </Card>
@@ -97,7 +116,14 @@ export default async function DocumentosPage() {
           {docs.map((d) => (
             <TableRow key={d.id}>
               <TableCell>{d.title}</TableCell>
-              <TableCell>{documentTypeLabels[d.type] ?? d.type}</TableCell>
+              <TableCell>
+                {documentTypeLabels[d.type] ?? d.type}
+                {d.grauMinimo !== "APRENDIZ" && (
+                  <p className="text-xs text-muted-foreground">
+                    {grauMinimoLabels[d.grauMinimo]}
+                  </p>
+                )}
+              </TableCell>
               <TableCell>{d.uploadedBy.name}</TableCell>
               <TableCell>{d.createdAt.toLocaleDateString("pt-BR")}</TableCell>
               <TableCell>

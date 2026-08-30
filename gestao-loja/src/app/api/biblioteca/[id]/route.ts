@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { canWriteSecretaria } from "@/lib/permissions";
+import { grauWhere } from "@/lib/graus";
 
 // Download de item da Biblioteca Digital — qualquer irmão logado da Loja.
 export async function GET(
@@ -14,8 +16,16 @@ export async function GET(
     );
   }
   const { id } = await params;
+  // Item restrito por grau só baixa para quem pode vê-lo (editores da
+  // Secretaria sempre podem).
   const item = await prisma.bibliotecaItem.findUnique({
-    where: { id, lodgeId: session.user.lodgeId },
+    where: {
+      id,
+      lodgeId: session.user.lodgeId,
+      ...(canWriteSecretaria(session.user.role)
+        ? {}
+        : grauWhere(session.user.degree)),
+    },
     select: { titulo: true, arquivo: true, mimeType: true },
   });
   if (!item) return new NextResponse("Item não encontrado.", { status: 404 });

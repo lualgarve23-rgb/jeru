@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
 import { extraiTexto } from "@/lib/extrai-texto";
+import { GRAUS_ACERVO } from "@/lib/graus";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
@@ -37,6 +38,10 @@ export async function uploadBibliotecaItem(
   if (!(categoria in BibliotecaCategoria)) {
     return { error: "Categoria inválida." };
   }
+  const grauMinimo = String(formData.get("grauMinimo") ?? "APRENDIZ");
+  if (!(GRAUS_ACERVO as readonly string[]).includes(grauMinimo)) {
+    return { error: "Nível de acesso inválido." };
+  }
   const arquivo = Buffer.from(await file.arrayBuffer());
   const mimeType = file.type || "application/octet-stream";
   await prisma.bibliotecaItem.create({
@@ -47,6 +52,7 @@ export async function uploadBibliotecaItem(
       autor: String(formData.get("autor") ?? "").trim() || null,
       descricao: String(formData.get("descricao") ?? "").trim() || null,
       categoria: categoria as BibliotecaCategoria,
+      grauMinimo: grauMinimo as never,
       arquivo,
       textoExtraido: await extraiTexto(arquivo, mimeType),
       mimeType,

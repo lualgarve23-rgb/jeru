@@ -13,7 +13,9 @@ import {
 import {
   canReadSecretariaAdmin,
   canReadTesouraria,
+  canWriteSecretaria,
 } from "@/lib/permissions";
+import { grausVisiveis, GRAUS_ACERVO } from "@/lib/graus";
 import { downloadFromLodgeDrive } from "@/lib/google-drive";
 import { notificationWhere } from "@/lib/notifications";
 import { buscarFaq, FAQ_CHAVES } from "@/lib/assistente/faq";
@@ -22,8 +24,17 @@ export type AssistenteUser = {
   id: string;
   lodgeId: string;
   role: string;
+  degree?: string; // grau do irmão — segmenta biblioteca e documentos
   name: string;
 };
+
+// Editores da Secretaria enxergam o acervo inteiro; os demais, só o
+// permitido ao próprio grau (mesma regra das telas).
+function grausDoUsuario(user: AssistenteUser): string[] {
+  return canWriteSecretaria(user.role)
+    ? [...GRAUS_ACERVO]
+    : grausVisiveis(user.degree);
+}
 
 export type Ferramenta = {
   nome: string;
@@ -723,6 +734,7 @@ export const FERRAMENTAS: Ferramenta[] = [
                END AS trechos
         FROM "biblioteca_itens" b
         WHERE b."lodgeId" = ${user.lodgeId}
+          AND b."grauMinimo"::text = ANY(${grausDoUsuario(user)})
           AND (to_tsvector('portuguese', coalesce(b."textoExtraido", ''))
                  @@ websearch_to_tsquery('portuguese', ${termo})
                OR b."titulo" ILIKE ${"%" + termo + "%"}
@@ -758,7 +770,11 @@ export const FERRAMENTAS: Ferramenta[] = [
     executar: async (user, input) => {
       // O id da IA só é aceito se o item pertencer à loja do usuário
       const item = await prisma.bibliotecaItem.findFirst({
-        where: { id: String(input.itemId ?? ""), lodgeId: user.lodgeId },
+        where: {
+          id: String(input.itemId ?? ""),
+          lodgeId: user.lodgeId,
+          grauMinimo: { in: grausDoUsuario(user) as never[] },
+        },
         select: { titulo: true, autor: true, categoria: true, textoExtraido: true },
       });
       if (!item) return { erro: "Item não encontrado na biblioteca da loja." };
@@ -791,6 +807,7 @@ export const FERRAMENTAS: Ferramenta[] = [
       const docs = await prisma.document.findMany({
         where: {
           lodgeId: user.lodgeId,
+          grauMinimo: { in: grausDoUsuario(user) as never[] },
           ...(termo
             ? { title: { contains: termo, mode: "insensitive" } }
             : {}),
@@ -833,7 +850,11 @@ export const FERRAMENTAS: Ferramenta[] = [
     executar: async (user, input) => {
       // O id da IA só é aceito se o documento pertencer à loja do usuário
       const doc = await prisma.document.findFirst({
-        where: { id: String(input.documentoId ?? ""), lodgeId: user.lodgeId },
+        where: {
+          id: String(input.documentoId ?? ""),
+          lodgeId: user.lodgeId,
+          grauMinimo: { in: grausDoUsuario(user) as never[] },
+        },
         select: { title: true, driveFileId: true },
       });
       if (!doc) return { erro: "Documento não encontrado no arquivo da loja." };

@@ -8,6 +8,7 @@ import { ActionForm, ActionButton } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { bibliotecaCategoriaLabels } from "@/lib/labels";
+import { grauWhere, grauMinimoLabels, GRAUS_ACERVO } from "@/lib/graus";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -30,8 +31,12 @@ import { formatBytes } from "@/lib/utils";
 export default async function BibliotecaPage() {
   const user = await requireUser();
   const podeEditar = canWriteSecretaria(user.role);
+  // Quem edita a Secretaria vê tudo; os demais, só o permitido ao seu grau
   const itens = await prisma.bibliotecaItem.findMany({
-    where: { lodgeId: user.lodgeId },
+    where: {
+      lodgeId: user.lodgeId,
+      ...(podeEditar ? {} : grauWhere(user.degree)),
+    },
     orderBy: [{ categoria: "asc" }, { titulo: "asc" }],
     select: {
       id: true,
@@ -39,6 +44,7 @@ export default async function BibliotecaPage() {
       autor: true,
       categoria: true,
       descricao: true,
+      grauMinimo: true,
       sizeBytes: true,
       createdAt: true,
       uploadedBy: { select: { name: true } },
@@ -93,9 +99,25 @@ export default async function BibliotecaPage() {
                 <Label htmlFor="descricao">Descrição (opcional)</Label>
                 <Input id="descricao" name="descricao" />
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="file">Arquivo</Label>
-                <Input id="file" name="file" type="file" required />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="grauMinimo">Nível de acesso</Label>
+                  <select
+                    id="grauMinimo"
+                    name="grauMinimo"
+                    className="h-9 w-full rounded-md border bg-transparent px-2 text-sm"
+                  >
+                    {GRAUS_ACERVO.map((g) => (
+                      <option key={g} value={g}>
+                        {grauMinimoLabels[g]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="file">Arquivo</Label>
+                  <Input id="file" name="file" type="file" required />
+                </div>
               </div>
             </ActionForm>
           </CardContent>
@@ -139,6 +161,11 @@ export default async function BibliotecaPage() {
                     <TableCell>
                       {bibliotecaCategoriaLabels[item.categoria] ??
                         item.categoria}
+                      {item.grauMinimo !== "APRENDIZ" && (
+                        <p className="text-xs text-muted-foreground">
+                          {grauMinimoLabels[item.grauMinimo]}
+                        </p>
+                      )}
                     </TableCell>
                     <TableCell>{formatBytes(item.sizeBytes)}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">

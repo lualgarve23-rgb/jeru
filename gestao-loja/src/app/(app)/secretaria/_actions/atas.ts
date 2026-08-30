@@ -20,6 +20,7 @@ import {
 } from "@/lib/google-drive";
 import { sendLodgeEmail, getGmailAuth, GUARDA_SELOS_EMAIL } from "@/lib/gmail";
 import { gerarTextoAta } from "@/lib/ata-template";
+import { GRAUS_ACERVO } from "@/lib/graus";
 import { enfileirar } from "@/lib/fila";
 import { arquivarAtaAssinadaNoDrive } from "@/lib/envios";
 import { type ActionResult, requireSecretariaWriter } from "./_shared";
@@ -770,6 +771,10 @@ export async function uploadDocument(
   if (!file || file.size === 0 || !title) {
     return { error: "Informe o título e selecione um arquivo." };
   }
+  const grauMinimo = String(formData.get("grauMinimo") ?? "APRENDIZ");
+  if (!(GRAUS_ACERVO as readonly string[]).includes(grauMinimo)) {
+    return { error: "Nível de acesso inválido." };
+  }
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
     const driveFileId = await uploadToLodgeDrive(
@@ -784,6 +789,7 @@ export async function uploadDocument(
         uploadedById: user.id,
         title,
         type: formData.get("type") as never,
+        grauMinimo: grauMinimo as never,
         driveFileId,
         mimeType: file.type,
         sizeBytes: file.size,

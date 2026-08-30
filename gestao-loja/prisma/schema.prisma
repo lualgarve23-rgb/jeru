@@ -642,6 +642,7 @@ model Document {
   uploadedById String
   title        String
   type         DocumentType @default(OUTRO)
+  grauMinimo   Degree       @default(APRENDIZ) // grau mínimo para ver o documento
   driveFileId  String // arquivo no Google Drive da Loja
   mimeType     String?
   sizeBytes    Int?
@@ -679,6 +680,7 @@ model BibliotecaItem {
   descricao    String?
   arquivo      Bytes
   textoExtraido String? // texto do PDF/arquivo para a busca full-text do Assistente
+  grauMinimo   Degree   @default(APRENDIZ) // grau mínimo para ver o item
   mimeType     String
   sizeBytes    Int
   createdAt    DateTime            @default(now())
