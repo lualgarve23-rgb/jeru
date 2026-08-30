@@ -678,6 +678,7 @@ model BibliotecaItem {
   categoria    BibliotecaCategoria @default(OUTRO)
   descricao    String?
   arquivo      Bytes
+  textoExtraido String? // texto do PDF/arquivo para a busca full-text do Assistente
   mimeType     String
   sizeBytes    Int
   createdAt    DateTime            @default(now())

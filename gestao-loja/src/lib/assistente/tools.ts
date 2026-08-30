@@ -3,7 +3,9 @@
 // `disponivel(user)` filtra por cargo ANTES de expor a ferramenta ao modelo.
 
 import type Anthropic from "@anthropic-ai/sdk";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { textoDePdf } from "@/lib/extrai-texto";
 import {
   frequenciaAnual,
   MIN_SESSOES_PARA_ALERTA,
@@ -56,6 +58,10 @@ function acompanhaBemEstar(user: AssistenteUser) {
   return user.role === "ESMOLER";
 }
 
+// Opções do ts_headline nas buscas full-text (trechos com «destaque»)
+const FTS_HEADLINE =
+  'MaxFragments=3, MaxWords=25, MinWords=8, FragmentDelimiter=" … ", StartSel=«, StopSel=»';
+
 function centavos(v: number) {
   return (v / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
@@ -84,27 +90,6 @@ function trechos(texto: string, termo: string, max = 2, raio = 220) {
   return saida;
 }
 
-// Extrai texto de um PDF com o pdftotext (poppler) instalado no servidor
-async function textoDePdf(pdf: Buffer): Promise<string> {
-  const { execFile } = await import("node:child_process");
-  const { promisify } = await import("node:util");
-  const { writeFile, rm } = await import("node:fs/promises");
-  const { tmpdir } = await import("node:os");
-  const { join } = await import("node:path");
-  const { randomUUID } = await import("node:crypto");
-  const tmp = join(tmpdir(), `assistente-${randomUUID()}.pdf`);
-  await writeFile(tmp, pdf);
-  try {
-    const { stdout } = await promisify(execFile)(
-      "pdftotext",
-      ["-layout", tmp, "-"],
-      { maxBuffer: 20 * 1024 * 1024 }
-    );
-    return stdout;
-  } finally {
-    await rm(tmp, { force: true });
-  }
-}
 
 export const FERRAMENTAS: Ferramenta[] = [
   {
@@ -583,6 +568,34 @@ export const FERRAMENTAS: Ferramenta[] = [
       const termo = String(input.termo ?? "").trim();
       if (termo.length < 3) return { erro: "Informe um termo com 3+ letras." };
       const ano = Number(input.ano) || null;
+      // Full-text em português (stemming); a expressão do to_tsvector é a
+      // mesma do índice GIN atas_content_fts.
+      const statusSql = canReadSecretariaAdmin(user.role)
+        ? Prisma.sql`a."status"::text <> 'RASCUNHO'`
+        : Prisma.sql`a."status"::text = 'ASSINADA'`;
+      const anoSql = ano
+        ? Prisma.sql`s."date" >= ${new Date(ano, 0, 1)} AND s."date" < ${new Date(ano + 1, 0, 1)}`
+        : Prisma.sql`TRUE`;
+      const rows = await prisma.$queryRaw<
+        { number: number; status: string; date: Date; trechos: string }[]
+      >`
+        SELECT a."number", a."status"::text AS status, s."date",
+               ts_headline('portuguese', a."content",
+                 websearch_to_tsquery('portuguese', ${termo}), ${FTS_HEADLINE}) AS trechos
+        FROM "atas" a
+        JOIN "lodge_sessions" s ON s."id" = a."sessionId"
+        WHERE a."lodgeId" = ${user.lodgeId}
+          AND to_tsvector('portuguese', a."content") @@ websearch_to_tsquery('portuguese', ${termo})
+          AND ${statusSql} AND ${anoSql}
+        ORDER BY s."date" DESC
+        LIMIT 5`;
+      if (rows.length)
+        return rows.map((r) => ({
+          fonte: `Ata nº ${r.number}, sessão de ${dataBr(r.date)}`,
+          status: r.status,
+          trechos: r.trechos,
+        }));
+      // Fallback: substring exata (nomes próprios, códigos, siglas fora do stemming)
       const atas = await prisma.ata.findMany({
         where: {
           lodgeId: user.lodgeId,
@@ -613,10 +626,114 @@ export const FERRAMENTAS: Ferramenta[] = [
       if (!atas.length)
         return { info: `Nenhuma ata encontrada com "${termo}".` };
       return atas.map((a) => ({
-        ata: `nº ${a.number}`,
-        sessao: dataBr(a.session.date),
+        fonte: `Ata nº ${a.number}, sessão de ${dataBr(a.session.date)}`,
         status: a.status,
         trechos: trechos(a.content, termo),
+      }));
+    },
+  },
+  {
+    nome: "buscar_pranchas",
+    descricao:
+      "Busca um termo no assunto e no TEXTO das pranchas da loja e devolve as encontradas (número/ano, assunto, destinatário, data) com trechos ao redor de cada ocorrência. Disponível para Venerável, Secretário e Conselho de Contas.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        termo: {
+          type: "string",
+          description: "Palavra ou expressão a procurar nas pranchas",
+        },
+        ano: { type: "number", description: "Opcional: limitar ao ano da prancha" },
+      },
+      required: ["termo"],
+      additionalProperties: false,
+    },
+    disponivel: leSecretaria,
+    executar: async (user, input) => {
+      const termo = String(input.termo ?? "").trim();
+      if (termo.length < 3) return { erro: "Informe um termo com 3+ letras." };
+      const ano = Number(input.ano) || null;
+      const anoSql = ano ? Prisma.sql`p."year" = ${ano}` : Prisma.sql`TRUE`;
+      // Expressão idêntica ao índice GIN pranchas_content_fts
+      const rows = await prisma.$queryRaw<
+        {
+          number: number;
+          year: number;
+          subject: string;
+          recipient: string;
+          createdAt: Date;
+          trechos: string;
+        }[]
+      >`
+        SELECT p."number", p."year", p."subject", p."recipient", p."createdAt",
+               ts_headline('portuguese', p."subject" || ' ' || p."content",
+                 websearch_to_tsquery('portuguese', ${termo}), ${FTS_HEADLINE}) AS trechos
+        FROM "pranchas" p
+        WHERE p."lodgeId" = ${user.lodgeId}
+          AND to_tsvector('portuguese', p."subject" || ' ' || p."content")
+              @@ websearch_to_tsquery('portuguese', ${termo})
+          AND ${anoSql}
+        ORDER BY p."year" DESC, p."number" DESC
+        LIMIT 5`;
+      if (!rows.length)
+        return { info: `Nenhuma prancha encontrada com "${termo}".` };
+      return rows.map((r) => ({
+        fonte: `Prancha nº ${r.number}/${r.year} — ${r.subject}`,
+        destinatario: r.recipient,
+        data: dataBr(r.createdAt),
+        trechos: r.trechos,
+      }));
+    },
+  },
+  {
+    nome: "buscar_biblioteca",
+    descricao:
+      "Busca um termo na Biblioteca Digital da loja (título, autor, descrição e o TEXTO dos arquivos) e devolve os itens encontrados com trechos ao redor de cada ocorrência. Disponível a todos os irmãos da loja.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        termo: {
+          type: "string",
+          description: "Palavra ou expressão a procurar na biblioteca",
+        },
+      },
+      required: ["termo"],
+      additionalProperties: false,
+    },
+    disponivel: paraTodos,
+    executar: async (user, input) => {
+      const termo = String(input.termo ?? "").trim();
+      if (termo.length < 3) return { erro: "Informe um termo com 3+ letras." };
+      // Expressão idêntica ao índice GIN biblioteca_itens_texto_fts; título,
+      // autor e descrição entram por ILIKE (poucos itens por loja).
+      const rows = await prisma.$queryRaw<
+        {
+          titulo: string;
+          autor: string | null;
+          categoria: string;
+          trechos: string | null;
+        }[]
+      >`
+        SELECT b."titulo", b."autor", b."categoria"::text AS categoria,
+               CASE WHEN to_tsvector('portuguese', coalesce(b."textoExtraido", ''))
+                         @@ websearch_to_tsquery('portuguese', ${termo})
+                    THEN ts_headline('portuguese', b."textoExtraido",
+                      websearch_to_tsquery('portuguese', ${termo}), ${FTS_HEADLINE})
+               END AS trechos
+        FROM "biblioteca_itens" b
+        WHERE b."lodgeId" = ${user.lodgeId}
+          AND (to_tsvector('portuguese', coalesce(b."textoExtraido", ''))
+                 @@ websearch_to_tsquery('portuguese', ${termo})
+               OR b."titulo" ILIKE ${"%" + termo + "%"}
+               OR b."autor" ILIKE ${"%" + termo + "%"}
+               OR b."descricao" ILIKE ${"%" + termo + "%"})
+        ORDER BY b."createdAt" DESC
+        LIMIT 5`;
+      if (!rows.length)
+        return { info: `Nada na biblioteca com "${termo}". O acervo fica em /dashboard/biblioteca.` };
+      return rows.map((r) => ({
+        fonte: `"${r.titulo}"${r.autor ? `, de ${r.autor}` : ""} (${r.categoria})`,
+        trechos: r.trechos ?? "(termo encontrado no título/autor/descrição)",
       }));
     },
   },

@@ -5,6 +5,7 @@ import { BibliotecaCategoria } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
+import { extraiTexto } from "@/lib/extrai-texto";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
@@ -36,6 +37,8 @@ export async function uploadBibliotecaItem(
   if (!(categoria in BibliotecaCategoria)) {
     return { error: "Categoria inválida." };
   }
+  const arquivo = Buffer.from(await file.arrayBuffer());
+  const mimeType = file.type || "application/octet-stream";
   await prisma.bibliotecaItem.create({
     data: {
       lodgeId: user.lodgeId,
@@ -44,8 +47,9 @@ export async function uploadBibliotecaItem(
       autor: String(formData.get("autor") ?? "").trim() || null,
       descricao: String(formData.get("descricao") ?? "").trim() || null,
       categoria: categoria as BibliotecaCategoria,
-      arquivo: Buffer.from(await file.arrayBuffer()),
-      mimeType: file.type || "application/octet-stream",
+      arquivo,
+      textoExtraido: await extraiTexto(arquivo, mimeType),
+      mimeType,
       sizeBytes: file.size,
     },
   });

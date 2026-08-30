@@ -126,6 +126,18 @@ describe("assistente — ferramentas", () => {
     }
   });
 
+  it("busca full-text: biblioteca para todos; pranchas só quem lê a Secretaria", () => {
+    expect(nomes("MEMBER")).toContain("buscar_biblioteca");
+    for (const role of ["MEMBER", "TESOUREIRO", "ESMOLER"]) {
+      expect(nomes(role)).not.toContain("buscar_pranchas");
+    }
+    for (const role of ["VENERAVEL_MESTRE", "SECRETARIO", "CONSELHO_CONTAS"]) {
+      expect(nomes(role)).toContain("buscar_pranchas");
+      expect(nomes(role)).toContain("buscar_biblioteca");
+    }
+    expect(nomes("SUPER_ADMIN")).not.toContain("buscar_biblioteca");
+  });
+
   it("Esmoler vê só inadimplência e frequência entre as da loja", () => {
     const fs = nomes("ESMOLER");
     expect(fs).toEqual(
