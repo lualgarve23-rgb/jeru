@@ -804,3 +804,20 @@ export async function uploadDocument(
   return { ok: "Documento enviado ao Google Drive da Loja." };
 }
 
+// Troca o nível de acesso de um documento já enviado (select inline na lista)
+export async function updateDocumentoGrau(
+  id: string,
+  grau: string
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  if (!(GRAUS_ACERVO as readonly string[]).includes(grau)) {
+    return { error: "Nível de acesso inválido." };
+  }
+  await prisma.document.update({
+    where: { id, lodgeId: user.lodgeId },
+    data: { grauMinimo: grau as never },
+  });
+  revalidatePath("/secretaria/documentos");
+  return { ok: "Nível de acesso atualizado." };
+}
+

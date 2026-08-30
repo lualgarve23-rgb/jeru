@@ -3,7 +3,12 @@ import { AJUDA } from "@/lib/ajuda";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
-import { uploadBibliotecaItem, deleteBibliotecaItem } from "./actions";
+import {
+  uploadBibliotecaItem,
+  deleteBibliotecaItem,
+  updateBibliotecaGrau,
+} from "./actions";
+import { GrauSelect } from "@/components/grau-select";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -161,10 +166,19 @@ export default async function BibliotecaPage() {
                     <TableCell>
                       {bibliotecaCategoriaLabels[item.categoria] ??
                         item.categoria}
-                      {item.grauMinimo !== "APRENDIZ" && (
-                        <p className="text-xs text-muted-foreground">
-                          {grauMinimoLabels[item.grauMinimo]}
-                        </p>
+                      {podeEditar ? (
+                        <div className="mt-1">
+                          <GrauSelect
+                            grau={item.grauMinimo}
+                            action={updateBibliotecaGrau.bind(null, item.id)}
+                          />
+                        </div>
+                      ) : (
+                        item.grauMinimo !== "APRENDIZ" && (
+                          <p className="text-xs text-muted-foreground">
+                            {grauMinimoLabels[item.grauMinimo]}
+                          </p>
+                        )
                       )}
                     </TableCell>
                     <TableCell>{formatBytes(item.sizeBytes)}</TableCell>

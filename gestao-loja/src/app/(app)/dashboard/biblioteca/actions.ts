@@ -63,6 +63,23 @@ export async function uploadBibliotecaItem(
   return { ok: "Item adicionado à biblioteca da Loja." };
 }
 
+// Troca o nível de acesso de um item já enviado (select inline na listagem)
+export async function updateBibliotecaGrau(
+  id: string,
+  grau: string
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  if (!(GRAUS_ACERVO as readonly string[]).includes(grau)) {
+    return { error: "Nível de acesso inválido." };
+  }
+  await prisma.bibliotecaItem.update({
+    where: { id, lodgeId: user.lodgeId },
+    data: { grauMinimo: grau as never },
+  });
+  revalidatePath("/dashboard/biblioteca");
+  return { ok: "Nível de acesso atualizado." };
+}
+
 export async function deleteBibliotecaItem(id: string): Promise<ActionResult> {
   const user = await requireSecretariaWriter();
   await prisma.bibliotecaItem.delete({

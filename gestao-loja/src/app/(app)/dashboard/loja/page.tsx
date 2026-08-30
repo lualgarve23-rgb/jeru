@@ -67,6 +67,31 @@ export default async function LojaConfigPage({
     where: { id: user.lodgeId },
   });
 
+  // Uso do Assistente IA (perguntas enviadas), para calibrar os limites:
+  // hoje e mês corrente, separados em Obreiros × oficiais
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const perguntasDesde = (desde: Date, obreiros: boolean) =>
+    prisma.assistenteMensagem.count({
+      where: {
+        role: "user",
+        createdAt: { gte: desde },
+        conversa: {
+          lodgeId: user.lodgeId,
+          user: obreiros
+            ? { currentRole: "MEMBER" }
+            : { currentRole: { not: "MEMBER" } },
+        },
+      },
+    });
+  const [usoHojeObr, usoHojeOfi, usoMesObr, usoMesOfi] = await Promise.all([
+    perguntasDesde(hoje, true),
+    perguntasDesde(hoje, false),
+    perguntasDesde(inicioMes, true),
+    perguntasDesde(inicioMes, false),
+  ]);
+
   // Editor visual do certificado: converte o layout em vigor (EMU) para
   // frações da página do fundo, que é o que o editor manipula
   const certPdf = await PDFDocument.load(await fundoAtual(user.lodgeId));
@@ -220,7 +245,27 @@ export default async function LojaConfigPage({
             Venerável Mestre liga ou desliga.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="rounded-xl bg-secondary px-3 py-2 text-sm">
+              <p className="text-xs text-muted-foreground">Perguntas hoje</p>
+              <p className="font-semibold">
+                {usoHojeObr + usoHojeOfi}{" "}
+                <span className="text-xs font-normal text-muted-foreground">
+                  ({usoHojeObr} de Obreiros, {usoHojeOfi} de oficiais)
+                </span>
+              </p>
+            </div>
+            <div className="rounded-xl bg-secondary px-3 py-2 text-sm">
+              <p className="text-xs text-muted-foreground">Perguntas no mês</p>
+              <p className="font-semibold">
+                {usoMesObr + usoMesOfi}{" "}
+                <span className="text-xs font-normal text-muted-foreground">
+                  ({usoMesObr} de Obreiros, {usoMesOfi} de oficiais)
+                </span>
+              </p>
+            </div>
+          </div>
           {user.role === "VENERAVEL_MESTRE" ? (
             <ActionForm action={updateAssistenteAtivo} submitLabel="Salvar">
               <label className="flex items-center gap-2 text-sm">

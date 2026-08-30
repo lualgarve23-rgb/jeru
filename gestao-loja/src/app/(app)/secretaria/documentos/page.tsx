@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
 import { isDriveAvailable } from "@/lib/google-drive";
-import { uploadDocument } from "../actions";
+import { uploadDocument, updateDocumentoGrau } from "../actions";
+import { GrauSelect } from "@/components/grau-select";
 import { ActionForm } from "@/components/action-form";
 import { documentTypeLabels } from "@/lib/labels";
 import { grauWhere, grauMinimoLabels, GRAUS_ACERVO } from "@/lib/graus";
@@ -118,10 +119,19 @@ export default async function DocumentosPage() {
               <TableCell>{d.title}</TableCell>
               <TableCell>
                 {documentTypeLabels[d.type] ?? d.type}
-                {d.grauMinimo !== "APRENDIZ" && (
-                  <p className="text-xs text-muted-foreground">
-                    {grauMinimoLabels[d.grauMinimo]}
-                  </p>
+                {canWriteSecretaria(user.role) ? (
+                  <div className="mt-1">
+                    <GrauSelect
+                      grau={d.grauMinimo}
+                      action={updateDocumentoGrau.bind(null, d.id)}
+                    />
+                  </div>
+                ) : (
+                  d.grauMinimo !== "APRENDIZ" && (
+                    <p className="text-xs text-muted-foreground">
+                      {grauMinimoLabels[d.grauMinimo]}
+                    </p>
+                  )
                 )}
               </TableCell>
               <TableCell>{d.uploadedBy.name}</TableCell>
