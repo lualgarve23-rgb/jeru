@@ -7,7 +7,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Sparkles, SendHorizonal, X, Loader2, ArrowLeft } from "lucide-react";
+import {
+  Sparkles,
+  SendHorizonal,
+  X,
+  Loader2,
+  ArrowLeft,
+  History,
+  SquarePen,
+  Trash2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ordenarPorRota } from "@/lib/assistente/sugestoes";
 import {
@@ -17,6 +26,7 @@ import {
 
 type Msg = { role: "user" | "assistant"; content: string };
 type Sugestao = { texto: string; rotas?: string[] };
+type ConversaResumo = { id: string; titulo: string | null; updatedAt: string };
 
 // O modelo responde com **negrito** de Markdown; renderiza só isso, sem lib.
 function comNegrito(texto: string) {
@@ -36,6 +46,59 @@ export function Assistente({ sugestoes }: { sugestoes: Sugestao[] }) {
   const conversaId = useRef<string | undefined>(undefined);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fimRef = useRef<HTMLDivElement>(null);
+
+  // Histórico de conversas anteriores (lista dentro do próprio painel)
+  const [mostrarHistorico, setMostrarHistorico] = useState(false);
+  const [conversas, setConversas] = useState<ConversaResumo[] | null>(null);
+  const [carregando, setCarregando] = useState(false);
+
+  const abrirHistorico = useCallback(async () => {
+    setMostrarHistorico(true);
+    setErro(null);
+    try {
+      const res = await fetch("/api/assistente/conversas");
+      if (!res.ok) throw new Error();
+      setConversas((await res.json()).conversas);
+    } catch {
+      setConversas([]);
+      setErro("Não foi possível carregar as conversas anteriores.");
+    }
+  }, []);
+
+  const novaConversa = useCallback(() => {
+    conversaId.current = undefined;
+    setMsgs([]);
+    setErro(null);
+    setMostrarHistorico(false);
+  }, []);
+
+  const retomarConversa = useCallback(async (id: string) => {
+    setCarregando(true);
+    setErro(null);
+    try {
+      const res = await fetch(`/api/assistente/conversas/${id}`);
+      if (!res.ok) throw new Error();
+      const j: { id: string; mensagens: Msg[] } = await res.json();
+      conversaId.current = j.id;
+      setMsgs(j.mensagens);
+      setMostrarHistorico(false);
+    } catch {
+      setErro("Não foi possível abrir essa conversa.");
+    } finally {
+      setCarregando(false);
+    }
+  }, []);
+
+  const apagarConversa = useCallback(async (id: string) => {
+    setConversas((c) => c?.filter((x) => x.id !== id) ?? c);
+    if (conversaId.current === id) {
+      conversaId.current = undefined;
+      setMsgs([]);
+    }
+    await fetch(`/api/assistente/conversas/${id}`, { method: "DELETE" }).catch(
+      () => null
+    );
+  }, []);
 
   const chipsPanel = ordenarPorRota(sugestoes, pathname, 8);
 
@@ -78,6 +141,7 @@ export function Assistente({ sugestoes }: { sugestoes: Sugestao[] }) {
     const pergunta = (texto ?? input).trim();
     if (!pergunta || ocupado) return;
     abrir();
+    setMostrarHistorico(false);
     setInput("");
     setErro(null);
     setOcupado(true);
@@ -190,6 +254,31 @@ export function Assistente({ sugestoes }: { sugestoes: Sugestao[] }) {
               Respostas com base nos seus dados no sistema
             </p>
           </div>
+          {(msgs.length > 0 || mostrarHistorico) && (
+            <button
+              type="button"
+              aria-label="Nova conversa"
+              title="Nova conversa"
+              onClick={novaConversa}
+              className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary"
+            >
+              <SquarePen className="h-5 w-5" />
+            </button>
+          )}
+          <button
+            type="button"
+            aria-label="Conversas anteriores"
+            title="Conversas anteriores"
+            onClick={() =>
+              mostrarHistorico ? setMostrarHistorico(false) : abrirHistorico()
+            }
+            className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary",
+              mostrarHistorico && "bg-secondary text-foreground"
+            )}
+          >
+            <History className="h-5 w-5" />
+          </button>
           <button
             type="button"
             aria-label="Fechar assistente"
@@ -201,7 +290,64 @@ export function Assistente({ sugestoes }: { sugestoes: Sugestao[] }) {
         </header>
 
         <div className="flex-1 overflow-y-auto px-4 py-4">
-          {msgs.length === 0 ? (
+          {mostrarHistorico ? (
+            <div className="space-y-2">
+              <p className="mb-3 text-sm font-semibold">Conversas anteriores</p>
+              {conversas === null ? (
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
+                </p>
+              ) : conversas.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Você ainda não tem conversas guardadas — pergunte algo para
+                  começar.
+                </p>
+              ) : (
+                conversas.map((c) => (
+                  <div
+                    key={c.id}
+                    className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => retomarConversa(c.id)}
+                      disabled={carregando}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <p className="truncate text-sm">
+                        {c.titulo || "Conversa sem título"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(c.updatedAt).toLocaleDateString("pt-BR", {
+                          day: "2-digit",
+                          month: "short",
+                        })}{" "}
+                        às{" "}
+                        {new Date(c.updatedAt).toLocaleTimeString("pt-BR", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Apagar conversa"
+                      title="Apagar conversa"
+                      onClick={() => apagarConversa(c.id)}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))
+              )}
+              {erro && (
+                <p className="text-sm text-destructive" role="alert">
+                  {erro}
+                </p>
+              )}
+            </div>
+          ) : msgs.length === 0 ? (
             <div className="flex h-full flex-col justify-center gap-2">
               <p className="mb-2 text-center text-sm text-muted-foreground">
                 Toque numa pergunta para começar — dá para editar antes de
