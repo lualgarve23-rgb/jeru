@@ -177,7 +177,7 @@ describe("assistente — isolamento lodgeId (estático)", () => {
       /assistenteConversa\.findFirst\(\{\s*where:\s*\{\s*id:\s*conversaId,\s*lodgeId:\s*user\.lodgeId,\s*userId:\s*user\.id/
     );
     expect(src).toMatch(/assistenteAtivo/);
-    expect(src).toMatch(/LIMITE_DIARIO/);
+    expect(src).toMatch(/limiteDiarioPara\(user\.role, lodge\)/);
   });
 });
 

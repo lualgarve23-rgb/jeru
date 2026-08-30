@@ -78,6 +78,9 @@ model Lodge {
   conviteFrase        String?
   // Assistente IA (chatbot): o VM pode desligar nas Configurações da Loja
   assistenteAtivo     Boolean @default(true)
+  // Limites diários de perguntas ao assistente, por nível (0 = fechado ao nível)
+  assistenteLimiteObreiros Int @default(20)
+  assistenteLimiteOficiais Int @default(50)
   // Posição do painel de dados sobre a arte do convite (editor visual):
   // frações da imagem {x, y, w}; null = painel centralizado (padrão)
   conviteArteLayout   Json?

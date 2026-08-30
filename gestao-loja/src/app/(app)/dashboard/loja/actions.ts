@@ -58,9 +58,20 @@ export async function updateAssistenteAtivo(
 ): Promise<ActionResult> {
   const user = await requireRole("VENERAVEL_MESTRE");
   const ativo = formData.get("assistenteAtivo") === "on";
+  // Limites diários por nível: inteiro 0–500 (0 = fechado ao nível)
+  const limite = (campo: string, padrao: number) => {
+    const n = Math.trunc(Number(formData.get(campo)));
+    return Number.isFinite(n) ? Math.min(500, Math.max(0, n)) : padrao;
+  };
+  const limiteObreiros = limite("assistenteLimiteObreiros", 20);
+  const limiteOficiais = limite("assistenteLimiteOficiais", 50);
   await prisma.lodge.update({
     where: { id: user.lodgeId },
-    data: { assistenteAtivo: ativo },
+    data: {
+      assistenteAtivo: ativo,
+      assistenteLimiteObreiros: limiteObreiros,
+      assistenteLimiteOficiais: limiteOficiais,
+    },
   });
   await auditar({
     lodgeId: user.lodgeId,
@@ -68,7 +79,7 @@ export async function updateAssistenteAtivo(
     acao: "loja.assistente",
     entidade: "Lodge",
     entidadeId: user.lodgeId,
-    detalhes: { ativo },
+    detalhes: { ativo, limiteObreiros, limiteOficiais },
   });
   revalidatePath("/dashboard/loja");
   revalidatePath("/dashboard");

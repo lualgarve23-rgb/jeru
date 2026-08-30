@@ -232,10 +232,46 @@ export default async function LojaConfigPage({
                 />
                 Assistente IA ativo para os irmãos da loja
               </label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="assistenteLimiteObreiros">
+                    Perguntas por dia — Obreiros
+                  </Label>
+                  <Input
+                    id="assistenteLimiteObreiros"
+                    name="assistenteLimiteObreiros"
+                    type="number"
+                    min={0}
+                    max={500}
+                    defaultValue={lodge.assistenteLimiteObreiros}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="assistenteLimiteOficiais">
+                    Perguntas por dia — Oficiais
+                  </Label>
+                  <Input
+                    id="assistenteLimiteOficiais"
+                    name="assistenteLimiteOficiais"
+                    type="number"
+                    min={0}
+                    max={500}
+                    defaultValue={lodge.assistenteLimiteOficiais}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Limite diário por irmão. Oficiais são os cargos de gestão
+                (Venerável, Secretário, Tesoureiro, Conselho de Contas,
+                Esmoler). Use 0 para fechar o assistente ao nível.
+              </p>
             </ActionForm>
           ) : (
             <p className="text-sm text-muted-foreground">
-              O assistente está {lodge.assistenteAtivo ? "ativado" : "desativado"}.
+              O assistente está {lodge.assistenteAtivo ? "ativado" : "desativado"}
+              {lodge.assistenteAtivo &&
+                ` (até ${lodge.assistenteLimiteObreiros} pergunta(s)/dia para Obreiros e ${lodge.assistenteLimiteOficiais} para oficiais)`}
+              .
             </p>
           )}
         </CardContent>

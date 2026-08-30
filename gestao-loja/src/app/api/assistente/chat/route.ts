@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { auditar } from "@/lib/audit";
 import { systemPrompt } from "@/lib/assistente/prompt";
+import { limiteDiarioPara, separarSugestoes } from "@/lib/assistente/limites";
 import {
   ferramentasPara,
   paraAnthropicTools,
@@ -15,7 +16,6 @@ import {
 export const runtime = "nodejs";
 
 const MODEL = process.env.ASSISTENTE_MODEL || "claude-haiku-4-5";
-const LIMITE_DIARIO = Number(process.env.ASSISTENTE_LIMITE_DIARIO || 50);
 const MAX_ITERACOES = 6;
 const MAX_HISTORICO = 20;
 
@@ -55,7 +55,14 @@ export async function POST(req: NextRequest) {
   const [lodge, perfil] = await Promise.all([
     prisma.lodge.findUniqueOrThrow({
       where: { id: user.lodgeId },
-      select: { name: true, number: true, oriente: true, assistenteAtivo: true },
+      select: {
+        name: true,
+        number: true,
+        oriente: true,
+        assistenteAtivo: true,
+        assistenteLimiteObreiros: true,
+        assistenteLimiteOficiais: true,
+      },
     }),
     prisma.user.findUniqueOrThrow({
       where: { id: user.id },
@@ -68,7 +75,13 @@ export async function POST(req: NextRequest) {
       { status: 403 }
     );
 
-  // Limite diário por usuário (perguntas enviadas hoje)
+  // Limite diário por usuário (perguntas enviadas hoje), por nível na loja
+  const limiteDiario = limiteDiarioPara(user.role, lodge);
+  if (limiteDiario <= 0)
+    return Response.json(
+      { error: "O assistente está fechado para o seu nível nesta loja." },
+      { status: 403 }
+    );
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
   const usadas = await prisma.assistenteMensagem.count({
@@ -78,9 +91,11 @@ export async function POST(req: NextRequest) {
       conversa: { lodgeId: user.lodgeId, userId: user.id },
     },
   });
-  if (usadas >= LIMITE_DIARIO)
+  if (usadas >= limiteDiario)
     return Response.json(
-      { error: "Limite diário de perguntas atingido. Volte amanhã." },
+      {
+        error: `Limite diário de ${limiteDiario} pergunta(s) atingido. Volte amanhã.`,
+      },
       { status: 429 }
     );
 
@@ -192,11 +207,13 @@ export async function POST(req: NextRequest) {
         }
 
         if (respostaCompleta) {
+          // Persiste sem a linha de sugestões de continuação (só UI desta sessão)
+          const { resposta } = separarSugestoes(respostaCompleta);
           await prisma.assistenteMensagem.create({
             data: {
               conversaId: conversaIdFinal,
               role: "assistant",
-              content: respostaCompleta,
+              content: resposta || respostaCompleta,
             },
           });
           await prisma.assistenteConversa.update({

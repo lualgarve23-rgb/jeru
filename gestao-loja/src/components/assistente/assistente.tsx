@@ -10,6 +10,10 @@ import { usePathname } from "next/navigation";
 import { Sparkles, SendHorizonal, X, Loader2, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ordenarPorRota } from "@/lib/assistente/sugestoes";
+import {
+  separarSugestoes,
+  ocultarMarcadorParcial,
+} from "@/lib/assistente/limites";
 
 type Msg = { role: "user" | "assistant"; content: string };
 type Sugestao = { texto: string; rotas?: string[] };
@@ -216,28 +220,54 @@ export function Assistente({ sugestoes }: { sugestoes: Sugestao[] }) {
             </div>
           ) : (
             <div className="space-y-3">
-              {msgs.map((m, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm",
-                    m.role === "user"
-                      ? "ml-auto bg-primary text-white"
-                      : "bg-secondary text-foreground"
-                  )}
-                >
-                  {m.content ? (
-                    comNegrito(m.content)
-                  ) : ocupado && i === msgs.length - 1 ? (
-                    <span className="flex items-center gap-2 text-muted-foreground">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      {statusTool ?? "Pensando…"}
-                    </span>
-                  ) : (
-                    ""
-                  )}
-                </div>
-              ))}
+              {msgs.map((m, i) => {
+                // Sugestões de continuação da IA viram chips (só na última
+                // resposta, terminada); o marcador nunca aparece no texto.
+                const { resposta, sugestoes } =
+                  m.role === "assistant"
+                    ? separarSugestoes(m.content)
+                    : { resposta: m.content, sugestoes: [] };
+                const texto = ocultarMarcadorParcial(resposta);
+                const mostrarSugestoes =
+                  !ocupado && i === msgs.length - 1 && sugestoes.length > 0;
+                return (
+                  <div key={i}>
+                    <div
+                      className={cn(
+                        "max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm",
+                        m.role === "user"
+                          ? "ml-auto bg-primary text-white"
+                          : "bg-secondary text-foreground"
+                      )}
+                    >
+                      {texto ? (
+                        comNegrito(texto)
+                      ) : ocupado && i === msgs.length - 1 ? (
+                        <span className="flex items-center gap-2 text-muted-foreground">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          {statusTool ?? "Pensando…"}
+                        </span>
+                      ) : (
+                        ""
+                      )}
+                    </div>
+                    {mostrarSugestoes && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {sugestoes.map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => preencher(s)}
+                            className="rounded-full border border-border bg-background px-3 py-1.5 text-xs text-foreground hover:border-primary/40"
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
               {erro && (
                 <p className="text-sm text-destructive" role="alert">
                   {erro}
