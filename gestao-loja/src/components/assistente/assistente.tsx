@@ -1,12 +1,13 @@
 "use client";
 
-// Assistente IA — barra fixa inferior + painel lateral com streaming SSE.
-// Os chips PREENCHEM o input sem enviar; trechos ___ ficam selecionados
-// para o usuário completar antes de enviar.
+// Assistente IA — ícone flutuante que abre o chat: tela cheia no mobile
+// (com "Voltar ao aplicativo" e botão voltar do Android via histórico),
+// painel lateral no desktop. Os chips PREENCHEM o input sem enviar;
+// trechos ___ ficam selecionados para o usuário completar antes de enviar.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Sparkles, SendHorizonal, X, Loader2 } from "lucide-react";
+import { Sparkles, SendHorizonal, X, Loader2, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ordenarPorRota } from "@/lib/assistente/sugestoes";
 
@@ -32,16 +33,32 @@ export function Assistente({ sugestoes }: { sugestoes: Sugestao[] }) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fimRef = useRef<HTMLDivElement>(null);
 
-  const chipsBar = ordenarPorRota(sugestoes, pathname, 2);
   const chipsPanel = ordenarPorRota(sugestoes, pathname, 8);
 
   useEffect(() => {
     fimRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs, statusTool]);
 
+  // Abrir/fechar com entrada no histórico: o botão voltar do celular fecha
+  // o chat em vez de sair da página.
+  const abrir = useCallback(() => {
+    setOpen((jaAberto) => {
+      if (!jaAberto) window.history.pushState({ assistente: true }, "");
+      return true;
+    });
+  }, []);
+  const fechar = useCallback(() => {
+    if (window.history.state?.assistente) window.history.back();
+    else setOpen(false);
+  }, []);
+  useEffect(() => {
+    const aoVoltar = () => setOpen(false);
+    window.addEventListener("popstate", aoVoltar);
+    return () => window.removeEventListener("popstate", aoVoltar);
+  }, []);
+
   // Chip preenche SEM enviar; se tiver ___, seleciona o trecho para completar
   const preencher = useCallback((texto: string) => {
-    setOpen(true);
     setInput(texto);
     requestAnimationFrame(() => {
       const el = inputRef.current;
@@ -56,7 +73,7 @@ export function Assistente({ sugestoes }: { sugestoes: Sugestao[] }) {
   async function enviar(texto?: string) {
     const pergunta = (texto ?? input).trim();
     if (!pergunta || ocupado) return;
-    setOpen(true);
+    abrir();
     setInput("");
     setErro(null);
     setOcupado(true);
@@ -125,49 +142,16 @@ export function Assistente({ sugestoes }: { sugestoes: Sugestao[] }) {
 
   return (
     <>
-      {/* Barra fixa inferior (acima do BottomNav no mobile) */}
+      {/* Ícone flutuante do assistente (acima do BottomNav no mobile) */}
       {!open && (
-        <div className="fixed inset-x-3 bottom-[5.2rem] z-30 mx-auto max-w-xl print:hidden lg:inset-x-auto lg:bottom-4 lg:left-1/2 lg:ml-32 lg:w-full lg:-translate-x-1/2">
-          <div className="flex flex-col gap-1.5">
-            <div className="hidden justify-center gap-2 lg:flex">
-              {chipsBar.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => preencher(c)}
-                  className="rounded-full border border-border bg-card/95 px-3 py-1 text-xs text-muted-foreground shadow-card backdrop-blur-md hover:text-foreground"
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                enviar();
-              }}
-              className="flex items-center gap-2 rounded-full border border-border bg-card/95 py-1.5 pl-4 pr-1.5 shadow-card backdrop-blur-md"
-            >
-              <Sparkles className="h-4 w-4 shrink-0 text-primary" />
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onFocus={() => msgs.length > 0 && setOpen(true)}
-                placeholder="Pergunte ao Assistente da Loja…"
-                aria-label="Pergunte ao Assistente da Loja"
-                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-              />
-              <button
-                type="submit"
-                aria-label="Enviar pergunta"
-                disabled={!input.trim() || ocupado}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-white disabled:opacity-40"
-              >
-                <SendHorizonal className="h-4 w-4" />
-              </button>
-            </form>
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={abrir}
+          aria-label="Abrir o Assistente da Loja"
+          className="fixed bottom-[5.2rem] right-4 z-30 flex h-13 w-13 items-center justify-center rounded-full bg-primary text-white shadow-xl transition-transform hover:scale-105 print:hidden lg:bottom-6 lg:right-6"
+        >
+          <Sparkles className="h-6 w-6" />
+        </button>
       )}
 
       {/* Painel lateral */}
@@ -175,18 +159,26 @@ export function Assistente({ sugestoes }: { sugestoes: Sugestao[] }) {
         <div
           className="fixed inset-0 z-50 bg-black/40 lg:bg-black/20"
           aria-hidden="true"
-          onClick={() => setOpen(false)}
+          onClick={fechar}
         />
       )}
       <aside
         role="dialog"
         aria-label="Assistente da Loja"
         className={cn(
-          "fixed inset-y-0 right-0 z-50 flex w-full max-w-md translate-x-full flex-col bg-card shadow-xl transition-transform duration-200 ease-out print:hidden",
+          "fixed inset-y-0 right-0 z-50 flex w-full translate-x-full flex-col bg-card shadow-xl transition-transform duration-200 ease-out print:hidden lg:max-w-md",
           open && "translate-x-0"
         )}
       >
         <header className="flex items-center gap-2 border-b border-border px-4 py-3">
+          <button
+            type="button"
+            aria-label="Voltar ao aplicativo"
+            onClick={fechar}
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary lg:hidden"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
           <Sparkles className="h-5 w-5 text-primary" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-bold leading-tight">Assistente da Loja</p>
@@ -197,8 +189,8 @@ export function Assistente({ sugestoes }: { sugestoes: Sugestao[] }) {
           <button
             type="button"
             aria-label="Fechar assistente"
-            onClick={() => setOpen(false)}
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary"
+            onClick={fechar}
+            className="hidden h-9 w-9 items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary lg:flex"
           >
             <X className="h-5 w-5" />
           </button>
