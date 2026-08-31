@@ -36,6 +36,11 @@ const CATALOGO: Sugestao[] = [
     roles: ["VENERAVEL_MESTRE", "SECRETARIO", "CONSELHO_CONTAS", "ESMOLER"],
   },
   {
+    texto: "Quem confirmou presença na próxima sessão? Alguém justificou?",
+    rotas: ["/secretaria/sessoes", "/dashboard/sessoes"],
+    roles: ["VENERAVEL_MESTRE", "SECRETARIO", "CONSELHO_CONTAS"],
+  },
+  {
     texto: "Quantos obreiros temos por grau e situação?",
     rotas: ["/secretaria"],
     roles: ["VENERAVEL_MESTRE", "SECRETARIO", "CONSELHO_CONTAS"],

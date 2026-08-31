@@ -57,6 +57,7 @@ describe("assistente — ferramentas", () => {
     "inadimplencia_loja",
     "quadro_membros",
     "frequencia_loja",
+    "confirmacoes_sessao",
     "processos_loja",
     "mutua_loja",
   ];
@@ -83,6 +84,7 @@ describe("assistente — ferramentas", () => {
     );
     expect(fs).not.toContain("quadro_membros");
     expect(fs).not.toContain("frequencia_loja");
+    expect(fs).not.toContain("confirmacoes_sessao");
     expect(fs).not.toContain("mutua_loja");
   });
 
@@ -92,6 +94,7 @@ describe("assistente — ferramentas", () => {
       expect.arrayContaining([
         "quadro_membros",
         "frequencia_loja",
+        "confirmacoes_sessao",
         "processos_loja",
         "mutua_loja",
       ])
@@ -146,6 +149,7 @@ describe("assistente — ferramentas", () => {
     );
     expect(fs).not.toContain("financas_loja");
     expect(fs).not.toContain("quadro_membros");
+    expect(fs).not.toContain("confirmacoes_sessao");
     expect(fs).not.toContain("mutua_loja");
   });
 });

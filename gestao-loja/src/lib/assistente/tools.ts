@@ -469,6 +469,103 @@ export const FERRAMENTAS: Ferramenta[] = [
     },
   },
   {
+    nome: "confirmacoes_sessao",
+    descricao:
+      "Confirmações de presença (RSVP do convite) e ausências justificadas dos irmãos, sessão a sessão: quem confirmou (e se fica para o Ágape), quem justificou (com o texto da justificativa) e quem ainda não respondeu. Cobre as próximas sessões e a última realizada. Disponível para Venerável, Secretário e Conselho de Contas.",
+    inputSchema: semInput,
+    disponivel: leSecretaria,
+    executar: async (user) => {
+      const agora = new Date();
+      const [proximas, ultima, membros] = await Promise.all([
+        prisma.lodgeSession.findMany({
+          where: { lodgeId: user.lodgeId, date: { gte: agora } },
+          orderBy: { date: "asc" },
+          take: 2,
+          select: { id: true, date: true, type: true, degree: true },
+        }),
+        prisma.lodgeSession.findFirst({
+          where: { lodgeId: user.lodgeId, date: { lt: agora } },
+          orderBy: { date: "desc" },
+          select: { id: true, date: true, type: true, degree: true },
+        }),
+        prisma.user.findMany({
+          where: {
+            lodgeId: user.lodgeId,
+            status: { in: ["ATIVO", "IRREGULAR"] },
+            currentRole: { not: "SUPER_ADMIN" },
+          },
+          select: { id: true, name: true },
+        }),
+      ]);
+      const sessoes = [...proximas, ...(ultima ? [ultima] : [])];
+      if (!sessoes.length)
+        return { info: "Nenhuma sessão agendada ou realizada na loja." };
+      const nomePorId = new Map(membros.map((m) => [m.id, m.name]));
+      const resumo = async (
+        s: (typeof sessoes)[number],
+        passada: boolean
+      ) => {
+        const regs = await prisma.attendance.findMany({
+          where: { lodgeId: user.lodgeId, sessionId: s.id, userId: { not: null } },
+          select: {
+            userId: true,
+            checkedIn: true,
+            rsvpAt: true,
+            agapeConfirmed: true,
+            justificado: true,
+            justificativa: true,
+            user: { select: { name: true } },
+          },
+        });
+        const responderam = new Set(regs.map((r) => r.userId));
+        const semResposta = membros
+          .filter((m) => !responderam.has(m.id))
+          .map((m) => m.name);
+        const justificados = regs
+          .filter((r) => r.justificado)
+          .map((r) => ({
+            nome: r.user?.name ?? "?",
+            justificativa: r.justificativa,
+          }));
+        return {
+          sessao: {
+            data: s.date.toLocaleString("pt-BR", {
+              timeZone: "America/Sao_Paulo",
+              dateStyle: "full",
+              timeStyle: "short",
+            }),
+            tipo: s.type,
+            grau: s.degree === "NA" ? null : s.degree,
+            situacao: passada ? "realizada" : "agendada",
+          },
+          ...(passada
+            ? {
+                presentes: regs
+                  .filter((r) => r.checkedIn)
+                  .map((r) => r.user?.name ?? "?"),
+              }
+            : {
+                confirmados: regs
+                  .filter((r) => !r.justificado && (r.rsvpAt || r.checkedIn))
+                  .map((r) => ({
+                    nome: r.user?.name ?? "?",
+                    agape: r.agapeConfirmed,
+                    confirmouEm: r.rsvpAt ? dataBr(r.rsvpAt) : null,
+                  })),
+              }),
+          justificados,
+          semResposta,
+        };
+      };
+      return {
+        totalMembrosAtivos: nomePorId.size,
+        sessoes: await Promise.all(
+          sessoes.map((s) => resumo(s, ultima ? s.id === ultima.id : false))
+        ),
+      };
+    },
+  },
+  {
     nome: "processos_loja",
     descricao:
       "Processos em andamento na loja (Atestados de Regularidade e Quitte Placets de todos os irmãos), com solicitante, status e assinaturas pendentes. Disponível para Venerável, Secretário, Tesoureiro e Conselho de Contas.",
