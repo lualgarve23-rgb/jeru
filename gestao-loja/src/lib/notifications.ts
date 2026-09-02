@@ -41,7 +41,7 @@ function addMonths(d: Date, months: number) {
 // da central de notificações (uma entrada por sourceKey).
 async function collectPending(lodgeId: string): Promise<Pending[]> {
   const now = new Date();
-  const [atas, placets, members, magnas, progressoes, atestados, processos] = await Promise.all([
+  const [atas, placets, members, magnas, progressoes, atestados, processos, afastamentos] = await Promise.all([
     prisma.ata.findMany({
       where: { lodgeId, status: "AGUARDANDO_ASSINATURAS" },
       include: { session: { select: { date: true } } },
@@ -94,9 +94,73 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
         },
       },
     }),
+    prisma.pedidoAfastamento.findMany({
+      where: {
+        lodgeId,
+        OR: [
+          { status: { in: ["AGUARDANDO_OBREIRO", "SOLICITADO", "EM_ASSINATURA"] } },
+          { status: "ASSINADO", enviadoAt: null },
+        ],
+      },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        dias: true,
+        createdAt: true,
+        signedBySecAt: true,
+        user: { select: { name: true, cim: true } },
+      },
+    }),
   ]);
 
   const pending: Pending[] = [];
+
+  // Pedidos de Afastamento (Form. 116) — cada etapa gera a sua notificação
+  // (a etapa compõe a sourceKey): lembrete pessoal ao irmão para assinar o
+  // requerimento; à gestão, deliberação/registro da sessão, assinaturas
+  // (Secretário → VM) e envio à Guarda dos Selos.
+  for (const p of afastamentos) {
+    const quem = `${p.user.name} (CIM ${p.user.cim})`;
+    const aberto = p.createdAt.toLocaleDateString("pt-BR");
+    if (p.status === "AGUARDANDO_OBREIRO") {
+      pending.push({
+        sourceKey: `afastamento:${p.id}:obreiro`,
+        userId: p.userId,
+        type: "PENDING_SIGNATURE",
+        title: "Assine o seu requerimento de afastamento no gov.br",
+        description: `O pedido de licença por ${p.dias} dias, aberto em ${aberto}, só chega à Secretaria depois da sua assinatura gov.br.`,
+        link: "/solicitacoes/afastamento",
+      });
+    } else if (p.status === "SOLICITADO") {
+      pending.push({
+        sourceKey: `afastamento:${p.id}:sessao`,
+        type: "MISSING_DATA",
+        title: `Pedido de afastamento de ${p.user.name} aguarda deliberação`,
+        description: `${quem} requereu licença por ${p.dias} dias (requerimento assinado gov.br em ${aberto}). Após a sessão, registre a data e o artigo em Processos para gerar o Form. 116.`,
+        link: "/secretaria/processos",
+      });
+    } else if (p.status === "EM_ASSINATURA") {
+      const cargo = p.signedBySecAt
+        ? { key: "vm", label: "Venerável Mestre" }
+        : { key: "sec", label: "Secretário" };
+      pending.push({
+        sourceKey: `afastamento:${p.id}:${cargo.key}`,
+        type: "PENDING_SIGNATURE",
+        title: `Form. 116 de ${p.user.name} aguarda assinatura do ${cargo.label}`,
+        description: `Pedido de afastamento de ${quem} — é a vez do ${cargo.label} assinar o Form. 116 no gov.br (ordem: Secretário e Venerável Mestre).`,
+        link: "/secretaria/processos",
+      });
+    } else {
+      pending.push({
+        sourceKey: `afastamento:${p.id}:envio`,
+        type: "DEADLINE_WARNING",
+        title: `Form. 116 de ${p.user.name} pronto para envio à Guarda dos Selos`,
+        description: `Assinado pelos dois cargos — envie em Processos; ao enviar, ${p.user.name} passa a LICENCIADO.`,
+        link: "/secretaria/processos",
+      });
+    }
+  }
 
   // Assinaturas pendentes (dupla assinatura VM + Secretário)
   for (const ata of atas) {

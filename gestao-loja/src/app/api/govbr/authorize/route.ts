@@ -6,6 +6,10 @@ import { isGovbrConfigured, govbrAuthorizeUrl } from "@/lib/govbr";
 import { ordemAssinaturaAtestado } from "@/lib/atestado";
 import { ordemAssinaturaQuitte, bloqueioAssinaturaQuitte } from "@/lib/quitte";
 import { estadoProcesso, cargosProcessoDoUsuario } from "@/lib/processos";
+import {
+  ordemAssinaturaAfastamento,
+  bloqueioAssinaturaAfastamento,
+} from "@/lib/afastamento";
 
 // Início do fluxo de assinatura gov.br de uma ata: valida a elegibilidade do
 // assinante, grava o state em cookie e redireciona ao login gov.br.
@@ -116,6 +120,48 @@ export async function GET(req: NextRequest) {
     const state = randomUUID();
     const res = NextResponse.redirect(govbrAuthorizeUrl(state));
     res.cookies.set("govbr_oauth", JSON.stringify({ state, quitteId }), {
+      httpOnly: true,
+      secure: baseUrl.startsWith("https"),
+      sameSite: "lax",
+      maxAge: 600,
+      path: "/api/govbr",
+    });
+    return res;
+  }
+
+  // Pedido de Afastamento (Form. 116): o REQUERIMENTO é assinado pelo próprio
+  // irmão (dono do pedido, qualquer nível); o Form. 116 pelo Secretário e, por
+  // último, pelo VM.
+  const afastamentoId = req.nextUrl.searchParams.get("afastamento");
+  if (afastamentoId) {
+    const pedido = await prisma.pedidoAfastamento.findUnique({
+      where: { id: afastamentoId, lodgeId: session.user.lodgeId },
+    });
+    const souDono = pedido?.userId === session.user.id;
+    const backUrl = new URL(
+      souDono && pedido?.status === "AGUARDANDO_OBREIRO"
+        ? "/solicitacoes/afastamento"
+        : "/secretaria/processos",
+      baseUrl
+    );
+    const back = (motivo: string) => {
+      backUrl.searchParams.set("govbr", motivo);
+      return NextResponse.redirect(backUrl);
+    };
+    if (!pedido) return back("falhou");
+    if (!isGovbrConfigured()) return back("nao-configurado");
+    if (pedido.status === "AGUARDANDO_OBREIRO") {
+      if (!souDono) return back("nao-assinante");
+    } else {
+      if (!["VENERAVEL_MESTRE", "SECRETARIO"].includes(role!)) return back("nao-assinante");
+      if (bloqueioAssinaturaAfastamento(pedido)) return back("bloqueado");
+      const ordem = ordemAssinaturaAfastamento(role!, pedido);
+      if (ordem.jaAssinou) return back("ja-assinou");
+      if (ordem.aguardando) return back("ordem");
+    }
+    const state = randomUUID();
+    const res = NextResponse.redirect(govbrAuthorizeUrl(state));
+    res.cookies.set("govbr_oauth", JSON.stringify({ state, afastamentoId }), {
       httpOnly: true,
       secure: baseUrl.startsWith("https"),
       sameSite: "lax",

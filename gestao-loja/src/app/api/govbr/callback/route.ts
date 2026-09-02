@@ -26,6 +26,15 @@ import {
   cargoLabel,
   concluirProcessoNaPrancha,
 } from "@/lib/processos";
+import {
+  ordemAssinaturaAfastamento,
+  camposAssinaturaAfastamento,
+  cargoAssinanteAfastamento,
+  bloqueioAssinaturaAfastamento,
+  arquivarAfastamentoNoDrive,
+  gerarRequerimentoPdf,
+} from "@/lib/afastamento";
+import { auditar } from "@/lib/audit";
 import { arquivarVersaoFinalNoDrive } from "@/lib/google-drive";
 import { arquivarAtestadoNoDrive } from "@/app/(app)/secretaria/_actions/atestados";
 
@@ -49,6 +58,7 @@ export async function GET(req: NextRequest) {
   let atestadoId: string | null = null;
   let quitteId: string | null = null;
   let processoId: string | null = null;
+  let afastamentoId: string | null = null;
   try {
     const parsed = JSON.parse(cookie ?? "") as {
       state: string;
@@ -56,12 +66,14 @@ export async function GET(req: NextRequest) {
       atestadoId?: string;
       quitteId?: string;
       processoId?: string;
+      afastamentoId?: string;
     };
     if (parsed.state === req.nextUrl.searchParams.get("state")) {
       ataId = parsed.ataId ?? null;
       atestadoId = parsed.atestadoId ?? null;
       quitteId = parsed.quitteId ?? null;
       processoId = parsed.processoId ?? null;
+      afastamentoId = parsed.afastamentoId ?? null;
     }
   } catch {
     // cookie ausente/ilegível — tratado abaixo
@@ -77,6 +89,11 @@ export async function GET(req: NextRequest) {
   if (quitteId) {
     if (!cargoFiscal) return NextResponse.redirect(new URL("/dashboard", baseUrl));
     return assinarQuitte(req, baseUrl, session.user, role!, quitteId);
+  }
+
+  // ── Pedido de Afastamento (requerimento do irmão ou Form. 116) ──
+  if (afastamentoId) {
+    return assinarAfastamento(req, baseUrl, session.user, role!, afastamentoId);
   }
 
   // ── Documento da seção Processos ──
@@ -431,6 +448,128 @@ async function assinarAtestado(
     }
   } catch (e) {
     console.error("govbr callback (atestado):", e);
+    return fail("falhou");
+  }
+
+  backUrl.searchParams.set("govbr", "ok");
+  const res = NextResponse.redirect(backUrl);
+  res.cookies.delete({ name: "govbr_oauth", path: "/api/govbr" });
+  return res;
+}
+
+// Assinatura gov.br do Pedido de Afastamento. Duas fases no mesmo pedido:
+// (1) AGUARDANDO_OBREIRO — o PRÓPRIO irmão assina o requerimento (a conta
+// gov.br precisa ser dele, conferida pelo CPF) e o pedido segue à Secretaria;
+// (2) EM_ASSINATURA — Secretário e, por último, o VM assinam o Form. 116.
+async function assinarAfastamento(
+  req: NextRequest,
+  baseUrl: string,
+  sessionUser: { id: string; lodgeId: string; name: string },
+  role: string,
+  afastamentoId: string
+) {
+  const pedido = await prisma.pedidoAfastamento.findUnique({
+    where: { id: afastamentoId, lodgeId: sessionUser.lodgeId },
+    include: { user: { select: { name: true } } },
+  });
+  const souDono = pedido?.userId === sessionUser.id;
+  const faseObreiro = pedido?.status === "AGUARDANDO_OBREIRO";
+  const backUrl = new URL(
+    souDono && faseObreiro ? "/solicitacoes/afastamento" : "/secretaria/processos",
+    baseUrl
+  );
+  const fail = (motivo: string) => {
+    backUrl.searchParams.set("govbr", motivo);
+    const res = NextResponse.redirect(backUrl);
+    res.cookies.delete({ name: "govbr_oauth", path: "/api/govbr" });
+    return res;
+  };
+  const code = req.nextUrl.searchParams.get("code");
+  if (!code) return fail("negado");
+  if (!pedido) return fail("falhou");
+
+  const ordem = faseObreiro ? null : ordemAssinaturaAfastamento(role, pedido);
+  if (faseObreiro) {
+    if (!souDono) return fail("nao-assinante");
+  } else {
+    if (!["VENERAVEL_MESTRE", "SECRETARIO"].includes(role)) return fail("nao-assinante");
+    if (bloqueioAssinaturaAfastamento(pedido)) return fail("bloqueado");
+    if (ordem!.jaAssinou) return fail("ja-assinou");
+    if (ordem!.aguardando) return fail("ordem");
+  }
+
+  try {
+    const token = await govbrExchangeCode(code);
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: sessionUser.id },
+      select: { cpf: true, name: true },
+    });
+    const govbrCpf = govbrCpfFromToken(token);
+    if (govbrCpf && govbrCpf !== user.cpf.replace(/\D/g, "")) {
+      return fail("cpf-divergente");
+    }
+
+    if (faseObreiro) {
+      // Registra a data antes de gerar o PDF, para o bloco de assinatura
+      // constar no requerimento; revertida se a PKCS#7 falhar
+      const agora = new Date();
+      await prisma.pedidoAfastamento.update({
+        where: { id: afastamentoId, lodgeId: sessionUser.lodgeId },
+        data: { requerimentoSignedAt: agora },
+      });
+      try {
+        const base = (await gerarRequerimentoPdf(afastamentoId, sessionUser.lodgeId)).pdf;
+        const signed = await assinarPdfComGovbr(base, token, {
+          name: user.name,
+          reason: `Assinatura gov.br — Obreiro requerente: ${user.name}`,
+        });
+        await prisma.pedidoAfastamento.update({
+          where: { id: afastamentoId, lodgeId: sessionUser.lodgeId },
+          data: { requerimentoPdf: new Uint8Array(signed), status: "SOLICITADO" },
+        });
+      } catch (e) {
+        await prisma.pedidoAfastamento.update({
+          where: { id: afastamentoId, lodgeId: sessionUser.lodgeId },
+          data: { requerimentoSignedAt: null },
+        });
+        throw e;
+      }
+      await auditar({
+        lodgeId: sessionUser.lodgeId,
+        ator: { id: sessionUser.id, name: sessionUser.name },
+        acao: "afastamento.assinar-requerimento",
+        entidade: "PedidoAfastamento",
+        entidadeId: afastamentoId,
+        detalhes: { via: "govbr-oauth" },
+      });
+    } else {
+      const base = pedido.govbrPdf ?? pedido.formularioPdf!;
+      const cargo = cargoAssinanteAfastamento(role);
+      const signed = await assinarPdfComGovbr(Buffer.from(base), token, {
+        name: user.name,
+        reason: `Assinatura gov.br — ${cargo}: ${user.name}`,
+      });
+      await prisma.pedidoAfastamento.update({
+        where: { id: afastamentoId, lodgeId: sessionUser.lodgeId },
+        data: {
+          govbrPdf: new Uint8Array(signed),
+          ...camposAssinaturaAfastamento(role, sessionUser.id),
+          ...(ordem!.ultimaAssinatura ? { status: "ASSINADO" as const } : {}),
+        },
+      });
+      if (ordem!.ultimaAssinatura) {
+        const aviso = await arquivarAfastamentoNoDrive(
+          sessionUser.lodgeId,
+          sessionUser.id,
+          afastamentoId,
+          pedido.user.name,
+          signed
+        );
+        if (aviso) console.warn("govbr callback (afastamento) drive:", aviso);
+      }
+    }
+  } catch (e) {
+    console.error("govbr callback (afastamento):", e);
     return fail("falhou");
   }
 

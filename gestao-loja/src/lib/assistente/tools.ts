@@ -5,6 +5,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { pendenteComAfastamento } from "@/lib/afastamento";
 import { textoDePdf } from "@/lib/extrai-texto";
 import {
   frequenciaAnual,
@@ -205,11 +206,11 @@ export const FERRAMENTAS: Ferramenta[] = [
   {
     nome: "meus_processos",
     descricao:
-      "Processos pessoais do usuário: pedidos de Atestado de Regularidade e de Quitte Placet, com status e assinaturas já feitas.",
+      "Solicitações pessoais do usuário à Secretaria: pedidos de Atestado de Regularidade, de Quitte Placet e de Afastamento (Form. 116), com status, etapa pendente e assinaturas já feitas.",
     inputSchema: semInput,
     disponivel: paraTodos,
     executar: async (user) => {
-      const [atestados, quittes] = await Promise.all([
+      const [atestados, quittes, afastamentos] = await Promise.all([
         prisma.atestadoRegularidade.findMany({
           where: { lodgeId: user.lodgeId, userId: user.id },
           orderBy: { solicitadoAt: "desc" },
@@ -234,6 +235,23 @@ export const FERRAMENTAS: Ferramenta[] = [
             signedByMasterAt: true,
           },
         }),
+        prisma.pedidoAfastamento.findMany({
+          where: { lodgeId: user.lodgeId, userId: user.id },
+          orderBy: { createdAt: "desc" },
+          take: 5,
+          select: {
+            status: true,
+            dias: true,
+            createdAt: true,
+            requerimentoSignedAt: true,
+            dataSessao: true,
+            artigo: true,
+            signedBySecAt: true,
+            signedByMasterAt: true,
+            enviadoAt: true,
+            parecer: true,
+          },
+        }),
       ]);
       return {
         atestados: atestados.map((a) => ({
@@ -253,6 +271,21 @@ export const FERRAMENTAS: Ferramenta[] = [
             secretario: !!q.signedBySecAt,
             veneravel: !!q.signedByMasterAt,
           },
+        })),
+        afastamentos: afastamentos.map((a) => ({
+          status: a.status,
+          etapa: pendenteComAfastamento(a),
+          dias: a.dias,
+          solicitadoEm: dataBr(a.createdAt),
+          requerimentoAssinadoGovbr: !!a.requerimentoSignedAt,
+          sessaoQueDeliberou: a.dataSessao ? dataBr(a.dataSessao) : null,
+          artigo: a.artigo,
+          assinaturasForm116: {
+            secretario: !!a.signedBySecAt,
+            veneravel: !!a.signedByMasterAt,
+          },
+          enviadoGuardaSelosEm: a.enviadoAt ? dataBr(a.enviadoAt) : null,
+          parecer: a.parecer,
         })),
       };
     },

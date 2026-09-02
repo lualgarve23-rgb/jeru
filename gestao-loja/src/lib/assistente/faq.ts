@@ -26,6 +26,11 @@ export const FAQ: Record<string, { titulo: string; resposta: string }> = {
     resposta:
       "O pedido é feito em /secretaria/quitte-placets e exige a foto da carta escrita a próprio punho e assinada. Requer quitação financeira; as assinaturas (Secretário → Venerável) são pelo gov.br.",
   },
+  afastamento: {
+    titulo: "Pedido de Afastamento (Form. 116)",
+    resposta:
+      "O pedido é feito em /solicitacoes/afastamento (prazo em dias e motivo). O irmão assina o requerimento com a própria conta gov.br; após a deliberação em sessão, a Secretaria registra a data e o artigo (67/68) e gera o Form. 116, assinado gov.br pelo Secretário → Venerável e enviado à Guarda dos Selos. Ao enviar, a situação do irmão passa a LICENCIADO. Todas as solicitações à Secretaria ficam em /solicitacoes.",
+  },
   mutua: {
     titulo: "Mútua (CABM) — Form. 108",
     resposta:

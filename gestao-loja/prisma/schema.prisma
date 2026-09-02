@@ -117,6 +117,7 @@ model Lodge {
   quittePlacets       QuittePlacet[]
   atestados           AtestadoRegularidade[]
   mutuaEntregas       MutuaEntrega[]
+  afastamentos        PedidoAfastamento[]
   notifications       Notification[]
   cargosRito          CargoRito[]
   bibliotecaItens     BibliotecaItem[]
@@ -237,6 +238,9 @@ model User {
   atestadosAsMaster     AtestadoRegularidade[] @relation("AtestadoMaster")
   atestadosAsSec        AtestadoRegularidade[] @relation("AtestadoSec")
   atestadosAsTes        AtestadoRegularidade[] @relation("AtestadoTes")
+  afastamentos          PedidoAfastamento[] @relation("AfastamentoUser")
+  afastamentosAsMaster  PedidoAfastamento[] @relation("AfastamentoMaster")
+  afastamentosAsSec     PedidoAfastamento[] @relation("AfastamentoSec")
   notifications         Notification[]
   instrucoesRecebidas   Instrucao[]     @relation("InstrucaoUser")
   instrucoesRegistradas Instrucao[]     @relation("InstrucaoRegistrador")
@@ -1060,6 +1064,64 @@ model ProcessoProgressao {
 
   @@index([lodgeId])
   @@map("processos_progressao")
+}
+
+// Pedido de Afastamento (licença do quadro de obreiros — Form. 116 do GOB).
+// O irmão faz o pedido e assina o REQUERIMENTO com a sua conta gov.br; a Loja
+// delibera em sessão; a Secretaria registra a sessão e o artigo do Regulamento,
+// o sistema gera o Form. 116 (comunicação à Guarda dos Selos) que recebe as
+// assinaturas gov.br do Secretário e, por último, do Venerável Mestre; após o
+// envio à Guarda dos Selos o irmão passa a LICENCIADO.
+enum StatusAfastamento {
+  AGUARDANDO_OBREIRO // requerimento gerado, falta a assinatura gov.br do irmão
+  SOLICITADO // requerimento assinado — aguarda deliberação/registro da Secretaria
+  EM_ASSINATURA // Form. 116 gerado — assinaturas Secretário → VM
+  ASSINADO // Form. 116 assinado pelos dois cargos (enviado quando enviadoAt)
+  INDEFERIDO
+}
+
+model PedidoAfastamento {
+  id        String            @id @default(cuid())
+  lodgeId   String
+  userId    String
+  motivo    String
+  dias      Int
+  // data a partir da qual o irmão pretende afastar-se (informativa; a licença
+  // conta a partir da sessão que a concedeu, como manda o Form. 116)
+  dataInicio DateTime?
+  status    StatusAfastamento @default(AGUARDANDO_OBREIRO)
+
+  // Requerimento do obreiro com a assinatura PAdES gov.br dele embutida
+  requerimentoPdf      Bytes?
+  requerimentoSignedAt DateTime?
+
+  // Registro da Secretaria após a deliberação em sessão
+  dataSessao DateTime?
+  artigo     String? // "67" ou "68" (Regulamento Geral da Federação)
+  // Form. 116 gerado pelo sistema (PDF base) e a versão com as assinaturas gov.br
+  formularioPdf Bytes?
+  govbrPdf      Bytes?
+
+  signedBySecId    String?
+  signedBySecAt    DateTime?
+  signedByMasterId String?
+  signedByMasterAt DateTime?
+
+  enviadoAt   DateTime?
+  enviadoPara String?
+  driveFileId String?
+  parecer     String? // motivo do indeferimento
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user           User  @relation("AfastamentoUser", fields: [userId], references: [id])
+  lodge          Lodge @relation(fields: [lodgeId], references: [id])
+  signedBySec    User? @relation("AfastamentoSec", fields: [signedBySecId], references: [id])
+  signedByMaster User? @relation("AfastamentoMaster", fields: [signedByMasterId], references: [id])
+
+  @@index([lodgeId, status])
+  @@index([userId])
+  @@map("pedidos_afastamento")
 }
 
 enum NotificationType {

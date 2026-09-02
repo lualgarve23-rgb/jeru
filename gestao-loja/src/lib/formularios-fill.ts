@@ -47,7 +47,9 @@ export type CampoChave =
   | "oradorNome"
   | "oradorCim"
   | "tesNome"
-  | "tesCim";
+  | "tesCim"
+  // nº de dias da licença (Form. 116 — Pedido de Afastamento)
+  | "dias";
 
 // Mapa posicional: índice do campo (na ordem dos campos do documento,
 // contando FORMTEXT e FORMCHECKBOX) → chave de dado.
@@ -129,7 +131,7 @@ export const CAMPOS_POR_FORMULARIO: Record<string, MapaFormulario> = {
   "form-116-pedido-licenca.docx": {
     0: "lojaNome", 1: "lojaNumero", 2: "oriente", 3: "uf",
     4: "sessaoDiaN", 5: "sessaoMesN", 6: "sessaoAnoN",
-    8: "obreiroNome", 9: "obreiroCim",
+    7: "dias", 8: "obreiroNome", 9: "obreiroCim",
     10: "oriente", 11: "uf", 12: "dia", 13: "mes", 14: "ano",
     15: "secNome", 16: "secCim",
   },
@@ -228,6 +230,10 @@ export type EntradasPreenchimento = {
   obreiroId?: string;
   dataSessao?: string; // "aaaa-mm-dd" (input type=date)
   candidato?: string;
+  dias?: number; // Form. 116
+  // Opção do campo FORMDROPDOWN (ex.: artigo 67/68 no Form. 116), pelo texto
+  // da entrada da lista; aplicada a todos os dropdowns do documento
+  dropdown?: string;
 };
 
 // Resolve os valores de todas as chaves para uma loja + entradas do usuário
@@ -306,7 +312,23 @@ export async function resolverValores(
     oradorCim: orador?.cim ?? "",
     tesNome: tes?.name ?? "",
     tesCim: tes?.cim ?? "",
+    dias: entradas.dias ? String(entradas.dias) : "",
   };
+}
+
+// Seleciona, nos campos FORMDROPDOWN do documento, a entrada cujo texto é
+// `opcao` (grava <w:result> com o índice da lista). Campos sem essa entrada
+// ficam como estão.
+export function selecionarDropdownXml(xml: string, opcao: string): string {
+  return xml.replace(/<w:ddList>([\s\S]*?)<\/w:ddList>/g, (bloco, interno: string) => {
+    const entradas = [...interno.matchAll(/<w:listEntry w:val="([^"]*)"/g)].map(
+      (m) => m[1]
+    );
+    const idx = entradas.indexOf(opcao);
+    if (idx < 0) return bloco;
+    const semResult = interno.replace(/<w:result[^>]*\/>/g, "");
+    return `<w:ddList><w:result w:val="${idx}"/>${semResult}</w:ddList>`;
+  });
 }
 
 function escapeXml(value: string): string {
@@ -422,7 +444,11 @@ export async function gerarFormularioPreenchido(
   const doc = zip.file("word/document.xml");
   if (!doc) throw new Error("DOCX inválido.");
   const xml = await doc.async("string");
-  zip.file("word/document.xml", preencherCamposXml(xml, valores));
+  let preenchido = preencherCamposXml(xml, valores);
+  if (entradas.dropdown) {
+    preenchido = selecionarDropdownXml(preenchido, entradas.dropdown);
+  }
+  zip.file("word/document.xml", preenchido);
   return zip.generateAsync({
     type: "nodebuffer",
     compression: "DEFLATE",

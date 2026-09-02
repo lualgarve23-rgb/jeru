@@ -10,6 +10,7 @@ import { SelecaoCadeia } from "./cadeia-fields";
 import {
   AtestadosParaAssinar,
   QuittePlacetsParaAssinar,
+  AfastamentosParaAssinar,
 } from "./assinaturas-pendentes";
 import {
   criarProcessoDocumento,
@@ -42,7 +43,7 @@ const govbrMsgs: Record<string, string> = {
   ordem: "Ainda não é a sua vez — siga a ordem da cadeia de assinantes.",
   "nao-assinante": "O seu cargo não está na cadeia de assinantes deste documento.",
   bloqueado:
-    "O Quitte Placet ainda não está pronto para assinatura — confira a carta, o Nada Consta e o Form. 122 em PDF na página do Quitte Placet.",
+    "O documento ainda não está pronto para assinatura — no Quitte Placet, confira a carta, o Nada Consta e o Form. 122 em PDF; no Afastamento, registre a sessão para gerar o Form. 116.",
   falhou: "A assinatura gov.br falhou — tente novamente.",
 };
 
@@ -110,7 +111,7 @@ export default async function ProcessosPage({
         </h1>
         <p className="text-sm text-muted-foreground">
           Caixa de entrada de assinaturas gov.br de todos os cargos: atestados
-          de regularidade, Quitte Placets e documentos oficiais da Secretaria
+          de regularidade, Quitte Placets, pedidos de afastamento (Form. 116) e documentos oficiais da Secretaria
           (anexos de pranchas, formulários GOB etc.) com cadeia ordenada — o
           Venerável Mestre assina sempre por último.
         </p>
@@ -164,6 +165,7 @@ export default async function ProcessosPage({
         <>
           <AtestadosParaAssinar lodgeId={user.lodgeId} role={user.role} />
           <QuittePlacetsParaAssinar lodgeId={user.lodgeId} role={user.role} />
+          <AfastamentosParaAssinar lodgeId={user.lodgeId} role={user.role} />
         </>
       )}
 
