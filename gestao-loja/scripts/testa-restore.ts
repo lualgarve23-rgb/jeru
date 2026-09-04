@@ -7,16 +7,33 @@ import { sealSecret, openSecret, isEncryptedSecret } from "../src/lib/secrets";
 
 async function contagens(lodgeId: string) {
   const where = { lodgeId };
-  const [users, sessoes, presencas, atas, invoices, transacoes] =
-    await Promise.all([
-      prisma.user.count({ where }),
-      prisma.lodgeSession.count({ where }),
-      prisma.attendance.count({ where }),
-      prisma.ata.count({ where }),
-      prisma.invoice.count({ where }),
-      prisma.transaction.count({ where }),
-    ]);
-  return { users, sessoes, presencas, atas, invoices, transacoes };
+  const [
+    users, sessoes, presencas, atas, invoices, transacoes,
+    quitte, processos, assinantes, atestados, afastamentos, mutua,
+    notificacoes, auditoria, conversas, mensagens,
+  ] = await Promise.all([
+    prisma.user.count({ where }),
+    prisma.lodgeSession.count({ where }),
+    prisma.attendance.count({ where }),
+    prisma.ata.count({ where }),
+    prisma.invoice.count({ where }),
+    prisma.transaction.count({ where }),
+    prisma.quittePlacet.count({ where }),
+    prisma.processoDocumento.count({ where }),
+    prisma.processoAssinante.count({ where: { documento: { lodgeId } } }),
+    prisma.atestadoRegularidade.count({ where }),
+    prisma.pedidoAfastamento.count({ where }),
+    prisma.mutuaEntrega.count({ where }),
+    prisma.notification.count({ where }),
+    prisma.auditEvent.count({ where }),
+    prisma.assistenteConversa.count({ where }),
+    prisma.assistenteMensagem.count({ where: { conversa: { lodgeId } } }),
+  ]);
+  return {
+    users, sessoes, presencas, atas, invoices, transacoes,
+    quitte, processos, assinantes, atestados, afastamentos, mutua,
+    notificacoes, auditoria, conversas, mensagens,
+  };
 }
 
 async function main() {
@@ -24,9 +41,36 @@ async function main() {
     where: { number: "7777" },
   });
   const antes = await contagens(lodge.id);
-  const senhaAntes = (await prisma.user.findFirstOrThrow({
+  const user01 = await prisma.user.findFirstOrThrow({
     where: { lodgeId: lodge.id, cim: "teste-01" },
-  })).passwordHash;
+  });
+  const senhaAntes = user01.passwordHash;
+  const cardTokenAntes = user01.cardToken;
+
+  // Registros com Bytes nos modelos novos: têm de ir para arquivos/ e voltar
+  // byte a byte (nunca serializados no JSON).
+  const PDF_TESTE = Buffer.from("%PDF-1.4 teste-restore " + Date.now());
+  await prisma.processoDocumento.create({
+    data: {
+      lodgeId: lodge.id,
+      titulo: "Processo de teste do restore",
+      arquivo: PDF_TESTE,
+      arquivoNome: "teste.pdf",
+      criadoPorId: user01.id,
+      assinantes: { create: [{ ordem: 1, cargo: "Venerável Mestre" }] },
+    },
+  });
+  await prisma.mutuaEntrega.upsert({
+    where: { userId: user01.id },
+    update: { arquivo: PDF_TESTE, nome: "mutua.pdf", mimeType: "application/pdf" },
+    create: {
+      lodgeId: lodge.id,
+      userId: user01.id,
+      arquivo: PDF_TESTE,
+      nome: "mutua.pdf",
+      mimeType: "application/pdf",
+    },
+  });
 
   console.log("Antes:", antes);
 
@@ -63,9 +107,24 @@ async function main() {
   const nome = (await prisma.user.findFirstOrThrow({
     where: { lodgeId: lodge.id, cim: "teste-10" },
   })).name;
-  const senhaDepois = (await prisma.user.findFirstOrThrow({
+  const user01Depois = await prisma.user.findFirstOrThrow({
     where: { lodgeId: lodge.id, cim: "teste-01" },
-  })).passwordHash;
+  });
+  const senhaDepois = user01Depois.passwordHash;
+  const cardTokenRegenerado = user01Depois.cardToken !== cardTokenAntes;
+  const processoDepois = await prisma.processoDocumento.findFirst({
+    where: { lodgeId: lodge.id, titulo: "Processo de teste do restore" },
+    include: { assinantes: true },
+  });
+  const mutuaDepois = await prisma.mutuaEntrega.findUnique({
+    where: { userId: user01Depois.id },
+  });
+  const binariosOk =
+    !!processoDepois &&
+    Buffer.from(processoDepois.arquivo).equals(PDF_TESTE) &&
+    processoDepois.assinantes.length === 1 &&
+    !!mutuaDepois?.arquivo &&
+    Buffer.from(mutuaDepois.arquivo).equals(PDF_TESTE);
   const lodgeDepois = await prisma.lodge.findUniqueOrThrow({
     where: { number: "7777" },
   });
@@ -79,18 +138,44 @@ async function main() {
   const lojaNoZip = await zipLido.file("dados/loja.json")!.async("string");
   const zipSemSegredo =
     !lojaNoZip.includes(SEGREDO) && !lojaNoZip.includes("gmailAppPassword");
+  const membrosNoZip = await zipLido.file("dados/membros.json")!.async("string");
+  const zipSemCardToken =
+    !membrosNoZip.includes("cardToken") && !membrosNoZip.includes("lockedUntil");
+  // Nenhum JSON pode carregar Bytes serializados ({"type":"Buffer",...})
+  let jsonSemBytes = true;
+  for (const f of Object.values(zipLido.files)) {
+    if (f.name.startsWith("dados/") && !f.dir) {
+      if ((await f.async("string")).includes('"type": "Buffer"')) {
+        jsonSemBytes = false;
+        console.log("JSON com Bytes serializados:", f.name);
+      }
+    }
+  }
+  const arquivosNoZip = Object.keys(zipLido.files).filter((n) =>
+    /^arquivos\/(processos|mutua)\//.test(n)
+  );
 
   console.log("Contagens idênticas:", igual);
   console.log("Nome do teste-10 restaurado:", nome !== "NOME ERRADO", `(${nome})`);
   console.log("Senha do teste-01 preservada:", senhaDepois === senhaAntes);
   console.log("Segredo cifrado sobreviveu e decifra:", segredoOk);
   console.log("ZIP não contém o segredo:", zipSemSegredo);
+  console.log("ZIP não contém cardToken/lockout:", zipSemCardToken);
+  console.log("cardToken regenerado no restore:", cardTokenRegenerado);
+  console.log("JSON sem Bytes serializados:", jsonSemBytes);
+  console.log("Binários de processos/Mútua no ZIP:", arquivosNoZip.length, arquivosNoZip);
+  console.log("Binários voltaram idênticos (processo + assinante + Mútua):", binariosOk);
   if (
     !igual ||
     nome === "NOME ERRADO" ||
     senhaDepois !== senhaAntes ||
     !segredoOk ||
-    !zipSemSegredo
+    !zipSemSegredo ||
+    !zipSemCardToken ||
+    !cardTokenRegenerado ||
+    !jsonSemBytes ||
+    arquivosNoZip.length < 2 ||
+    !binariosOk
   ) {
     process.exit(1);
   }

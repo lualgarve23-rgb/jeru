@@ -70,14 +70,21 @@ export type AssinanteProcesso = {
   signedAt: Date | null;
 };
 
-// Cargo com que o usuário figura na cadeia (o primeiro dos seus cargos que
-// aparece entre os assinantes), ou null se ele não é assinante.
+// Cargo com que o usuário figura na cadeia, ou null se ele não é assinante.
+// Quem acumula dois cargos da cadeia (ex.: Secretário que também é Orador)
+// responde pelo cargo ainda NÃO assinado — senão assinaria uma vez e a
+// cadeia travaria no segundo cargo dele.
 export function meuCargoNaCadeia(
   cargos: string | string[],
   assinantes: AssinanteProcesso[]
 ): string | null {
   const lista = Array.isArray(cargos) ? cargos : [cargos];
-  return lista.find((c) => assinantes.some((a) => a.cargo === c)) ?? null;
+  const meus = lista.filter((c) => assinantes.some((a) => a.cargo === c));
+  if (meus.length === 0) return null;
+  const ordenados = [...assinantes].sort((a, b) => a.ordem - b.ordem);
+  // o primeiro dos meus cargos ainda pendente, na ordem da cadeia
+  const pendente = ordenados.find((a) => !a.signedAt && meus.includes(a.cargo));
+  return pendente?.cargo ?? meus[0];
 }
 
 // Situação da cadeia para o usuário logado (um cargo ou a lista dos seus

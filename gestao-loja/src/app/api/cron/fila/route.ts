@@ -1,3 +1,4 @@
+import { segredoConfere } from "@/lib/secrets";
 import { processarFila } from "@/lib/fila";
 import { alertaCritico } from "@/lib/log";
 
@@ -5,7 +6,7 @@ import { alertaCritico } from "@/lib/log";
 // Autenticação por segredo compartilhado no header `x-cron-secret`.
 export async function POST(request: Request) {
   const secret = process.env.CRON_SECRET?.trim();
-  if (!secret || request.headers.get("x-cron-secret") !== secret) {
+  if (!secret || !segredoConfere(request.headers.get("x-cron-secret"), secret)) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
   try {

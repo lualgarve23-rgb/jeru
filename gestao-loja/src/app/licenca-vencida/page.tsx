@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ShieldAlert, ExternalLink } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/session";
+import { requireUserSemLicenca } from "@/lib/session";
 import { signOut } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { AuthShell } from "@/components/public-shell";
@@ -14,7 +14,7 @@ export const metadata = { title: "Licença vencida" };
 // pagamento (fatura Asaas da plataforma), os demais são orientados a
 // procurar o Venerável ou o Tesoureiro.
 export default async function LicencaVencidaPage() {
-  const user = await requireUser();
+  const user = await requireUserSemLicenca();
   if (user.role === "SUPER_ADMIN") redirect("/admin");
 
   const lodge = await prisma.lodge.findUniqueOrThrow({

@@ -20,9 +20,24 @@ export async function GET(
   if (!p || (p.userId !== user.id && !FISCAL.includes(user.role))) {
     return new Response("Não encontrado", { status: 404 });
   }
-  const pdf = p.requerimentoPdf
-    ? Buffer.from(p.requerimentoPdf)
-    : (await gerarRequerimentoPdf(id, user.lodgeId)).pdf;
+  let pdf: Buffer;
+  if (p.requerimentoPdf) {
+    pdf = Buffer.from(p.requerimentoPdf);
+  } else {
+    // Gera e PERSISTE o PDF base: o upload assinado no portal ITI precisa ser
+    // uma continuação byte a byte deste arquivo (validarUploadAssinado), e a
+    // geração não é determinística (data/timestamps).
+    pdf = (await gerarRequerimentoPdf(id, user.lodgeId)).pdf;
+    await prisma.pedidoAfastamento.updateMany({
+      where: { id, lodgeId: user.lodgeId, requerimentoPdf: null },
+      data: { requerimentoPdf: new Uint8Array(pdf) },
+    });
+    const atual = await prisma.pedidoAfastamento.findUnique({
+      where: { id },
+      select: { requerimentoPdf: true },
+    });
+    if (atual?.requerimentoPdf) pdf = Buffer.from(atual.requerimentoPdf);
+  }
   const attachment = new URL(req.url).searchParams.get("download") === "1";
   return new Response(new Uint8Array(pdf), {
     headers: {

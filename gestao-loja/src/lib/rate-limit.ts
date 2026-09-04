@@ -13,6 +13,10 @@ export const REGRAS_PUBLICAS: Regra[] = [
   { prefixo: "/verificar/", porMinuto: 20, porMinutoPost: 10 },
   { prefixo: "/api/verificar/", porMinuto: 30, porMinutoPost: 10 },
   { prefixo: "/esqueci-senha", porMinuto: 15, porMinutoPost: 5 },
+  // Login: navegação livre, mas tentativas (POST da server action e o
+  // endpoint credentials do Auth.js) limitadas a 10/min por IP
+  { prefixo: "/login", porMinuto: 60, porMinutoPost: 10 },
+  { prefixo: "/api/auth/", porMinuto: 60, porMinutoPost: 10 },
 ];
 
 const JANELA_MS = 60_000;

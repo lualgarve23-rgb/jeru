@@ -1,9 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { aposEventoDaLoja } from "@/lib/apos-evento";
+import { eventoAfastamento } from "@/lib/eventos-solicitacoes";
 import { prisma } from "@/lib/prisma";
 import { logError } from "@/lib/log";
 import { auditar } from "@/lib/audit";
+import { mudarStatusMembro } from "@/lib/status-membro";
 import { requireRole } from "@/lib/session";
 import { sendLodgeEmail, GUARDA_SELOS_EMAIL } from "@/lib/gmail";
 import { validarUploadAssinado } from "@/lib/pdf-assinaturas";
@@ -36,7 +39,13 @@ export async function registrarSessaoAfastamento(
   const user = await requireSecretariaWriter();
   const p = await prisma.pedidoAfastamento.findUnique({
     where: { id: pedidoId, lodgeId: user.lodgeId },
-    select: { status: true, signedBySecAt: true, signedByMasterAt: true },
+    select: {
+      status: true,
+      signedBySecAt: true,
+      signedByMasterAt: true,
+      dataSessao: true,
+      artigo: true,
+    },
   });
   if (!p) return { error: "Pedido não encontrado." };
   if (p.status === "AGUARDANDO_OBREIRO") {
@@ -57,6 +66,9 @@ export async function registrarSessaoAfastamento(
     return { error: "Selecione o artigo do Regulamento Geral (67 ou 68)." };
   }
 
+  // gerarForm116Pdf lê sessão/artigo do banco, então eles são gravados antes
+  // do PDF — se a geração falhar, os valores anteriores são restaurados para
+  // não deixar o pedido em estado parcial (sessão registrada sem Form. 116)
   await prisma.pedidoAfastamento.update({
     where: { id: pedidoId, lodgeId: user.lodgeId },
     data: { dataSessao, artigo },
@@ -66,16 +78,30 @@ export async function registrarSessaoAfastamento(
     pdf = await gerarForm116Pdf(pedidoId, user.lodgeId);
   } catch (e) {
     logError("afastamento.form116", e);
+    await prisma.pedidoAfastamento.update({
+      where: { id: pedidoId, lodgeId: user.lodgeId },
+      data: { dataSessao: p.dataSessao, artigo: p.artigo },
+    });
     return { error: "Não foi possível gerar o Form. 116 em PDF — tente novamente." };
   }
-  await prisma.pedidoAfastamento.update({
-    where: { id: pedidoId, lodgeId: user.lodgeId },
+  // Só grava se ninguém assinou nem encerrou o pedido nesse meio-tempo
+  const gravado = await prisma.pedidoAfastamento.updateMany({
+    where: {
+      id: pedidoId,
+      lodgeId: user.lodgeId,
+      status: { in: ["SOLICITADO", "EM_ASSINATURA"] },
+      signedBySecAt: null,
+      signedByMasterAt: null,
+    },
     data: {
       formularioPdf: new Uint8Array(pdf),
       govbrPdf: null,
       status: "EM_ASSINATURA",
     },
   });
+  if (gravado.count === 0) {
+    return { error: "O pedido mudou de situação enquanto o Form. 116 era gerado — recarregue a página." };
+  }
   await auditar({
     lodgeId: user.lodgeId,
     ator: user,
@@ -84,6 +110,7 @@ export async function registrarSessaoAfastamento(
     entidadeId: pedidoId,
     detalhes: { dataSessao: dataStr, artigo },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidar();
   return {
     ok: "Form. 116 gerado — agora o Secretário e, por último, o Venerável Mestre assinam pelo gov.br.",
@@ -120,7 +147,8 @@ export async function uploadForm116AssinadoGovbr(
   if (!pdf.subarray(0, 5).toString("latin1").startsWith("%PDF-")) {
     return { error: "O arquivo enviado não é um PDF." };
   }
-  const erro = validarUploadAssinado({
+  const { erro: erro } = await validarUploadAssinado({
+    cpf: (await prisma.user.findUnique({ where: { id: user.id }, select: { cpf: true } }))?.cpf,
     pdf,
     anterior: p.govbrPdf ? Buffer.from(p.govbrPdf) : null,
     nomeAssinante: user.name,
@@ -135,6 +163,7 @@ export async function uploadForm116AssinadoGovbr(
       ...(ordem.ultimaAssinatura ? { status: "ASSINADO" as const } : {}),
     },
   });
+  await eventoAfastamento(user.lodgeId, pedidoId, "assinatura");
   let driveAviso = "";
   if (ordem.ultimaAssinatura) {
     driveAviso = await arquivarAfastamentoNoDrive(
@@ -145,6 +174,7 @@ export async function uploadForm116AssinadoGovbr(
       pdf
     );
   }
+  aposEventoDaLoja(user.lodgeId);
   revalidar();
   return {
     ok: ordem.ultimaAssinatura
@@ -191,16 +221,23 @@ export async function enviarAfastamentoGSelos(pedidoId: string): Promise<ActionR
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Falha no envio." };
   }
-  await prisma.$transaction([
-    prisma.pedidoAfastamento.update({
-      where: { id: pedidoId, lodgeId: user.lodgeId },
-      data: { enviadoAt: new Date(), enviadoPara: GUARDA_SELOS_EMAIL },
-    }),
-    prisma.user.update({
-      where: { id: p.user.id, lodgeId: user.lodgeId },
-      data: { status: "LICENCIADO" },
-    }),
-  ]);
+  await prisma.pedidoAfastamento.update({
+    where: { id: pedidoId, lodgeId: user.lodgeId },
+    data: { enviadoAt: new Date(), enviadoPara: GUARDA_SELOS_EMAIL },
+  });
+  // fim previsto da licença = data da sessão que concedeu + dias pedidos
+  const licencaFim = p.dataSessao
+    ? new Date(p.dataSessao.getTime() + p.dias * 24 * 60 * 60 * 1000)
+    : null;
+  await mudarStatusMembro(prisma, {
+    userId: p.user.id,
+    lodgeId: user.lodgeId,
+    novoStatus: "LICENCIADO",
+    motivo: `licença de ${p.dias} dias (Form. 116, Art. ${p.artigo})`,
+    porUserId: user.id,
+    porNome: user.name,
+    licencaFim,
+  });
   await auditar({
     lodgeId: user.lodgeId,
     ator: user,
@@ -209,6 +246,8 @@ export async function enviarAfastamentoGSelos(pedidoId: string): Promise<ActionR
     entidadeId: pedidoId,
     detalhes: { obreiro: p.user.id, dias: p.dias, para: GUARDA_SELOS_EMAIL, novoStatus: "LICENCIADO" },
   });
+  await eventoAfastamento(user.lodgeId, pedidoId, "enviado");
+  aposEventoDaLoja(user.lodgeId);
   revalidar();
   revalidatePath("/secretaria/membros");
   return { ok: `Enviado para ${GUARDA_SELOS_EMAIL}. ${p.user.name} passou a LICENCIADO.` };
@@ -243,6 +282,8 @@ export async function indeferirAfastamento(
     entidadeId: pedidoId,
     detalhes: { solicitante: p.userId },
   });
+  await eventoAfastamento(user.lodgeId, pedidoId, "indeferido");
+  aposEventoDaLoja(user.lodgeId);
   revalidar();
   return { ok: "Pedido de afastamento indeferido." };
 }
@@ -267,6 +308,7 @@ export async function excluirAfastamento(pedidoId: string): Promise<ActionResult
     entidadeId: pedidoId,
     detalhes: { solicitante: p.userId, status: p.status, assinaturaSec: !!p.signedBySecAt },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidar();
   return { ok: "Pedido de afastamento excluído." };
 }

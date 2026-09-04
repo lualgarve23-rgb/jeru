@@ -22,7 +22,7 @@ import {
   usuarioReconhecido,
 } from "@/lib/reconhecimento";
 import { enviarCertificadoVisita } from "@/lib/certificado";
-import { enfileirar } from "@/lib/fila";
+import { enfileirar, jobEmAndamento } from "@/lib/fila";
 import { type ActionResult, requireSecretariaWriter } from "./_shared";
 
 // ───────────────────── Sessões e Presenças ─────────────────────
@@ -32,15 +32,25 @@ export async function createSession(
   formData: FormData
 ): Promise<ActionResult> {
   const user = await requireSecretariaWriter();
+  const type = String(formData.get("type") ?? "");
+  const degree = String(formData.get("degree") ?? "");
+  if (!(Object.values(SessionType) as string[]).includes(type)) {
+    return { error: "Tipo de sessão inválido." };
+  }
+  if (!(Object.values(Degree) as string[]).includes(degree)) {
+    return { error: "Grau da sessão inválido." };
+  }
+  const date = new Date(
+    `${String(formData.get("date"))}T${String(formData.get("hora") || "20:00")}:00`
+  );
+  if (isNaN(date.getTime())) return { error: "Data da sessão inválida." };
   const session = await prisma.lodgeSession.create({
     data: {
       lodgeId: user.lodgeId,
       // Data + horário de início (campo "hora" do formulário; ex.: 20:00)
-      date: new Date(
-        `${String(formData.get("date"))}T${String(formData.get("hora") || "20:00")}:00`
-      ),
-      type: formData.get("type") as SessionType,
-      degree: formData.get("degree") as Degree,
+      date,
+      type: type as SessionType,
+      degree: degree as Degree,
       pauta: String(formData.get("pauta") ?? "").trim() || null,
     },
   });
@@ -71,8 +81,22 @@ export async function registerAttendance(
   formData: FormData
 ): Promise<ActionResult> {
   const user = await requireSecretariaWriter();
-  const memberId = String(formData.get("memberId"));
-  if (await ataTravaPresencas(sessionId)) {
+  const memberId = String(formData.get("memberId") ?? "");
+  if (!memberId) return { error: "Selecione o irmão." };
+  // Sessão e membro precisam ser da Loja do usuário (isolamento de tenant)
+  const [session, membro] = await Promise.all([
+    prisma.lodgeSession.findUnique({
+      where: { id: sessionId, lodgeId: user.lodgeId },
+      select: { id: true },
+    }),
+    prisma.user.findUnique({
+      where: { id: memberId, lodgeId: user.lodgeId },
+      select: { id: true },
+    }),
+  ]);
+  if (!session) return { error: "Sessão não encontrada." };
+  if (!membro) return { error: "Irmão não encontrado na sua Loja." };
+  if (await ataTravaPresencas(sessionId, user.lodgeId)) {
     return { error: ERRO_PRESENCAS_TRAVADAS };
   }
   try {
@@ -143,7 +167,7 @@ export async function qrCheckinMember(qrToken: string): Promise<ActionResult> {
   if (!session || session.lodgeId !== user.lodgeId) {
     return { error: "Sessão não encontrada para a sua Loja." };
   }
-  if (await ataTravaPresencas(session.id)) {
+  if (await ataTravaPresencas(session.id, session.lodgeId)) {
     return { error: ERRO_PRESENCAS_TRAVADAS };
   }
   const existente = await prisma.attendance.findUnique({
@@ -183,7 +207,7 @@ export async function qrCheckinVisitor(
 ): Promise<ActionResult> {
   const session = await prisma.lodgeSession.findUnique({ where: { qrToken } });
   if (!session) return { error: "Sessão não encontrada." };
-  if (await ataTravaPresencas(session.id)) {
+  if (await ataTravaPresencas(session.id, session.lodgeId)) {
     return { error: ERRO_PRESENCAS_TRAVADAS };
   }
   const visitorName = String(formData.get("visitorName")).trim();
@@ -330,10 +354,15 @@ export async function rsvpPublico(
   const cim = String(formData.get("cim") ?? "").trim();
   const agape = formData.get("agape") === "on";
 
-  // CIM de membro ativo da própria Loja: vincula o RSVP ao cadastro
+  // CIM de membro do quadro da própria Loja: vincula o RSVP ao cadastro
+  // (mesmos status aceitos pelo cookie de reconhecimento)
   if (cim) {
     const membro = await prisma.user.findFirst({
-      where: { lodgeId: session.lodgeId, cim, status: "ATIVO" },
+      where: {
+        lodgeId: session.lodgeId,
+        cim,
+        status: { in: ["ATIVO", "IRREGULAR", "LICENCIADO"] },
+      },
     });
     if (membro) {
       await prisma.attendance.upsert({
@@ -401,7 +430,7 @@ async function justificarPeloConvite(
   userId: string,
   justificativa: string
 ): Promise<ActionResult> {
-  if (await ataTravaPresencas(session.id)) {
+  if (await ataTravaPresencas(session.id, session.lodgeId)) {
     return { error: ERRO_PRESENCAS_TRAVADAS };
   }
   const existente = await prisma.attendance.findUnique({
@@ -469,7 +498,11 @@ export async function ausenciaPublico(
   const justificativa = justificativaDoForm(formData);
   if (!justificativa) return { error: "Escreva o motivo da ausência." };
   const membro = await prisma.user.findFirst({
-    where: { lodgeId: session.lodgeId, cim, status: "ATIVO" },
+    where: {
+      lodgeId: session.lodgeId,
+      cim,
+      status: { in: ["ATIVO", "IRREGULAR", "LICENCIADO"] },
+    },
     select: { id: true },
   });
   if (!membro) {
@@ -511,10 +544,11 @@ export async function dispararConvitesEmail(
     return { error: "Gmail da loja não configurado." };
   }
   // Envio em massa sai do request — a fila (#13) manda e refaz em falha
-  await enfileirar("sessao.convites", {
-    lodgeId: user.lodgeId,
-    sessionId: session.id,
-  });
+  const payload = { lodgeId: user.lodgeId, sessionId: session.id };
+  if (await jobEmAndamento("sessao.convites", payload)) {
+    return { ok: "O convite desta sessão já está na fila de envio — aguarde alguns instantes." };
+  }
+  await enfileirar("sessao.convites", payload);
   return { ok: `Convite a caminho de ${emails.length} membro(s) — envio em instantes.` };
 }
 
@@ -695,9 +729,9 @@ export async function removerVisitaExterna(
 
 // ─────────── Ausências justificadas no Livro de Presenças ───────────
 
-async function ataTravaPresencas(sessionId: string) {
-  const ata = await prisma.ata.findUnique({
-    where: { sessionId },
+async function ataTravaPresencas(sessionId: string, lodgeId: string) {
+  const ata = await prisma.ata.findFirst({
+    where: { sessionId, lodgeId },
     select: {
       status: true,
       signedByMasterId: true,
@@ -721,18 +755,23 @@ export async function justificarAusencia(
   const justificativa =
     String(formData.get("justificativa") ?? "").trim().slice(0, 300) || null;
 
-  const [session, travada, existente] = await Promise.all([
+  const [session, membro, travada, existente] = await Promise.all([
     prisma.lodgeSession.findUnique({
       where: { id: sessionId, lodgeId: user.lodgeId },
       select: { id: true },
     }),
-    ataTravaPresencas(sessionId),
+    prisma.user.findUnique({
+      where: { id: memberId, lodgeId: user.lodgeId },
+      select: { id: true },
+    }),
+    ataTravaPresencas(sessionId, user.lodgeId),
     prisma.attendance.findUnique({
       where: { sessionId_userId: { sessionId, userId: memberId } },
       select: { id: true, checkedIn: true },
     }),
   ]);
   if (!session) return { error: "Sessão não encontrada." };
+  if (!membro) return { error: "Irmão não encontrado na sua Loja." };
   if (travada) return { error: ERRO_PRESENCAS_TRAVADAS };
   if (existente?.checkedIn) {
     return {

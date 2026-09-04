@@ -40,6 +40,8 @@ const govbrMsgs: Record<string, string> = {
   "nao-configurado": "A assinatura gov.br não está configurada no servidor — use o portal assinador.iti.br abaixo.",
   negado: "Autorização cancelada no gov.br.",
   "cpf-divergente": "A conta gov.br usada não é a sua (CPF divergente do cadastro).",
+  "cpf-indisponivel": "O gov.br não informou o CPF da conta usada — não foi possível confirmar que é a sua. Tente novamente ou use o portal assinador.iti.br.",
+  concorrencia: "O pedido foi alterado enquanto você assinava — recarregue e tente de novo.",
   "ja-assinou": "Este requerimento já está assinado.",
   "nao-assinante": "Só o próprio irmão assina o requerimento.",
   falhou: "A assinatura gov.br falhou — tente novamente ou use o portal assinador.iti.br.",

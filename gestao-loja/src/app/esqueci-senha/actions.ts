@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { passwordRuleError } from "@/lib/password";
 import { sendLodgeEmail, isGmailConfigured } from "@/lib/gmail";
 import { contasPorCim } from "@/lib/contas";
+import { auditar } from "@/lib/audit";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
@@ -43,11 +44,13 @@ export async function requestPasswordReset(
   if (!contas.length) return { ok: GENERIC_OK }; // resposta idêntica ao sucesso
   const user = contas[0];
 
+  // Sem Gmail na loja não há como enviar o código — mas a resposta continua
+  // genérica (não confirma que CIM+CPF existem); o problema vai para o log.
   if (!(await isGmailConfigured(user.lodgeId))) {
-    return {
-      error:
-        "Envio de e-mail não configurado nesta instalação. Procure a Secretaria para redefinir sua senha.",
-    };
+    console.error(
+      `[esqueci-senha] Gmail não configurado na loja ${user.lodgeId} — código não enviado (user ${user.id})`
+    );
+    return { ok: GENERIC_OK };
   }
 
   // O mesmo código serve para todas as filiações do titular
@@ -125,7 +128,20 @@ export async function resetPasswordWithCode(
       resetCodeHash: null,
       resetCodeExpiresAt: null,
       resetCodeAttempts: 0,
+      // o titular provou a posse do e-mail: libera eventual bloqueio de login
+      failedLoginAttempts: 0,
+      lockedUntil: null,
     },
   });
+  for (const u of contas) {
+    await auditar({
+      lodgeId: u.lodgeId,
+      ator: { id: u.id, name: u.name },
+      acao: "senha.reset-concluido",
+      entidade: "User",
+      entidadeId: u.id,
+      detalhes: { via: "esqueci-senha" },
+    });
+  }
   return { ok: "Senha redefinida. Você já pode entrar com a nova senha." };
 }

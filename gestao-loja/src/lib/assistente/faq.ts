@@ -90,7 +90,8 @@ export const GUIAS: Record<
       "O Secretário assina pelo gov.br na aba /secretaria/processos.",
       "O Orador (cargo do rito) assina em seguida, também em Processos.",
       "O Venerável Mestre assina por último.",
-      "Aprovado, o documento é enviado à Guarda dos Selos pelo Gmail da Loja; o irmão acompanha tudo pela linha do tempo do pedido.",
+      "A terceira assinatura (VM) aprova o placet; o documento é enviado à Guarda dos Selos pelo Gmail da Loja e o irmão acompanha tudo pela linha do tempo do pedido.",
+      "A Secretaria pode negar um pedido pendente/em análise informando um parecer, que o irmão vê em /solicitacoes; Aprovado e Negado são finais.",
     ],
   },
   "assinar-documento": {

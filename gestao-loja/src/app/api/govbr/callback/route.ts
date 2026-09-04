@@ -12,6 +12,7 @@ import {
   ordemAssinaturaAtestado,
   camposAssinaturaAtestado,
   cargoAssinanteAtestado,
+  bloqueioFinanceiroAtestadoDoIrmao,
 } from "@/lib/atestado";
 import {
   ordemAssinaturaQuitte,
@@ -36,6 +37,14 @@ import {
   gerarRequerimentoPdf,
 } from "@/lib/afastamento";
 import { auditar } from "@/lib/audit";
+import { aposEventoDaLoja } from "@/lib/apos-evento";
+import {
+  eventoAtestado,
+  eventoQuitte,
+  eventoAfastamento,
+  eventoProcessoConcluido,
+  eventoAtaAssinada,
+} from "@/lib/eventos-solicitacoes";
 import { arquivarVersaoFinalNoDrive } from "@/lib/google-drive";
 import { arquivarAtestadoNoDrive } from "@/app/(app)/secretaria/_actions/atestados";
 
@@ -145,7 +154,10 @@ export async function GET(req: NextRequest) {
       select: { cpf: true, name: true },
     });
     const govbrCpf = govbrCpfFromToken(token);
-    if (govbrCpf && govbrCpf !== user.cpf.replace(/\D/g, "")) {
+    // Sem CPF no token não há como provar que a conta gov.br é do assinante:
+    // falha fechado (nunca assina "no escuro")
+    if (!govbrCpf) return fail("cpf-indisponivel");
+    if (govbrCpf !== user.cpf.replace(/\D/g, "")) {
       return fail("cpf-divergente");
     }
 
@@ -158,8 +170,10 @@ export async function GET(req: NextRequest) {
       reason: `Assinatura gov.br — ${cargo}: ${user.name}`,
     });
 
-    await prisma.ata.update({
-      where: { id: ataId, lodgeId: session.user.lodgeId },
+    // Trava otimista: só grava se ninguém alterou a ata desde a leitura
+    // (outra assinatura gov.br em paralelo sobrescreveria a PKCS#7 anterior)
+    const gravado = await prisma.ata.updateMany({
+      where: { id: ataId, lodgeId: session.user.lodgeId, updatedAt: ata.updatedAt },
       data: {
         govbrPdf: new Uint8Array(signed),
         // A 2ª assinatura gov.br sela a ata
@@ -168,6 +182,16 @@ export async function GET(req: NextRequest) {
           : { govbrSecAt: new Date(), status: "ASSINADA" as const }),
       },
     });
+    if (gravado.count === 0) return fail("concorrencia");
+    await auditar({
+      lodgeId: ata.lodgeId,
+      ator: { id: session.user.id, name: session.user.name },
+      acao: "ata.assinar-govbr",
+      entidade: "Ata",
+      entidadeId: ataId,
+      detalhes: { via: "govbr-oauth", cargo, sela: !isMaster },
+    });
+    await eventoAtaAssinada(ata.lodgeId, ataId, isMaster ? "VENERAVEL_MESTRE" : "SECRETARIO");
     if (!isMaster) {
       const r = await arquivarVersaoFinalNoDrive({
         lodgeId: ata.lodgeId,
@@ -190,6 +214,7 @@ export async function GET(req: NextRequest) {
     return fail("falhou");
   }
 
+  aposEventoDaLoja(session.user.lodgeId);
   ataUrl.searchParams.set("govbr", "ok");
   const res = NextResponse.redirect(ataUrl);
   res.cookies.delete({ name: "govbr_oauth", path: "/api/govbr" });
@@ -203,7 +228,7 @@ export async function GET(req: NextRequest) {
 async function assinarProcesso(
   req: NextRequest,
   baseUrl: string,
-  sessionUser: { id: string; lodgeId: string; role: string },
+  sessionUser: { id: string; lodgeId: string; role: string; name: string },
   processoId: string
 ) {
   const backUrl = new URL("/secretaria/processos", baseUrl);
@@ -237,7 +262,10 @@ async function assinarProcesso(
       select: { cpf: true, name: true },
     });
     const govbrCpf = govbrCpfFromToken(token);
-    if (govbrCpf && govbrCpf !== user.cpf.replace(/\D/g, "")) {
+    // Sem CPF no token não há como provar que a conta gov.br é do assinante:
+    // falha fechado (nunca assina "no escuro")
+    if (!govbrCpf) return fail("cpf-indisponivel");
+    if (govbrCpf !== user.cpf.replace(/\D/g, "")) {
       return fail("cpf-divergente");
     }
 
@@ -248,20 +276,34 @@ async function assinarProcesso(
     });
 
     const meu = doc.assinantes.find((a) => a.cargo === estado.cargo)!;
-    await prisma.$transaction([
-      prisma.processoAssinante.update({
-        where: { id: meu.id },
-        data: { signedById: sessionUser.id, signedAt: new Date() },
-      }),
-      prisma.processoDocumento.update({
-        where: { id: processoId, lodgeId: sessionUser.lodgeId },
+    // Trava otimista no documento (updatedAt lido): duas assinaturas em
+    // paralelo não podem sobrescrever a PKCS#7 uma da outra
+    const gravado = await prisma.$transaction(async (tx) => {
+      const r = await tx.processoDocumento.updateMany({
+        where: { id: processoId, lodgeId: sessionUser.lodgeId, updatedAt: doc.updatedAt },
         data: {
           govbrPdf: new Uint8Array(signed),
           ...(estado.ultimaAssinatura ? { status: "ASSINADO" as const } : {}),
         },
-      }),
-    ]);
+      });
+      if (r.count === 0) return false;
+      await tx.processoAssinante.update({
+        where: { id: meu.id },
+        data: { signedById: sessionUser.id, signedAt: new Date() },
+      });
+      return true;
+    });
+    if (!gravado) return fail("concorrencia");
+    await auditar({
+      lodgeId: sessionUser.lodgeId,
+      ator: { id: sessionUser.id, name: sessionUser.name },
+      acao: "processo.assinar",
+      entidade: "ProcessoDocumento",
+      entidadeId: processoId,
+      detalhes: { via: "govbr-oauth", cargo: estado.cargo, concluiu: estado.ultimaAssinatura },
+    });
     if (estado.ultimaAssinatura) {
+      await eventoProcessoConcluido(sessionUser.lodgeId, processoId);
       const aviso = await concluirProcessoNaPrancha(
         processoId,
         sessionUser.lodgeId,
@@ -274,6 +316,7 @@ async function assinarProcesso(
     return fail("falhou");
   }
 
+  aposEventoDaLoja(sessionUser.lodgeId);
   backUrl.searchParams.set("govbr", "ok");
   const res = NextResponse.redirect(backUrl);
   res.cookies.delete({ name: "govbr_oauth", path: "/api/govbr" });
@@ -286,7 +329,7 @@ async function assinarProcesso(
 async function assinarQuitte(
   req: NextRequest,
   baseUrl: string,
-  sessionUser: { id: string; lodgeId: string },
+  sessionUser: { id: string; lodgeId: string; name: string },
   role: string,
   quitteId: string
 ) {
@@ -302,10 +345,6 @@ async function assinarQuitte(
     where: { id: sessionUser.id },
     select: { cargoRito: true },
   });
-  const cargoQuitte = cargoQuitteDoUsuario(role, meu?.cargoRito);
-  if (!cargoQuitte) {
-    return fail("nao-assinante");
-  }
   const code = req.nextUrl.searchParams.get("code");
   if (!code) return fail("negado");
 
@@ -314,6 +353,11 @@ async function assinarQuitte(
     include: { user: { select: { name: true } } },
   });
   if (!placet) return fail("falhou");
+  // Cargo da vez entre os do usuário (quem acumula dois cargos assina por ambos)
+  const cargoQuitte = cargoQuitteDoUsuario(role, meu?.cargoRito, placet);
+  if (!cargoQuitte) {
+    return fail("nao-assinante");
+  }
   if (bloqueioAssinaturaQuitte(placet)) return fail("bloqueado");
   const ordem = ordemAssinaturaQuitte(cargoQuitte, placet);
   if (ordem.jaAssinou) return fail("ja-assinou");
@@ -326,7 +370,10 @@ async function assinarQuitte(
       select: { cpf: true, name: true },
     });
     const govbrCpf = govbrCpfFromToken(token);
-    if (govbrCpf && govbrCpf !== user.cpf.replace(/\D/g, "")) {
+    // Sem CPF no token não há como provar que a conta gov.br é do assinante:
+    // falha fechado (nunca assina "no escuro")
+    if (!govbrCpf) return fail("cpf-indisponivel");
+    if (govbrCpf !== user.cpf.replace(/\D/g, "")) {
       return fail("cpf-divergente");
     }
 
@@ -337,8 +384,10 @@ async function assinarQuitte(
       reason: `Assinatura gov.br — ${cargo}: ${user.name}`,
     });
 
-    await prisma.quittePlacet.update({
-      where: { id: quitteId, lodgeId: sessionUser.lodgeId },
+    // Trava otimista (updatedAt lido): outra assinatura/troca de formulário
+    // em paralelo invalida esta gravação
+    const gravado = await prisma.quittePlacet.updateMany({
+      where: { id: quitteId, lodgeId: sessionUser.lodgeId, updatedAt: placet.updatedAt },
       data: {
         govbrPdf: new Uint8Array(signed),
         ...camposAssinaturaQuitte(cargoQuitte, sessionUser.id),
@@ -347,6 +396,16 @@ async function assinarQuitte(
           : ("EM_ANALISE" as const),
       },
     });
+    if (gravado.count === 0) return fail("concorrencia");
+    await auditar({
+      lodgeId: sessionUser.lodgeId,
+      ator: { id: sessionUser.id, name: sessionUser.name },
+      acao: "quitte.assinar",
+      entidade: "QuittePlacet",
+      entidadeId: quitteId,
+      detalhes: { via: "govbr-oauth", cargo: cargoQuitte, aprovou: ordem.ultimaAssinatura },
+    });
+    await eventoQuitte(sessionUser.lodgeId, quitteId, "assinatura");
     if (ordem.ultimaAssinatura) {
       const aviso = await arquivarQuitteNoDrive(
         sessionUser.lodgeId,
@@ -362,6 +421,7 @@ async function assinarQuitte(
     return fail("falhou");
   }
 
+  aposEventoDaLoja(sessionUser.lodgeId);
   backUrl.searchParams.set("govbr", "ok");
   const res = NextResponse.redirect(backUrl);
   res.cookies.delete({ name: "govbr_oauth", path: "/api/govbr" });
@@ -374,7 +434,7 @@ async function assinarQuitte(
 async function assinarAtestado(
   req: NextRequest,
   baseUrl: string,
-  sessionUser: { id: string; lodgeId: string },
+  sessionUser: { id: string; lodgeId: string; name: string },
   role: string,
   atestadoId: string
 ) {
@@ -391,9 +451,14 @@ async function assinarAtestado(
 
   const atestado = await prisma.atestadoRegularidade.findUnique({
     where: { id: atestadoId, lodgeId: sessionUser.lodgeId },
-    include: { user: { select: { name: true } } },
+    include: { user: { select: { name: true, status: true } } },
   });
   if (!atestado || atestado.status !== "SOLICITADO") return fail("falhou");
+  // Mesma regra do upload pelo portal ITI: só se atesta regularidade de
+  // irmão com situação ATIVO
+  if (atestado.user.status !== "ATIVO") return fail("irmao-nao-ativo");
+  if (await bloqueioFinanceiroAtestadoDoIrmao(sessionUser.lodgeId, atestado.userId, atestado))
+    return fail("trava-financeira");
   const ordem = ordemAssinaturaAtestado(role, atestado);
   if (ordem.jaAssinou) return fail("ja-assinou");
   if (ordem.aguardando) return fail("ordem");
@@ -406,16 +471,22 @@ async function assinarAtestado(
       select: { cpf: true, name: true },
     });
     const govbrCpf = govbrCpfFromToken(token);
-    if (govbrCpf && govbrCpf !== user.cpf.replace(/\D/g, "")) {
+    // Sem CPF no token não há como provar que a conta gov.br é do assinante:
+    // falha fechado (nunca assina "no escuro")
+    if (!govbrCpf) return fail("cpf-indisponivel");
+    if (govbrCpf !== user.cpf.replace(/\D/g, "")) {
       return fail("cpf-divergente");
     }
 
     // Registra a assinatura antes de gerar o PDF base, para o bloco do
-    // assinante constar no documento; revertida se a PKCS#7 falhar
-    await prisma.atestadoRegularidade.update({
-      where: { id: atestadoId, lodgeId: sessionUser.lodgeId },
+    // assinante constar no documento; revertida se a PKCS#7 falhar.
+    // Condicionada à versão lida (updatedAt) — trava otimista contra outra
+    // assinatura gravada em paralelo.
+    const reservado = await prisma.atestadoRegularidade.updateMany({
+      where: { id: atestadoId, lodgeId: sessionUser.lodgeId, updatedAt: atestado.updatedAt },
       data: camposAssinatura,
     });
+    if (reservado.count === 0) return fail("concorrencia");
     try {
       const base =
         atestado.govbrPdf ??
@@ -432,6 +503,15 @@ async function assinarAtestado(
           ...(ordem.ultimaAssinatura ? { status: "ASSINADO" as const } : {}),
         },
       });
+      await auditar({
+        lodgeId: sessionUser.lodgeId,
+        ator: { id: sessionUser.id, name: sessionUser.name },
+        acao: "atestado.assinar",
+        entidade: "AtestadoRegularidade",
+        entidadeId: atestadoId,
+        detalhes: { via: "govbr-oauth", cargo, concluiu: ordem.ultimaAssinatura },
+      });
+      await eventoAtestado(sessionUser.lodgeId, atestadoId);
       if (ordem.ultimaAssinatura) {
         const aviso = await arquivarAtestadoNoDrive(
           sessionUser.lodgeId,
@@ -456,6 +536,7 @@ async function assinarAtestado(
     return fail("falhou");
   }
 
+  aposEventoDaLoja(sessionUser.lodgeId);
   backUrl.searchParams.set("govbr", "ok");
   const res = NextResponse.redirect(backUrl);
   res.cookies.delete({ name: "govbr_oauth", path: "/api/govbr" });
@@ -510,7 +591,10 @@ async function assinarAfastamento(
       select: { cpf: true, name: true },
     });
     const govbrCpf = govbrCpfFromToken(token);
-    if (govbrCpf && govbrCpf !== user.cpf.replace(/\D/g, "")) {
+    // Sem CPF no token não há como provar que a conta gov.br é do assinante:
+    // falha fechado (nunca assina "no escuro")
+    if (!govbrCpf) return fail("cpf-indisponivel");
+    if (govbrCpf !== user.cpf.replace(/\D/g, "")) {
       return fail("cpf-divergente");
     }
 
@@ -523,7 +607,16 @@ async function assinarAfastamento(
         data: { requerimentoSignedAt: agora },
       });
       try {
-        const base = (await gerarRequerimentoPdf(afastamentoId, sessionUser.lodgeId)).pdf;
+        // Usa o PDF base já persistido (visualizado/baixado pelo irmão), se
+        // houver, para o documento assinado ser a mesma peça que ele leu.
+        const jaGerado = await prisma.pedidoAfastamento.findUnique({
+          where: { id: afastamentoId },
+          select: { requerimentoPdf: true, status: true },
+        });
+        const base =
+          jaGerado?.requerimentoPdf && jaGerado.status === "AGUARDANDO_OBREIRO"
+            ? Buffer.from(jaGerado.requerimentoPdf)
+            : (await gerarRequerimentoPdf(afastamentoId, sessionUser.lodgeId)).pdf;
         const signed = await assinarPdfComGovbr(base, token, {
           name: user.name,
           reason: `Assinatura gov.br — Obreiro requerente: ${user.name}`,
@@ -554,14 +647,25 @@ async function assinarAfastamento(
         name: user.name,
         reason: `Assinatura gov.br — ${cargo}: ${user.name}`,
       });
-      await prisma.pedidoAfastamento.update({
-        where: { id: afastamentoId, lodgeId: sessionUser.lodgeId },
+      // Trava otimista (updatedAt lido) contra assinatura paralela
+      const gravado = await prisma.pedidoAfastamento.updateMany({
+        where: { id: afastamentoId, lodgeId: sessionUser.lodgeId, updatedAt: pedido.updatedAt },
         data: {
           govbrPdf: new Uint8Array(signed),
           ...camposAssinaturaAfastamento(role, sessionUser.id),
           ...(ordem!.ultimaAssinatura ? { status: "ASSINADO" as const } : {}),
         },
       });
+      if (gravado.count === 0) return fail("concorrencia");
+      await auditar({
+        lodgeId: sessionUser.lodgeId,
+        ator: { id: sessionUser.id, name: sessionUser.name },
+        acao: "afastamento.assinar-form116",
+        entidade: "PedidoAfastamento",
+        entidadeId: afastamentoId,
+        detalhes: { via: "govbr-oauth", cargo, concluiu: ordem!.ultimaAssinatura },
+      });
+      await eventoAfastamento(sessionUser.lodgeId, afastamentoId, "assinatura");
       if (ordem!.ultimaAssinatura) {
         const aviso = await arquivarAfastamentoNoDrive(
           sessionUser.lodgeId,
@@ -578,6 +682,7 @@ async function assinarAfastamento(
     return fail("falhou");
   }
 
+  aposEventoDaLoja(sessionUser.lodgeId);
   backUrl.searchParams.set("govbr", "ok");
   const res = NextResponse.redirect(backUrl);
   res.cookies.delete({ name: "govbr_oauth", path: "/api/govbr" });

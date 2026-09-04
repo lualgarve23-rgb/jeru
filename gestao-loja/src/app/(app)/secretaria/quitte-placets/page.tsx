@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
 import { bloqueioAssinaturaQuitte, assinaturasQuitte } from "@/lib/quitte";
+import { contextoFinanceiroDoIrmao, type ContextoFinanceiro } from "@/lib/contexto-financeiro";
+import { PainelTesouraria } from "../processos/assinaturas-pendentes";
 import { LinhaDoTempo } from "@/components/linha-do-tempo";
 import {
   requestQuittePlacet,
@@ -12,6 +14,7 @@ import {
   anexarFormularioQuittePlacet,
   enviarQuittePlacetGSelos,
 } from "../actions";
+import { gerarFormulario122QuittePlacet } from "../_actions/quitte-form122";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -53,7 +56,8 @@ function CampoCarta({ id }: { id: string }) {
 export default async function QuittePlacetsPage() {
   const user = await requireUser();
   const isWriter = canWriteSecretaria(user.role);
-  const isFiscal = ["SECRETARIO", "VENERAVEL_MESTRE", "CONSELHO_CONTAS"].includes(
+  // Tesoureiro entra como fiscal para conferir o painel Tesouraria (Nada Consta)
+  const isFiscal = ["SECRETARIO", "VENERAVEL_MESTRE", "CONSELHO_CONTAS", "TESOUREIRO"].includes(
     user.role
   );
   const canSign = user.role === "VENERAVEL_MESTRE" || user.role === "SECRETARIO";
@@ -71,9 +75,12 @@ export default async function QuittePlacetsPage() {
       select: {
         id: true,
         status: true,
+        parecerNegativa: true,
         motivo: true,
         dataSolicitacao: true,
         quitacaoFinanceira: true,
+        quitacaoConsultadaAt: true,
+        quitacaoConfirmadaAt: true,
         signedByMasterId: true,
         signedByMasterAt: true,
         signedBySecId: true,
@@ -98,6 +105,17 @@ export default async function QuittePlacetsPage() {
         })
       : [],
   ]);
+
+  // Painel Tesouraria (capitações em aberto/pagas) dos placets em andamento
+  const contextos = new Map<string, ContextoFinanceiro>();
+  if (isFiscal) {
+    for (const p of placets) {
+      if (p.status !== "PENDENTE" && p.status !== "EM_ANALISE") continue;
+      if (!contextos.has(p.userId)) {
+        contextos.set(p.userId, await contextoFinanceiroDoIrmao(user.lodgeId, p.userId));
+      }
+    }
+  }
 
   const meuAberto = placets.some(
     (p) =>
@@ -199,7 +217,7 @@ export default async function QuittePlacetsPage() {
           <h2 className="mb-2 text-lg font-semibold">Andamento dos processos</h2>
           <p className="mb-3 text-sm text-muted-foreground">
             {isWriter
-              ? "Arraste o card para “Em análise” ao iniciar o processo. A aprovação sai das duas assinaturas gov.br (Secretário e, por último, Venerável Mestre); “Negado” encerra o pedido. Clique no card para abrir a documentação (Form. 122)."
+              ? "Arraste o card para “Em análise” ao iniciar o processo. A aprovação sai das três assinaturas gov.br (Secretário, Orador e, por último, Venerável Mestre); a negativa é pelo botão “Negar”, com parecer — Aprovado e Negado não saem do arraste. Clique no card para abrir a documentação (Form. 122)."
               : "Acompanhamento das etapas — a movimentação é feita pela Secretaria."}
           </p>
           <QuittePlacetKanban
@@ -240,7 +258,7 @@ export default async function QuittePlacetsPage() {
                   const concluido = p.status === "APROVADO";
                   const etapas = [
                     { cargo: "Carta entregue", at: null, feito: !!p.cartaNome },
-                    { cargo: "Nada Consta (Tesouraria)", at: null, feito: p.quitacaoFinanceira },
+                    { cargo: "Nada Consta (Tesouraria)", at: null, feito: p.quitacaoFinanceira || !!p.quitacaoConfirmadaAt },
                     { cargo: "Comunicação em sessão + ata (Secretaria)", at: null, feito: !!p.dataSessaoComunicacao && !!p.ataNome },
                     { cargo: "Form. 122 (Secretaria)", at: null, feito: !!p.formularioNome },
                     { cargo: "Secretário", at: p.signedBySecAt },
@@ -275,7 +293,13 @@ export default async function QuittePlacetsPage() {
                           )}
                         </span>
                       </div>
-                      {!negado && (
+                      {negado ? (
+                        p.parecerNegativa && (
+                          <p className="rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-800">
+                            <strong>Parecer da Secretaria:</strong> {p.parecerNegativa}
+                          </p>
+                        )
+                      ) : (
                         <LinhaDoTempo
                           etapas={etapas}
                           concluido={!!p.formularioEnviadoAt}
@@ -326,9 +350,27 @@ export default async function QuittePlacetsPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={p.quitacaoFinanceira ? "success" : "warning"}>
-                        {p.quitacaoFinanceira ? "Nada Consta" : "Pendências"}
+                      <Badge variant={p.quitacaoFinanceira || p.quitacaoConfirmadaAt ? "success" : "warning"}>
+                        {p.quitacaoConfirmadaAt
+                          ? "Nada Consta confirmado"
+                          : p.quitacaoFinanceira
+                            ? "Nada Consta"
+                            : "Capitações vencidas"}
                       </Badge>
+                      {contextos.has(p.userId) && (
+                        <details className="mt-1">
+                          <summary className="cursor-pointer text-xs font-medium text-primary">
+                            Tesouraria
+                          </summary>
+                          <div className="mt-1 min-w-72">
+                            <PainelTesouraria
+                              ctx={contextos.get(p.userId)!}
+                              role={user.role}
+                              consultadaAt={p.quitacaoConsultadaAt}
+                            />
+                          </div>
+                        </details>
+                      )}
                     </TableCell>
                     <TableCell className="text-xs">
                       <span aria-hidden="true">
@@ -351,7 +393,7 @@ export default async function QuittePlacetsPage() {
                     {(isWriter || canSign) && (
                       <TableCell>
                         <div className="flex flex-wrap gap-2">
-                        {isWriter && !p.quitacaoFinanceira && (
+                        {isWriter && !p.quitacaoFinanceira && !p.quitacaoConfirmadaAt && (
                           <ActionButton
                             action={refreshQuitacaoFinanceira.bind(null, p.id)}
                             label="Reconsultar Tesouraria"
@@ -359,14 +401,33 @@ export default async function QuittePlacetsPage() {
                           />
                         )}
                         {isWriter &&
-                          p.status !== "APROVADO" &&
-                          p.status !== "NEGADO" && (
-                            <ActionButton
-                              action={negarQuittePlacet.bind(null, p.id)}
-                              label="Negar"
-                              variant="destructive"
-                            />
+                          (p.status === "PENDENTE" || p.status === "EM_ANALISE") && (
+                            <details className="w-full">
+                              <summary className="cursor-pointer text-xs font-medium text-destructive">
+                                Negar…
+                              </summary>
+                              <ActionForm
+                                action={negarQuittePlacet.bind(null, p.id)}
+                                submitLabel="Negar Quitte Placet"
+                                className="mt-2"
+                              >
+                                <Label htmlFor={`parecer-${p.id}`}>Parecer (exibido ao irmão)</Label>
+                                <textarea
+                                  id={`parecer-${p.id}`}
+                                  name="parecer"
+                                  required
+                                  rows={3}
+                                  maxLength={2000}
+                                  className="w-full rounded-md border bg-background p-2 text-sm"
+                                />
+                              </ActionForm>
+                            </details>
                           )}
+                        {p.status === "NEGADO" && p.parecerNegativa && (
+                          <span className="text-xs text-muted-foreground" title={p.parecerNegativa}>
+                            Parecer: {p.parecerNegativa.slice(0, 80)}{p.parecerNegativa.length > 80 ? "…" : ""}
+                          </span>
+                        )}
                         </div>
                       </TableCell>
                     )}
@@ -391,8 +452,8 @@ export default async function QuittePlacetsPage() {
             <CardTitle>Formulário oficial (Form. 122)</CardTitle>
             <CardDescription>
               Baixe o formulário já preenchido com os dados da Loja e do
-              obreiro e anexe-o em PDF. As assinaturas gov.br (Secretário e,
-              por último, Venerável Mestre) são colhidas na aba Processos; só
+              obreiro e anexe-o em PDF. As três assinaturas gov.br (Secretário,
+              Orador e, por último, Venerável Mestre) são colhidas na aba Processos; só
               então o documento pode ser enviado à Guarda dos Selos ({GUARDA_SELOS_EMAIL}).
             </CardDescription>
           </CardHeader>
@@ -403,6 +464,7 @@ export default async function QuittePlacetsPage() {
                 const bloqueio = bloqueioAssinaturaQuitte({
                   status: p.status,
                   quitacaoFinanceira: p.quitacaoFinanceira,
+                  quitacaoConfirmadaAt: p.quitacaoConfirmadaAt,
                   cartaNome: p.cartaNome,
                   dataSessaoComunicacao: p.dataSessaoComunicacao,
                   ataNome: p.ataNome,
@@ -482,6 +544,29 @@ export default async function QuittePlacetsPage() {
                       </a>
                       .
                     </p>
+                  )}
+
+                  {isWriter && p.status !== "APROVADO" && (
+                    <div className="space-y-1">
+                      <ActionButton
+                        action={gerarFormulario122QuittePlacet.bind(null, p.id)}
+                        label={
+                          p.formularioNome
+                            ? "Gerar Form. 122 automaticamente (substitui o anexo)"
+                            : "Gerar Form. 122 automaticamente"
+                        }
+                        variant="secondary"
+                        confirm={
+                          p.formularioNome
+                            ? "Gerar de novo substitui o formulário anexado e invalida as assinaturas gov.br já colhidas. Continuar?"
+                            : undefined
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Preenche o Form. 122 oficial com Loja, sessão de comunicação, obreiro e
+                        cargos, já convertido para PDF — ou anexe abaixo o seu próprio arquivo.
+                      </p>
+                    </div>
                   )}
 
                   {isWriter && p.status !== "APROVADO" && (

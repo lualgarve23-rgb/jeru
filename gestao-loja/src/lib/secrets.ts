@@ -3,6 +3,7 @@ import {
   createDecipheriv,
   createHash,
   randomBytes,
+  timingSafeEqual,
 } from "node:crypto";
 
 /**
@@ -88,4 +89,19 @@ export const openSecret = decryptSecret;
 
 export function hasSecret(stored: string | null | undefined): boolean {
   return Boolean(stored && stored.length > 0);
+}
+
+/**
+ * Compara dois segredos em tempo constante (cron/webhooks). Comprimentos
+ * diferentes já falham — mas sem vazar em quanto diferem.
+ */
+export function segredoConfere(
+  recebido: string | null | undefined,
+  esperado: string | null | undefined
+): boolean {
+  if (!recebido || !esperado) return false;
+  const a = Buffer.from(recebido, "utf8");
+  const b = Buffer.from(esperado, "utf8");
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
 }

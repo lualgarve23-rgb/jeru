@@ -7,11 +7,17 @@ import { listLodgeMedia, readMedia, MEDIA_PREFIX } from "@/lib/media";
 // Venerável ou Secretário em Configurações da Loja. Gera um ZIP com:
 //  - dados/*.json  → dump integral das tabelas da loja (sem segredos)
 //  - planilhas/*.csv → visões amigáveis para Excel/LibreOffice
-//  - arquivos/     → PDFs guardados no banco (atas/pranchas gov.br, biblioteca)
+//  - arquivos/     → binários guardados no banco (PDFs gov.br, biblioteca,
+//                    processos, Quitte Placet, atestados, afastamentos, Mútua)
 //  - LEIA-ME.txt   → o que está no ZIP e o que permanece no Google Drive
 //
 // Segredos NUNCA saem no backup: hashes de senha, códigos de recuperação,
-// chaves Asaas, refresh token do Google e senha de app do Gmail.
+// contadores de bloqueio de login, cardToken (regenerado no restore), chaves
+// Asaas, refresh token do Google e senha de app do Gmail.
+//
+// Regra: TODO modelo do schema com `lodgeId` entra aqui (exceto a fila Job,
+// transitória) e TODO campo `Bytes` vai para arquivos/<pasta>/<id>__<campo>.<ext>,
+// nunca para o JSON — teste estático em __tests__/backup-cobertura.test.ts.
 
 const dtf = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo" });
 const fmtData = (d: Date | null | undefined) => (d ? dtf.format(d) : "");
@@ -24,6 +30,56 @@ function toJson(rows: unknown[], omitir: string[] = []) {
     return obj;
   });
   return JSON.stringify(limpo, null, 2);
+}
+
+// Campos do usuário que ficam fora do backup (segredos e estado transitório
+// de autenticação). cardToken é regenerado na restauração.
+export const USER_CAMPOS_OMITIDOS = [
+  "passwordHash",
+  "resetCodeHash",
+  "resetCodeExpiresAt",
+  "resetCodeAttempts",
+  "failedLoginAttempts",
+  "lockedUntil",
+  "cardToken",
+  "photoUrl",
+  "signatureUrl",
+] as const;
+
+// Extensão de um binário: pelo mimeType, pelo nome original ou pdf por padrão
+function extensaoDe(row: Record<string, unknown>, campo: string) {
+  const nome = String(row.arquivoNome ?? row.nome ?? "");
+  const mime = String(row.mimeType ?? "");
+  if (campo === "arquivo" && nome.includes(".")) {
+    const ext = nome.split(".").pop()!.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (ext) return ext;
+  }
+  if (campo === "arquivo" && mime && mime !== "application/pdf") return "bin";
+  return "pdf";
+}
+
+// Separa os campos Bytes de um conjunto de registros: os bytes vão para
+// arquivos/<pasta>/<id>__<campo>.<ext> e o JSON sai sem esses campos. A
+// restauração recompõe pelo prefixo "<id>__<campo>." (restore.ts).
+function separarBinarios(
+  zip: JSZip,
+  pasta: string,
+  rows: unknown[],
+  campos: string[]
+) {
+  const arquivos = zip.folder("arquivos")!;
+  for (const r of rows as Record<string, unknown>[]) {
+    for (const campo of campos) {
+      const v = r[campo];
+      if (v instanceof Uint8Array && v.length > 0) {
+        arquivos.file(
+          `${pasta}/${r.id}__${campo}.${extensaoDe(r, campo)}`,
+          Buffer.from(v)
+        );
+      }
+    }
+  }
+  return toJson(rows, campos);
 }
 
 const nomeArquivoSeguro = (s: string) =>
@@ -69,6 +125,16 @@ export async function gerarBackupLoja(lodgeId: string): Promise<{
     candidatoAnexos,
     quittePlacets,
     processosProgressao,
+    processosDocumento,
+    processosAssinantes,
+    atestados,
+    afastamentos,
+    mutuaEntregas,
+    contatosEsmoler,
+    notificacoes,
+    auditoria,
+    conversas,
+    mensagens,
   ] = await Promise.all([
     prisma.user.findMany({ ...porLoja, orderBy: { name: "asc" } }),
     prisma.familyMember.findMany(porUsuarioDaLoja),
@@ -108,6 +174,19 @@ export async function gerarBackupLoja(lodgeId: string): Promise<{
     prisma.candidatoAnexo.findMany({ where: { processo: { lodgeId } } }),
     prisma.quittePlacet.findMany(porLoja),
     prisma.processoProgressao.findMany(porLoja),
+    prisma.processoDocumento.findMany(porLoja),
+    prisma.processoAssinante.findMany({ where: { documento: { lodgeId } } }),
+    prisma.atestadoRegularidade.findMany(porLoja),
+    prisma.pedidoAfastamento.findMany(porLoja),
+    prisma.mutuaEntrega.findMany(porLoja),
+    prisma.contatoEsmoler.findMany(porLoja),
+    prisma.notification.findMany(porLoja),
+    prisma.auditEvent.findMany({ ...porLoja, orderBy: { createdAt: "asc" } }),
+    prisma.assistenteConversa.findMany(porLoja),
+    prisma.assistenteMensagem.findMany({
+      where: { conversa: { lodgeId } },
+      orderBy: { createdAt: "asc" },
+    }),
   ]);
 
   const zip = new JSZip();
@@ -124,10 +203,7 @@ export async function gerarBackupLoja(lodgeId: string): Promise<{
       "gmailAppPassword",
     ])
   );
-  dados.file(
-    "membros.json",
-    toJson(users, ["passwordHash", "resetCodeHash", "photoUrl", "signatureUrl"])
-  );
+  dados.file("membros.json", toJson(users, [...USER_CAMPOS_OMITIDOS]));
   dados.file("familiares.json", toJson(familiares));
   dados.file("meta-registros.json", toJson(metaRegistros));
   dados.file("historico-graus.json", toJson(degreeHistory));
@@ -142,6 +218,11 @@ export async function gerarBackupLoja(lodgeId: string): Promise<{
   dados.file("visitas-externas.json", toJson(visitasExternas));
   dados.file("atas.json", toJson(atas, ["govbrPdf"]));
   dados.file("pranchas.json", toJson(pranchas, ["govbrPdf"]));
+  dados.file(
+    "processos-documentos.json",
+    separarBinarios(zip, "processos", processosDocumento, ["arquivo", "govbrPdf"])
+  );
+  dados.file("processos-assinantes.json", toJson(processosAssinantes));
   dados.file("documentos-drive.json", toJson(documents));
   dados.file("biblioteca.json", toJson(biblioteca, ["arquivo"]));
   dados.file(
@@ -155,8 +236,37 @@ export async function gerarBackupLoja(lodgeId: string): Promise<{
   dados.file("eventos-beneficentes.json", toJson(charityEvents));
   dados.file("processos-admissao.json", toJson(processosAdmissao));
   dados.file("candidato-anexos.json", toJson(candidatoAnexos, ["arquivo"]));
-  dados.file("quitte-placets.json", toJson(quittePlacets));
+  dados.file(
+    "quitte-placets.json",
+    separarBinarios(zip, "quitte-placets", quittePlacets, [
+      "cartaArquivo",
+      "ataArquivo",
+      "govbrPdf",
+      "formularioArquivo",
+    ])
+  );
   dados.file("processos-progressao.json", toJson(processosProgressao));
+  dados.file(
+    "atestados-regularidade.json",
+    separarBinarios(zip, "atestados", atestados, ["govbrPdf"])
+  );
+  dados.file(
+    "pedidos-afastamento.json",
+    separarBinarios(zip, "afastamentos", afastamentos, [
+      "requerimentoPdf",
+      "formularioPdf",
+      "govbrPdf",
+    ])
+  );
+  dados.file(
+    "mutua-entregas.json",
+    separarBinarios(zip, "mutua", mutuaEntregas, ["arquivo"])
+  );
+  dados.file("contatos-esmoler.json", toJson(contatosEsmoler));
+  dados.file("notificacoes.json", toJson(notificacoes));
+  dados.file("auditoria.json", toJson(auditoria));
+  dados.file("assistente-conversas.json", toJson(conversas));
+  dados.file("assistente-mensagens.json", toJson(mensagens));
 
   // ── planilhas/*.csv — visões amigáveis ao Excel brasileiro ──
   const planilhas = zip.folder("planilhas")!;
@@ -280,6 +390,9 @@ export async function gerarBackupLoja(lodgeId: string): Promise<{
     atas.filter((a) => a.driveFileId).length +
     pranchas.filter((p) => p.driveFileId).length +
     quittePlacets.filter((q) => q.driveFileId).length +
+    processosDocumento.filter((p) => p.driveFileId).length +
+    atestados.filter((a) => a.driveFileId).length +
+    afastamentos.filter((a) => a.driveFileId).length +
     visitasExternas.filter((v) => v.certificadoDriveId).length;
   zip.file(
     "LEIA-ME.txt",
@@ -290,7 +403,10 @@ export async function gerarBackupLoja(lodgeId: string): Promise<{
       "Conteúdo:",
       "  dados/      — todos os registros da loja em JSON (formato técnico, reimportável).",
       "  planilhas/  — membros, presenças, mensalidades, livro-caixa e despesas em CSV (abre no Excel).",
-      "  arquivos/   — PDFs guardados no banco: atas e pranchas assinadas no gov.br, acervo da biblioteca e fundo do certificado de visita.",
+      "  arquivos/   — binários guardados no banco: atas e pranchas assinadas no gov.br, acervo da biblioteca,",
+      "                processos da caixa de assinaturas, Quitte Placet, atestados, afastamentos (Form. 116),",
+      "                entregas da Mútua, anexos de candidatos e fundo do certificado de visita",
+      "                (nomeados <id>__<campo>.<ext> para a restauração casar arquivo e registro).",
       "",
       "Por segurança, o backup NÃO contém senhas dos membros nem as credenciais",
       "da loja (chaves Asaas, conexão Google, senha de app do Gmail).",

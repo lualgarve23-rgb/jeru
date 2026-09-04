@@ -23,11 +23,18 @@ export function InlineSignDialog({
   description,
   preview,
   action,
+  triggerLabel = "Assinar agora",
+  submitLabel = "Assinar documento",
+  pendingLabel = "Assinando...",
 }: {
   title: string;
   description: string;
   preview: string;
   action: (prev: ActionResult, formData: FormData) => Promise<ActionResult>;
+  // Rótulos alternativos (ex.: aprovação inline de despesa no dashboard)
+  triggerLabel?: string;
+  submitLabel?: string;
+  pendingLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   // fecha o diálogo quando a assinatura é registrada com sucesso
@@ -44,7 +51,7 @@ export function InlineSignDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm">
-          <PenLine className="mr-1.5 h-4 w-4" /> Assinar agora
+          <PenLine className="mr-1.5 h-4 w-4" /> {triggerLabel}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
@@ -69,8 +76,7 @@ export function InlineSignDialog({
               required
             />
             <p className="text-xs text-muted-foreground">
-              A confirmação da senha registra a sua assinatura digital, com
-              autor e data/hora.
+              A confirmação da senha registra o ato com autor e data/hora.
             </p>
           </div>
           {state?.error && (
@@ -87,7 +93,7 @@ export function InlineSignDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending ? "Assinando..." : "Assinar documento"}
+              {pending ? pendingLabel : submitLabel}
             </Button>
           </div>
         </form>

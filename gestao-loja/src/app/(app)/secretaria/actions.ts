@@ -9,3 +9,4 @@ export * from "./_actions/afastamentos";
 export * from "./_actions/processos";
 export * from "./_actions/progressao";
 export * from "./_actions/familiares";
+export * from "./_actions/quitte-form122";

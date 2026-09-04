@@ -2,34 +2,43 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   findUniqueOrThrow,
-  invoiceUpdate,
+  invoiceUpdateMany,
+  invoiceFindMany,
   transactionCreate,
   transaction,
   syncInadimplencia,
+  notificarEvento,
+  usuariosDoCargo,
 } = vi.hoisted(() => ({
   findUniqueOrThrow: vi.fn(),
-  invoiceUpdate: vi.fn(),
+  invoiceUpdateMany: vi.fn(),
+  invoiceFindMany: vi.fn(),
   transactionCreate: vi.fn(),
   transaction: vi.fn(),
   syncInadimplencia: vi.fn(),
+  notificarEvento: vi.fn(),
+  usuariosDoCargo: vi.fn(),
 }));
+
+const tx = {
+  invoice: { updateMany: invoiceUpdateMany },
+  transaction: { create: transactionCreate },
+};
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     invoice: {
       findUniqueOrThrow,
-      update: invoiceUpdate,
-    },
-    transaction: {
-      create: transactionCreate,
+      findMany: invoiceFindMany,
     },
     $transaction: transaction,
   },
 }));
 
-vi.mock("@/lib/inadimplencia", () => ({
-  syncInadimplencia,
-}));
+vi.mock("@/lib/inadimplencia", () => ({ syncInadimplencia }));
+vi.mock("@/lib/notificar-evento", () => ({ notificarEvento, usuariosDoCargo }));
+vi.mock("@/lib/audit", () => ({ auditar: vi.fn() }));
+vi.mock("@/lib/quitte", () => ({ recalcularQuitacaoQuitte: vi.fn() }));
 
 import { settleInvoice } from "@/lib/settle-invoice";
 
@@ -41,16 +50,25 @@ function pendingInvoice(lodgeId = LOJA_A) {
   return {
     id: INVOICE_ID,
     lodgeId,
+    userId: "user-1",
+    user: { id: "user-1", name: "Irmão Teste" },
     status: "PENDENTE",
     description: "Capitação 01/2026",
+    referenceMonth: 1,
+    referenceYear: 2026,
     amountCents: 15000,
   };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  transaction.mockImplementation(async (ops: unknown) => ops);
+  // transação interativa: executa o callback com o client fake
+  transaction.mockImplementation(async (fn: (t: typeof tx) => Promise<unknown>) => fn(tx));
+  invoiceUpdateMany.mockResolvedValue({ count: 1 });
+  invoiceFindMany.mockResolvedValue([{ amountCents: 15000 }]);
+  usuariosDoCargo.mockResolvedValue(["tes-1"]);
   syncInadimplencia.mockResolvedValue(undefined);
+  notificarEvento.mockResolvedValue(undefined);
 });
 
 describe("settleInvoice — isolamento por lodgeId", () => {
@@ -68,11 +86,11 @@ describe("settleInvoice — isolamento por lodgeId", () => {
   it("aceita baixa quando opts.lodgeId coincide", async () => {
     findUniqueOrThrow.mockResolvedValue(pendingInvoice(LOJA_A));
 
-    await settleInvoice(INVOICE_ID, "PIX", { lodgeId: LOJA_A });
+    const r = await settleInvoice(INVOICE_ID, "PIX", { lodgeId: LOJA_A });
 
+    expect(r.settled).toBe(true);
     expect(transaction).toHaveBeenCalledOnce();
-    const ops = transaction.mock.calls[0][0];
-    expect(ops).toHaveLength(2);
+    expect(transactionCreate).toHaveBeenCalledOnce();
     expect(syncInadimplencia).toHaveBeenCalledWith(LOJA_A);
   });
 
@@ -91,26 +109,37 @@ describe("settleInvoice — isolamento por lodgeId", () => {
       status: "PAGA",
     });
 
-    await settleInvoice(INVOICE_ID, "MANUAL", { lodgeId: LOJA_A });
+    const r = await settleInvoice(INVOICE_ID, "MANUAL", { lodgeId: LOJA_A });
 
+    expect(r.settled).toBe(false);
     expect(transaction).not.toHaveBeenCalled();
+    expect(syncInadimplencia).not.toHaveBeenCalled();
+    expect(notificarEvento).not.toHaveBeenCalled();
+  });
+
+  it("baixa concorrente: se o updateMany condicional não afetar 1 linha, não lança receita", async () => {
+    findUniqueOrThrow.mockResolvedValue(pendingInvoice(LOJA_A));
+    invoiceUpdateMany.mockResolvedValue({ count: 0 });
+
+    const r = await settleInvoice(INVOICE_ID, "PIX", { lodgeId: LOJA_A });
+
+    expect(r.settled).toBe(false);
+    expect(invoiceUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: INVOICE_ID, status: { not: "PAGA" } } })
+    );
+    expect(transactionCreate).not.toHaveBeenCalled();
+    expect(notificarEvento).not.toHaveBeenCalled();
     expect(syncInadimplencia).not.toHaveBeenCalled();
   });
 
   it("lança receita no livro-caixa com o lodgeId da cobrança", async () => {
     findUniqueOrThrow.mockResolvedValue(pendingInvoice(LOJA_A));
-    invoiceUpdate.mockReturnValue({ kind: "update" });
-    transactionCreate.mockReturnValue({ kind: "create" });
 
     await settleInvoice(INVOICE_ID, "BOLETO", { lodgeId: LOJA_A });
 
-    expect(invoiceUpdate).toHaveBeenCalledWith(
+    expect(invoiceUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: INVOICE_ID },
-        data: expect.objectContaining({
-          status: "PAGA",
-          paidMethod: "BOLETO",
-        }),
+        data: expect.objectContaining({ status: "PAGA", paidMethod: "BOLETO" }),
       })
     );
     expect(transactionCreate).toHaveBeenCalledWith(
@@ -123,5 +152,25 @@ describe("settleInvoice — isolamento por lodgeId", () => {
         }),
       })
     );
+  });
+
+  it("avisa o irmão (pago:<id>) e o Tesoureiro (pagamentos:<loja>:<dia>)", async () => {
+    findUniqueOrThrow.mockResolvedValue(pendingInvoice(LOJA_A));
+    invoiceFindMany.mockResolvedValue([{ amountCents: 15000 }, { amountCents: 15000 }]);
+
+    await settleInvoice(INVOICE_ID, "PIX", { lodgeId: LOJA_A });
+
+    const chaves = notificarEvento.mock.calls.map((c) => c[1]);
+    expect(chaves).toContainEqual(
+      expect.objectContaining({
+        sourceKey: `pago:${INVOICE_ID}`,
+        userId: "user-1",
+        link: `/tesouraria/mensalidades/${INVOICE_ID}`,
+      })
+    );
+    const doDia = chaves.find((n) => String(n.sourceKey).startsWith(`pagamentos:${LOJA_A}:`));
+    expect(doDia).toBeDefined();
+    expect(doDia.userId).toBe("tes-1");
+    expect(doDia.title).toMatch(/^2 pagamento/);
   });
 });

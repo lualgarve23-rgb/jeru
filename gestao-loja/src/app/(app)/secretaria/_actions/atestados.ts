@@ -1,12 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { aposEventoDaLoja } from "@/lib/apos-evento";
+import { eventoAtestado } from "@/lib/eventos-solicitacoes";
 import { prisma } from "@/lib/prisma";
 import { requireUser, requireRole } from "@/lib/session";
 import { auditar } from "@/lib/audit";
 import {
   ordemAssinaturaAtestado,
   camposAssinaturaAtestado,
+  bloqueioFinanceiroAtestadoDoIrmao,
 } from "@/lib/atestado";
 import { arquivarVersaoFinalNoDrive, slugNome } from "@/lib/google-drive";
 import { validarUploadAssinado } from "@/lib/pdf-assinaturas";
@@ -45,6 +48,7 @@ export async function solicitarAtestado(): Promise<ActionResult> {
     entidade: "AtestadoRegularidade",
     entidadeId: user.id,
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/atestados");
   revalidatePath("/secretaria/processos");
   return {
@@ -74,6 +78,14 @@ export async function uploadAtestadoAssinadoGovbr(
       error: `${atestado.user.name} não está com situação ATIVO — o atestado não pode ser assinado.`,
     };
   }
+  // Trava financeira: qualquer capitação vencida bloqueia, salvo override
+  // justificado do Tesoureiro
+  const bloqueioFin = await bloqueioFinanceiroAtestadoDoIrmao(
+    user.lodgeId,
+    atestado.userId,
+    atestado
+  );
+  if (bloqueioFin) return { error: bloqueioFin };
   const ordem = ordemAssinaturaAtestado(user.role, atestado);
   if (ordem.jaAssinou) {
     return { error: "Você já assinou este atestado." };
@@ -98,7 +110,8 @@ export async function uploadAtestadoAssinadoGovbr(
   // Confere que é o mesmo documento (versão anterior preservada como prefixo
   // PAdES), que há assinatura nova e que ela é do próprio remetente — evita
   // subir um PDF antigo ou o documento de outro irmão por engano.
-  const erroAssinatura = validarUploadAssinado({
+  const { erro: erroAssinatura } = await validarUploadAssinado({
+    cpf: (await prisma.user.findUnique({ where: { id: user.id }, select: { cpf: true } }))?.cpf,
     pdf,
     anterior: atestado.govbrPdf ? Buffer.from(atestado.govbrPdf) : null,
     nomeAssinante: user.name,
@@ -122,6 +135,7 @@ export async function uploadAtestadoAssinadoGovbr(
     entidade: "AtestadoRegularidade",
     entidadeId: atestadoId,
   });
+  await eventoAtestado(user.lodgeId, atestadoId);
   // Última assinatura: arquivamento no Drive da Loja (best-effort, como as atas)
   let driveAviso = "";
   if (ordem.ultimaAssinatura) {
@@ -134,6 +148,7 @@ export async function uploadAtestadoAssinadoGovbr(
     );
   }
 
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/atestados");
   revalidatePath("/secretaria/processos");
   return {
@@ -143,6 +158,58 @@ export async function uploadAtestadoAssinadoGovbr(
           user.role === "TESOUREIRO" ? "Secretário" : "Venerável Mestre"
         } baixa esta versão, assina no gov.br e sobe aqui.`,
   };
+}
+
+// Override financeiro: SÓ o Tesoureiro libera as assinaturas de um atestado
+// cujo irmão tem capitação vencida, com justificativa obrigatória (auditada
+// e exibida no card de Processos). Pode ser refeito enquanto não concluído.
+export async function overrideFinanceiroAtestado(
+  atestadoId: string,
+  justificativa: string
+): Promise<ActionResult> {
+  const user = await requireRole("TESOUREIRO");
+  const texto = String(justificativa ?? "").trim().slice(0, 1000);
+  if (texto.length < 10) {
+    return { error: "Escreva a justificativa do override (mínimo 10 caracteres)." };
+  }
+  const a = await prisma.atestadoRegularidade.findUnique({
+    where: { id: atestadoId, lodgeId: user.lodgeId },
+    select: { status: true, userId: true, overrideAt: true },
+  });
+  if (!a) return { error: "Atestado não encontrado." };
+  if (a.status !== "SOLICITADO") {
+    return { error: "O atestado já foi concluído." };
+  }
+  const agora = new Date();
+  await prisma.atestadoRegularidade.update({
+    where: { id: atestadoId, lodgeId: user.lodgeId },
+    data: {
+      overrideTesoureiroId: user.id,
+      overrideJustificativa: texto,
+      overrideAt: agora,
+    },
+  });
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "atestado.override-financeiro",
+    entidade: "AtestadoRegularidade",
+    entidadeId: atestadoId,
+    detalhes: { solicitante: a.userId, justificativa: texto, refeito: !!a.overrideAt },
+  });
+  aposEventoDaLoja(user.lodgeId);
+  revalidatePath("/secretaria/atestados");
+  revalidatePath("/secretaria/processos");
+  return { ok: "Override financeiro registrado — as assinaturas do atestado estão liberadas." };
+}
+
+// Variante para <ActionForm> (campo "justificativa")
+export async function overrideFinanceiroAtestadoForm(
+  atestadoId: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  return overrideFinanceiroAtestado(atestadoId, String(formData.get("justificativa") ?? ""));
 }
 
 // Sobe o PDF final ao Drive da Loja e registra na Biblioteca. Retorna um
@@ -191,6 +258,7 @@ export async function excluirAtestado(atestadoId: string): Promise<ActionResult>
     entidadeId: atestadoId,
     detalhes: { solicitante: a.userId, assinaturas: [a.signedByTesAt, a.signedBySecAt].filter(Boolean).length },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/atestados");
   revalidatePath("/secretaria/processos");
   return { ok: "Atestado excluído." };

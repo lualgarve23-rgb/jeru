@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isGovbrConfigured, govbrAuthorizeUrl } from "@/lib/govbr";
-import { ordemAssinaturaAtestado } from "@/lib/atestado";
+import { ordemAssinaturaAtestado, bloqueioFinanceiroAtestadoDoIrmao } from "@/lib/atestado";
 import {
   ordemAssinaturaQuitte,
   bloqueioAssinaturaQuitte,
@@ -40,9 +40,21 @@ export async function GET(req: NextRequest) {
     }
     const atestado = await prisma.atestadoRegularidade.findUnique({
       where: { id: atestadoId, lodgeId: session.user.lodgeId },
+      include: { user: { select: { status: true } } },
     });
     if (!atestado || atestado.status !== "SOLICITADO") {
       backUrl.searchParams.set("govbr", "falhou");
+      return NextResponse.redirect(backUrl);
+    }
+    // Mesma regra do upload pelo portal ITI: só se atesta regularidade de
+    // irmão com situação ATIVO
+    if (atestado.user.status !== "ATIVO") {
+      backUrl.searchParams.set("govbr", "irmao-nao-ativo");
+      return NextResponse.redirect(backUrl);
+    }
+    // Trava financeira (capitações vencidas sem override do Tesoureiro)
+    if (await bloqueioFinanceiroAtestadoDoIrmao(session.user.lodgeId, atestado.userId, atestado)) {
+      backUrl.searchParams.set("govbr", "trava-financeira");
       return NextResponse.redirect(backUrl);
     }
     const ordem = ordemAssinaturaAtestado(role!, atestado);
@@ -113,15 +125,16 @@ export async function GET(req: NextRequest) {
       where: { id: session.user.id },
       select: { cargoRito: true },
     });
-    const cargoQuitte = cargoQuitteDoUsuario(role!, meu?.cargoRito);
-    if (!cargoQuitte) {
-      return back("nao-assinante");
-    }
     if (!isGovbrConfigured()) return back("nao-configurado");
     const placet = await prisma.quittePlacet.findUnique({
       where: { id: quitteId, lodgeId: session.user.lodgeId },
     });
     if (!placet) return back("falhou");
+    // Cargo da vez entre os do usuário (quem acumula dois cargos assina por ambos)
+    const cargoQuitte = cargoQuitteDoUsuario(role!, meu?.cargoRito, placet);
+    if (!cargoQuitte) {
+      return back("nao-assinante");
+    }
     if (bloqueioAssinaturaQuitte(placet)) return back("bloqueado");
     const ordem = ordemAssinaturaQuitte(cargoQuitte, placet);
     if (ordem.jaAssinou) return back("ja-assinou");

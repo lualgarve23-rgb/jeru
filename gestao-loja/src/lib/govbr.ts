@@ -12,10 +12,26 @@ import { Signer } from "@signpdf/utils";
 // Produção: GOVBR_SIGN_AUTH_URL=https://cas.iti.br
 //           GOVBR_SIGN_API_URL=https://assinatura-api.iti.br
 
-const AUTH_URL =
-  process.env.GOVBR_SIGN_AUTH_URL || "https://cas.staging.iti.br";
-const API_URL =
-  process.env.GOVBR_SIGN_API_URL || "https://assinatura-api.staging.iti.br";
+// Em produção as URLs precisam vir do .env: cair na homologação em silêncio
+// produziria assinaturas sem validade jurídica. Avaliadas na hora do uso (e
+// não no import) para não derrubar páginas que só perguntam isGovbrConfigured.
+function urlObrigatoriaEmProducao(nome: string, padraoHomologacao: string) {
+  const valor = process.env[nome]?.trim();
+  if (valor) return valor;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      `${nome} não definida — em produção a URL do gov.br precisa ser explícita (ex.: ${padraoHomologacao.replace(".staging", "")}).`
+    );
+  }
+  return padraoHomologacao;
+}
+const authUrl = () =>
+  urlObrigatoriaEmProducao("GOVBR_SIGN_AUTH_URL", "https://cas.staging.iti.br");
+const apiUrl = () =>
+  urlObrigatoriaEmProducao(
+    "GOVBR_SIGN_API_URL",
+    "https://assinatura-api.staging.iti.br"
+  );
 const SCOPE = process.env.GOVBR_SIGN_SCOPE || "sign";
 
 export function isGovbrConfigured() {
@@ -30,7 +46,7 @@ export function govbrRedirectUri() {
 }
 
 export function govbrAuthorizeUrl(state: string) {
-  const url = new URL("/oauth2.0/authorize", AUTH_URL);
+  const url = new URL("/oauth2.0/authorize", authUrl());
   url.searchParams.set("response_type", "code");
   url.searchParams.set("client_id", process.env.GOVBR_SIGN_CLIENT_ID!);
   url.searchParams.set("scope", SCOPE);
@@ -44,7 +60,7 @@ export async function govbrExchangeCode(code: string): Promise<string> {
   const basic = Buffer.from(
     `${process.env.GOVBR_SIGN_CLIENT_ID}:${process.env.GOVBR_SIGN_CLIENT_SECRET}`
   ).toString("base64");
-  const res = await fetch(new URL("/oauth2.0/token", AUTH_URL), {
+  const res = await fetch(new URL("/oauth2.0/token", authUrl()), {
     method: "POST",
     headers: {
       Authorization: `Basic ${basic}`,
@@ -83,7 +99,7 @@ async function assinarPkcs7(
   accessToken: string,
   hashBase64: string
 ): Promise<Buffer> {
-  const res = await fetch(new URL("/externo/v2/assinarPKCS7", API_URL), {
+  const res = await fetch(new URL("/externo/v2/assinarPKCS7", apiUrl()), {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,

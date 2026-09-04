@@ -2,17 +2,27 @@
 // Cada Loja usa a própria conta Asaas (Lodge.asaasApiKey).
 // Sandbox por padrão; em produção defina ASAAS_BASE_URL=https://api.asaas.com/v3
 
-const BASE_URL =
-  process.env.ASAAS_BASE_URL ?? "https://api-sandbox.asaas.com/v3";
-
 export class AsaasError extends Error {}
+
+// Em produção a URL precisa ser explícita — cobrar no sandbox por engano
+// geraria "pagamentos" sem dinheiro real. Avaliada na hora da chamada.
+function baseUrl(): string {
+  const valor = process.env.ASAAS_BASE_URL?.trim();
+  if (valor) return valor;
+  if (process.env.NODE_ENV === "production") {
+    throw new AsaasError(
+      "ASAAS_BASE_URL não definida — em produção use https://api.asaas.com/v3 (ou o sandbox explicitamente)."
+    );
+  }
+  return "https://api-sandbox.asaas.com/v3";
+}
 
 async function asaasFetch<T>(
   apiKey: string,
   path: string,
   init?: RequestInit
 ): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${baseUrl()}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
@@ -37,11 +47,25 @@ export async function ensureCustomer(
   member: { name: string; cpf: string; email: string; asaasCustomerId: string | null }
 ): Promise<string> {
   if (member.asaasCustomerId) return member.asaasCustomerId;
+  // Valida antes de chamar o gateway: o Asaas rejeita CPF inválido e
+  // e-mail de placeholder (importação) com mensagens pouco claras
+  const cpf = member.cpf.replace(/\D/g, "");
+  if (cpf.length !== 11) {
+    throw new AsaasError(
+      `${member.name}: CPF inválido no cadastro (${member.cpf || "vazio"}) — corrija na ficha do membro antes de cobrar pelo Asaas.`
+    );
+  }
+  const { emailEntregavel } = await import("@/lib/senha-inicial");
+  if (!emailEntregavel(member.email)) {
+    throw new AsaasError(
+      `${member.name}: e-mail não entregável (${member.email || "vazio"}) — informe um e-mail real na ficha do membro antes de cobrar pelo Asaas.`
+    );
+  }
   const created = await asaasFetch<{ id: string }>(apiKey, "/customers", {
     method: "POST",
     body: JSON.stringify({
       name: member.name,
-      cpfCnpj: member.cpf.replace(/\D/g, ""),
+      cpfCnpj: cpf,
       email: member.email,
     }),
   });

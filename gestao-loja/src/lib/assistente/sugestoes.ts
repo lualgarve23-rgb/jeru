@@ -8,6 +8,8 @@ export type Sugestao = {
   // rotas em que a sugestão ganha prioridade (prefixo); vazio = geral
   rotas?: string[];
   roles?: string[]; // restrição por nível de acesso; vazio = todos
+  // chips dinâmicos de "Minha vez": sempre na frente, em qualquer rota
+  fixa?: boolean;
 };
 
 const CATALOGO: Sugestao[] = [
@@ -73,6 +75,32 @@ const CATALOGO: Sugestao[] = [
   { texto: "Onde troco a minha senha?" },
 ];
 
+// Chips dinâmicos a partir de "Minha vez" (lib/pendencias.ts): entram na
+// frente do catálogo, sem rota (valem em qualquer tela).
+export function sugestoesDinamicas(
+  pendencias: { tipo: string; acao?: string }[]
+): { texto: string; rotas?: string[]; fixa?: boolean }[] {
+  if (pendencias.length === 0) return [];
+  const conta = (tipos: string[]) => pendencias.filter((p) => tipos.includes(p.tipo)).length;
+  const chips: string[] = [];
+  const assinar = conta(["atestado", "quitte", "processo", "afastamento", "ata"]);
+  if (assinar > 0) {
+    const atestados = conta(["atestado"]);
+    chips.push(
+      atestados === assinar
+        ? `Você tem ${atestados} atestado(s) na sua vez — quer ver?`
+        : `Tenho ${assinar} documento(s) para assinar — quais são?`
+    );
+  }
+  if (conta(["despesa"]) > 0) chips.push("Que despesas aguardam a minha aprovação?");
+  if (conta(["capitacao"]) > 0) chips.push("Quais capitações minhas estão vencidas?");
+  if (conta(["convite"]) > 0) chips.push("Que convites de sessão ainda não respondi?");
+  if (conta(["lgpd", "candidato"]) > 0) chips.push("O que a Secretaria precisa registrar hoje?");
+  if (conta(["esmoler"]) > 0) chips.push("Quais irmãos precisam do meu contato?");
+  if (chips.length === 0) chips.push(`Tenho ${pendencias.length} item(ns) na minha vez — o que são?`);
+  return chips.slice(0, 3).map((texto) => ({ texto, fixa: true }));
+}
+
 // Filtro por role no SERVIDOR (layout) — o cliente só reordena pela rota
 export function sugestoesVisiveis(user: {
   role: string;
@@ -85,13 +113,14 @@ export function sugestoesVisiveis(user: {
 
 // Ordenação contextual (roda no cliente com usePathname)
 export function ordenarPorRota(
-  sugestoes: { texto: string; rotas?: string[] }[],
+  sugestoes: { texto: string; rotas?: string[]; fixa?: boolean }[],
   rota: string,
   limite: number
 ): string[] {
-  const contextuais = sugestoes.filter((s) =>
-    s.rotas?.some((r) => rota.startsWith(r))
+  const fixas = sugestoes.filter((s) => s.fixa);
+  const contextuais = sugestoes.filter(
+    (s) => !s.fixa && s.rotas?.some((r) => rota.startsWith(r))
   );
-  const gerais = sugestoes.filter((s) => !contextuais.includes(s));
-  return [...contextuais, ...gerais].slice(0, limite).map((s) => s.texto);
+  const gerais = sugestoes.filter((s) => !s.fixa && !contextuais.includes(s));
+  return [...fixas, ...contextuais, ...gerais].slice(0, limite).map((s) => s.texto);
 }

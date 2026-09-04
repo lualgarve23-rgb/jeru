@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 import {
   Sparkles,
   SendHorizonal,
@@ -19,20 +20,38 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ordenarPorRota } from "@/lib/assistente/sugestoes";
+import { partirEmRotas } from "@/lib/assistente/links";
 import {
   separarSugestoes,
   ocultarMarcadorParcial,
 } from "@/lib/assistente/limites";
 
 type Msg = { role: "user" | "assistant"; content: string };
-type Sugestao = { texto: string; rotas?: string[] };
+type Sugestao = { texto: string; rotas?: string[]; fixa?: boolean };
 type ConversaResumo = { id: string; titulo: string | null; updatedAt: string };
+
+// Rotas internas citadas em texto puro viram links clicáveis (sem HTML do
+// modelo — só o padrão /secretaria/..., /tesouraria/..., /solicitacoes...,
+// /dashboard/..., /esmoler, /convite/..., /n/...)
+function comLinks(texto: string, chave: string) {
+  return partirEmRotas(texto).map((parte, i) =>
+    i % 2 ? (
+      <Link key={`${chave}-l${i}`} href={parte} className="font-medium underline underline-offset-2">
+        {parte}
+      </Link>
+    ) : (
+      parte
+    )
+  );
+}
 
 // O modelo responde com **negrito** de Markdown; renderiza só isso, sem lib.
 function comNegrito(texto: string) {
   return texto
     .split(/\*\*([^*]+)\*\*/g)
-    .map((parte, i) => (i % 2 ? <strong key={i}>{parte}</strong> : parte));
+    .map((parte, i) =>
+      i % 2 ? <strong key={i}>{comLinks(parte, `b${i}`)}</strong> : comLinks(parte, `t${i}`)
+    );
 }
 
 export function Assistente({ sugestoes }: { sugestoes: Sugestao[] }) {

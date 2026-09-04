@@ -5,7 +5,8 @@ import path from "node:path";
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 
 import { FERRAMENTAS, ferramentasPara } from "@/lib/assistente/tools";
-import { ordenarPorRota, sugestoesVisiveis } from "@/lib/assistente/sugestoes";
+import { ordenarPorRota, sugestoesVisiveis, sugestoesDinamicas } from "@/lib/assistente/sugestoes";
+import { partirEmRotas } from "@/lib/assistente/links";
 import { buscarFaq } from "@/lib/assistente/faq";
 
 describe("assistente — ferramentas", () => {
@@ -44,8 +45,25 @@ describe("assistente — ferramentas", () => {
         "minhas_notificacoes",
         "info_benemerencia",
         "ajuda_app",
+        "minha_fila",
       ])
     );
+  });
+
+  it("minha_fila vai a TODOS os perfis (inclui Orador/Vigilante por cargoRito)", () => {
+    for (const role of ["MEMBER", "ESMOLER", "TESOUREIRO", "SECRETARIO", "CONSELHO_CONTAS", "VENERAVEL_MESTRE"]) {
+      expect(nomes(role)).toContain("minha_fila");
+    }
+    expect(nomes("SUPER_ADMIN")).not.toContain("minha_fila");
+    const orador = ferramentasPara({ id: "u", lodgeId: "l", role: "MEMBER", cargoRito: "Orador", name: "X" });
+    expect(orador.map((f) => f.nome)).toContain("minha_fila");
+  });
+
+  it("situacao_financeira_irmao é exclusiva do Secretário", () => {
+    expect(nomes("SECRETARIO")).toContain("situacao_financeira_irmao");
+    for (const role of ["MEMBER", "ESMOLER", "TESOUREIRO", "CONSELHO_CONTAS", "VENERAVEL_MESTRE", "SUPER_ADMIN"]) {
+      expect(nomes(role)).not.toContain("situacao_financeira_irmao");
+    }
   });
 
   const nomes = (role: string) =>
@@ -172,6 +190,27 @@ describe("assistente — isolamento lodgeId (estático)", () => {
     expect(usos.length).toBeGreaterThan(0);
   });
 
+  it("situacao_financeira_irmao só aceita irmão da loja COM processo em andamento", () => {
+    const src = readFileSync(
+      path.join(root, "lib/assistente/tools.ts"),
+      "utf8"
+    );
+    const ini = src.indexOf('nome: "situacao_financeira_irmao"');
+    const fim = src.indexOf('nome: "minhas_capitacoes"');
+    const bloco = src.slice(ini, fim);
+    // valida contra a lista de irmãos com atestado/quitte/afastamento aberto…
+    expect(bloco).toMatch(/irmaosComProcessoEmAndamento\(user\.lodgeId\)/);
+    expect(bloco).toMatch(/comProcesso\.has\(alvo\)/);
+    // …e toda query da ferramenta continua presa à loja do usuário
+    const queries = bloco.match(/where:\s*\{[^}]*\}/g) ?? [];
+    expect(queries.length).toBeGreaterThanOrEqual(3);
+    for (const q of queries) expect(q).toMatch(/lodgeId:\s*user\.lodgeId/);
+    // o helper também filtra por loja em todas as fontes
+    const h0 = src.indexOf("export async function irmaosComProcessoEmAndamento");
+    const helper = src.slice(h0, src.indexOf("// Trechos do texto", h0));
+    expect((helper.match(/where:\s*\{\s*lodgeId/g) ?? []).length).toBe(3);
+  });
+
   it("a rota do chat retoma conversa só do próprio usuário e loja", () => {
     const src = readFileSync(
       path.join(root, "app/api/assistente/chat/route.ts"),
@@ -195,6 +234,35 @@ describe("assistente — sugestões e FAQ", () => {
     const r = ordenarPorRota(sugestoes, "/dashboard/mutua", 2);
     expect(r[0]).toBe("contextual");
     expect(r).toHaveLength(2);
+  });
+
+  it("chips dinâmicos de 'Minha vez' vêm sempre na frente", () => {
+    const din = sugestoesDinamicas([
+      { tipo: "atestado", acao: "assinar" },
+      { tipo: "atestado", acao: "assinar" },
+      { tipo: "despesa", acao: "aprovar" },
+    ]);
+    expect(din[0].texto).toMatch(/2 atestado/);
+    expect(din.map((d) => d.texto).join(" ")).toMatch(/despesas/);
+    expect(din.every((d) => d.fixa)).toBe(true);
+    expect(sugestoesDinamicas([])).toEqual([]);
+    const r = ordenarPorRota(
+      [{ texto: "contextual", rotas: ["/dashboard/mutua"] }, ...din],
+      "/dashboard/mutua",
+      2
+    );
+    expect(r[0]).toBe(din[0].texto);
+  });
+
+  it("rotas internas no texto viram links; texto comum e URLs externas não", () => {
+    const partes = partirEmRotas(
+      "Veja em /secretaria/processos?destaque=atestado-abc#atestado-abc. Depois /tesouraria/mensalidades/inv1, ok? Site https://gob.org.br/x."
+    );
+    expect(partes[1]).toBe("/secretaria/processos?destaque=atestado-abc#atestado-abc");
+    expect(partes[3]).toBe("/tesouraria/mensalidades/inv1");
+    expect(partes).toHaveLength(5);
+    expect(partirEmRotas("nada aqui")).toEqual(["nada aqui"]);
+    expect(partirEmRotas("aviso /n/abc123 lido")[1]).toBe("/n/abc123");
   });
 
   it("sugestoesVisiveis devolve o catálogo para Obreiro comum", () => {

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   ordemAssinaturaQuitte,
   cargoQuitteDoUsuario,
+  cargoQuitteDosCargos,
   proximoCargoQuitte,
   assinaturasQuitte,
   bloqueioAssinaturaQuitte,
@@ -77,5 +78,16 @@ describe("Quitte Placet — cadeia Secretário → Orador → Venerável Mestre"
     expect(
       bloqueioAssinaturaQuitte({ ...base, dataSessaoComunicacao: new Date(), ataNome: "ata.pdf" })
     ).toBeNull();
+  });
+
+  it("quem acumula dois cargos responde pelo cargo da vez ainda não assinado", () => {
+    // Secretário que também é Orador: assina como Secretário, depois como Orador
+    expect(cargoQuitteDoUsuario("SECRETARIO", "Orador", nenhuma)).toBe("SECRETARIO");
+    expect(cargoQuitteDoUsuario("SECRETARIO", "Orador", soSec)).toBe("ORADOR");
+    // já assinou por ambos: volta ao primeiro (jaAssinou trata o resto)
+    expect(cargoQuitteDoUsuario("SECRETARIO", "Orador", secOrador)).toBe("SECRETARIO");
+    // sem estado do placet, comportamento antigo (primeiro cargo da cadeia)
+    expect(cargoQuitteDosCargos(["SECRETARIO", "ORADOR"])).toBe("SECRETARIO");
+    expect(cargoQuitteDosCargos(["MEMBER"])).toBeNull();
   });
 });

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { toCsv, csvResponse, brlCsv } from "@/lib/csv";
+import { intervaloMesSaoPaulo, partesSaoPaulo } from "@/lib/datas-sp";
 
 // Exporta o livro-caixa do mês em CSV (?mes=&ano=)
 export async function GET(request: Request) {
@@ -10,11 +11,12 @@ export async function GET(request: Request) {
     "CONSELHO_CONTAS"
   );
   const url = new URL(request.url);
-  const now = new Date();
-  const month = Number(url.searchParams.get("mes")) || now.getMonth() + 1;
-  const year = Number(url.searchParams.get("ano")) || now.getFullYear();
-  const start = new Date(year, month - 1, 1);
-  const end = new Date(year, month, 1);
+  const hoje = partesSaoPaulo(new Date());
+  const mesParam = Number(url.searchParams.get("mes"));
+  const month = mesParam >= 1 && mesParam <= 12 ? mesParam : hoje.mes;
+  const year = Number(url.searchParams.get("ano")) || hoje.ano;
+  // mês civil em São Paulo (não no fuso do servidor)
+  const { inicio: start, fim: end } = intervaloMesSaoPaulo(year, month);
 
   const transactions = await prisma.transaction.findMany({
     where: { lodgeId: user.lodgeId, date: { gte: start, lt: end } },
@@ -51,7 +53,7 @@ export async function GET(request: Request) {
     ["Data", "Tipo", "Categoria", "Descrição", "Valor (R$)"],
     [
       ...transactions.map((t) => [
-        t.date.toLocaleDateString("pt-BR"),
+        t.date.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }),
         t.type,
         t.category ?? "",
         t.description,

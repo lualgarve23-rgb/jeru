@@ -40,6 +40,7 @@ export default async function SolicitacoesPage() {
       orderBy: { dataSolicitacao: "desc" },
       select: {
         status: true,
+        parecerNegativa: true,
         dataSolicitacao: true,
         quitacaoFinanceira: true,
         signedBySecAt: true,
@@ -92,7 +93,12 @@ export default async function SolicitacoesPage() {
           ativo: !quitte.formularioEnviadoAt,
         }
       : quitte.status === "NEGADO"
-        ? { texto: "Negado", ativo: false }
+        ? {
+            texto: quitte.parecerNegativa
+              ? `Negado — parecer da Secretaria: ${quitte.parecerNegativa}`
+              : "Negado",
+            ativo: false,
+          }
         : {
             texto: !quitte.quitacaoFinanceira
               ? "Pendente com: Tesouraria (Nada Consta)"
@@ -122,7 +128,7 @@ export default async function SolicitacoesPage() {
       href: "/secretaria/quitte-placets",
       titulo: "Quitte Placet",
       descricao:
-        "Desligamento ou transferência do quadro. Exige a carta escrita a próprio punho, o Nada Consta da Tesouraria e as assinaturas gov.br do Secretário e do Venerável Mestre (Form. 122).",
+        "Desligamento ou transferência do quadro. Exige a carta escrita a próprio punho, o Nada Consta da Tesouraria e as assinaturas gov.br do Secretário, do Orador e do Venerável Mestre (Form. 122).",
       estado: quitteEstado,
       data: quitte?.dataSolicitacao ?? null,
     },

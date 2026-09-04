@@ -238,6 +238,28 @@ describe("isolamento lodgeId nas actions (estático)", () => {
     }
   });
 
+  it("check-in manual e justificativa conferem sessão e membro pela Loja do usuário", () => {
+    const src = readFileSync(
+      path.join(root, "app/(app)/secretaria/_actions/sessoes.ts"),
+      "utf8"
+    );
+    // registerAttendance: sessão e membro filtrados por lodgeId antes do upsert
+    expect(src).toMatch(
+      /registerAttendance[\s\S]{0,900}lodgeSession\.findUnique\(\{\s*where:\s*\{\s*id:\s*sessionId,\s*lodgeId:\s*user\.lodgeId/
+    );
+    expect(src).toMatch(
+      /registerAttendance[\s\S]{0,900}user\.findUnique\(\{\s*where:\s*\{\s*id:\s*memberId,\s*lodgeId:\s*user\.lodgeId/
+    );
+    // justificarAusencia: idem
+    expect(src).toMatch(
+      /justificarAusencia[\s\S]{0,1200}user\.findUnique\(\{\s*where:\s*\{\s*id:\s*memberId,\s*lodgeId:\s*user\.lodgeId/
+    );
+    // a trava da ata só olha atas da própria Loja
+    expect(src).toMatch(
+      /function ataTravaPresencas\(sessionId: string, lodgeId: string\)[\s\S]{0,200}where:\s*\{\s*sessionId,\s*lodgeId\s*\}/
+    );
+  });
+
   it("settleInvoice exige lodgeId quando informado", () => {
     const src = readFileSync(path.join(root, "lib/settle-invoice.ts"), "utf8");
     expect(src).toMatch(

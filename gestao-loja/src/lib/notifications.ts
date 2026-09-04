@@ -8,6 +8,29 @@ import {
   frequenciaAnual,
   MIN_SESSOES_PARA_ALERTA,
 } from "@/lib/frequencia";
+import { enfileirar } from "@/lib/fila";
+import { logError } from "@/lib/log";
+
+// Notificações de EVENTO (gravadas direto por lib/notificar-evento.ts,
+// status-membro.ts, settle-invoice.ts, inadimplencia.ts, privacidade e pelos
+// avisos de etapa das solicitações) não nascem da varredura de pendências —
+// o sync nunca as apaga. Lidas ou com mais de EVENTO_RETENCAO_DIAS são
+// limpas pelo cron (limparNotificacoesEventoAntigas).
+export const PREFIXOS_EVENTO = [
+  "status:",
+  "pago:",
+  "pagamentos:",
+  "emitida:",
+  "valor-divergente:",
+  "lgpd-exclusao:",
+  "evento:",
+];
+export const EVENTO_RETENCAO_DIAS = 60;
+
+// Deep link para o card de um item na caixa de assinaturas (Processos)
+export function linkProcessos(destaque: string) {
+  return `/secretaria/processos?destaque=${destaque}#${destaque}`;
+}
 
 // Prazo legal de comunicação pós-Sessão Magna (loja.md §3)
 export const COMMUNICATION_DEADLINE_DAYS = 15;
@@ -42,7 +65,7 @@ function addMonths(d: Date, months: number) {
 // da central de notificações (uma entrada por sourceKey).
 async function collectPending(lodgeId: string): Promise<Pending[]> {
   const now = new Date();
-  const [atas, placets, members, magnas, progressoes, atestados, processos, afastamentos] = await Promise.all([
+  const [atas, placets, members, magnas, progressoes, atestados, processos, afastamentos, despesas] = await Promise.all([
     prisma.ata.findMany({
       where: { lodgeId, status: "AGUARDANDO_ASSINATURAS" },
       include: { session: { select: { date: true } } },
@@ -113,9 +136,36 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
         user: { select: { name: true, cim: true } },
       },
     }),
+    prisma.expense.findMany({
+      where: { lodgeId, status: "PENDENTE_APROVACAO" },
+      select: {
+        id: true,
+        description: true,
+        amountCents: true,
+        createdAt: true,
+        approvedByMasterId: true,
+        approvedByTreasurerId: true,
+      },
+    }),
   ]);
 
   const pending: Pending[] = [];
+
+  // Despesas aguardando a dupla aprovação (VM + Tesoureiro) — o cargo que
+  // falta compõe a sourceKey; o e-mail vai só a ele.
+  for (const d of despesas) {
+    const cargo = !d.approvedByMasterId
+      ? { key: "vm", label: "Venerável Mestre" }
+      : { key: "tes", label: "Tesoureiro" };
+    const valor = (d.amountCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    pending.push({
+      sourceKey: `despesa:${d.id}:${cargo.key}`,
+      type: "FINANCIAL_APPROVAL",
+      title: `Despesa aguarda aprovação do ${cargo.label}: ${d.description}`,
+      description: `${valor}, lançada em ${d.createdAt.toLocaleDateString("pt-BR")} — a dupla aprovação (Venerável Mestre e Tesoureiro) libera o pagamento.`,
+      link: `/tesouraria/despesas#despesa-${d.id}`,
+    });
+  }
 
   // Pedidos de Afastamento (Form. 116) — cada etapa gera a sua notificação
   // (a etapa compõe a sourceKey): lembrete pessoal ao irmão para assinar o
@@ -139,7 +189,7 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
         type: "MISSING_DATA",
         title: `Pedido de afastamento de ${p.user.name} aguarda deliberação`,
         description: `${quem} requereu licença por ${p.dias} dias (requerimento assinado gov.br em ${aberto}). Após a sessão, registre a data e o artigo em Processos para gerar o Form. 116.`,
-        link: "/secretaria/processos",
+        link: linkProcessos(`afastamento-${p.id}`),
       });
     } else if (p.status === "EM_ASSINATURA") {
       const cargo = p.signedBySecAt
@@ -150,7 +200,7 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
         type: "PENDING_SIGNATURE",
         title: `Form. 116 de ${p.user.name} aguarda assinatura do ${cargo.label}`,
         description: `Pedido de afastamento de ${quem} — é a vez do ${cargo.label} assinar o Form. 116 no gov.br (ordem: Secretário e Venerável Mestre).`,
-        link: "/secretaria/processos",
+        link: linkProcessos(`afastamento-${p.id}`),
       });
     } else {
       pending.push({
@@ -158,7 +208,7 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
         type: "DEADLINE_WARNING",
         title: `Form. 116 de ${p.user.name} pronto para envio à Guarda dos Selos`,
         description: `Assinado pelos dois cargos — envie em Processos; ao enviar, ${p.user.name} passa a LICENCIADO.`,
-        link: "/secretaria/processos",
+        link: linkProcessos(`afastamento-${p.id}`),
       });
     }
   }
@@ -194,7 +244,7 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
       type: "PENDING_SIGNATURE",
       title: `Atestado de ${at.user.name} aguarda assinatura do ${cargo.label}`,
       description: `Atestado de Regularidade solicitado em ${at.solicitadoAt.toLocaleDateString("pt-BR")} (CIM ${at.user.cim}) — é a vez do ${cargo.label} assinar (ordem: Tesoureiro, Secretário e Venerável Mestre).`,
-      link: "/secretaria/processos",
+      link: linkProcessos(`atestado-${at.id}`),
     });
   }
 
@@ -222,7 +272,7 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
       type: "PENDING_SIGNATURE" as const,
       title: `${doc.titulo} aguarda assinatura do ${label}`,
       description: `Processo aberto em ${doc.createdAt.toLocaleDateString("pt-BR")} — é a vez do ${label} assinar (${proximo.ordem}º de ${doc.assinantes.length} na cadeia; o Venerável Mestre assina por último).`,
-      link: "/secretaria/processos",
+      link: linkProcessos(`processo-${doc.id}`),
     };
     pending.push({ sourceKey: `processo:${doc.id}:${proximo.ordem}`, ...base });
     for (const u of obreirosRito) {
@@ -241,10 +291,10 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
       pending.push({
         sourceKey: `qp-fin:${qp.id}`,
         type: "FINANCIAL_APPROVAL",
-        title: `Quitte Placet de ${qp.user.name} sem quitação financeira`,
+        title: `Quitte Placet de ${qp.user.name} — Tesoureiro: confirme o Nada Consta`,
         description:
-          "A emissão está travada até a Tesouraria confirmar o Nada Consta.",
-        link: "/secretaria/quitte-placets",
+          "Há capitações vencidas e a emissão está travada. Tesoureiro: confira o painel Tesouraria do card em Processos e confirme o Nada Consta (ou aguarde a regularização — a baixa destrava sozinha).",
+        link: `/secretaria/processos?destaque=quitte-${qp.id}#quitte-${qp.id}`,
       });
     } else if (!qp.dataSessaoComunicacao || !qp.ataNome) {
       pending.push({
@@ -253,7 +303,7 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
         title: `Quitte Placet de ${qp.user.name}: registrar a sessão de comunicação`,
         description:
           "Informe em Processos a data da sessão em que o pedido foi comunicado à Loja e anexe a ata — as assinaturas gov.br só liberam depois.",
-        link: "/secretaria/processos",
+        link: linkProcessos(`quitte-${qp.id}`),
       });
     } else if (!qp.signedByMasterId || !qp.signedBySecId || !qp.signedByOradorId) {
       // A vez de cada cargo compõe a sourceKey (recriada a cada avanço);
@@ -265,7 +315,7 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
         type: "PENDING_SIGNATURE" as const,
         title: `Quitte Placet de ${qp.user.name} aguarda assinatura do ${cargoAssinanteQuitte(proximo)}`,
         description: `Quitação financeira confirmada — é a vez do ${cargoAssinanteQuitte(proximo)} assinar na aba Processos (ordem: Secretário, Orador e Venerável Mestre).`,
-        link: "/secretaria/processos",
+        link: linkProcessos(`quitte-${qp.id}`),
       };
       pending.push({ sourceKey: `qp-sig:${qp.id}:${proximo}`, ...base });
       if (proximo === "ORADOR") {
@@ -398,8 +448,9 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
       where: { lodgeId, status: "VENCIDA" },
       _count: { _all: true },
     });
+    // >= limite-1: também cobre quem já passou do limite (contato de apoio)
     const quaseNoLimite = overdue.filter(
-      (o) => o._count._all === lodge.limiteInadimplencia - 1
+      (o) => o._count._all >= lodge.limiteInadimplencia - 1
     );
     const nomes = quaseNoLimite.length
       ? new Map(
@@ -421,7 +472,7 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
           userId: e.id,
           title: `Esmoler: ${nome} próximo do limite de inadimplência`,
           description: `${o._count._all} capitação(ões) vencida(s) — no limite de ${lodge.limiteInadimplencia} o irmão passa a IRREGULAR. Vale um contato preventivo.`,
-          link: "/secretaria/membros",
+          link: `/secretaria/membros/${o.userId}`,
         });
       }
     }
@@ -436,7 +487,7 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
           userId: e.id,
           title: `Esmoler: frequência baixa de ${f.name}`,
           description: `${f.percentual}% de presença em ${ano} (${f.presencas} de ${f.sessoesComputadas} sessões) — mínimo da Loja: ${lodge.minFreqProgressao}%. Vale verificar como o irmão está.`,
-          link: "/secretaria/membros",
+          link: `/secretaria/membros/${f.userId}`,
         });
       }
     }
@@ -562,12 +613,14 @@ export async function syncLodgeNotifications(lodgeId: string) {
   const toCreate = pending.filter((p) => !existingKeys.has(p.sourceKey));
 
   await prisma.$transaction([
-    // pendência resolvida → limpa alerta ainda não lido
+    // pendência resolvida → limpa alerta ainda não lido (nunca os de evento,
+    // que não fazem parte da varredura)
     prisma.notification.deleteMany({
       where: {
         lodgeId,
         isRead: false,
         sourceKey: { not: null, notIn: keys.length ? keys : ["__none__"] },
+        NOT: { OR: PREFIXOS_EVENTO.map((p) => ({ sourceKey: { startsWith: p } })) },
       },
     }),
     ...(toCreate.length
@@ -588,6 +641,37 @@ export async function syncLodgeNotifications(lodgeId: string) {
         ]
       : []),
   ] as Prisma.PrismaPromise<unknown>[]);
+
+  // Assinatura pendente nova → e-mail imediato ao cargo da vez / ao irmão
+  // (pela fila; o digest diário cobre o resto). Falha aqui não derruba o sync.
+  const novasAssinaturas = toCreate.filter((p) => p.type === "PENDING_SIGNATURE");
+  if (novasAssinaturas.length > 0) {
+    try {
+      const criadas = await prisma.notification.findMany({
+        where: { lodgeId, sourceKey: { in: novasAssinaturas.map((p) => p.sourceKey) } },
+        select: { id: true },
+      });
+      for (const n of criadas) {
+        await enfileirar("notificacao.imediata", { lodgeId, notificationId: n.id });
+      }
+    } catch (e) {
+      logError("notificacoes.enfileirar-imediata", e, { lodgeId });
+    }
+  }
+}
+
+// Limpeza das notificações de evento: lidas ou mais antigas que a retenção.
+// Chamada pelo cron diário (as de pendência são geridas pelo sync).
+export async function limparNotificacoesEventoAntigas(lodgeId: string) {
+  const limite = new Date(Date.now() - EVENTO_RETENCAO_DIAS * 86_400_000);
+  const r = await prisma.notification.deleteMany({
+    where: {
+      lodgeId,
+      OR: PREFIXOS_EVENTO.map((p) => ({ sourceKey: { startsWith: p } })),
+      AND: [{ OR: [{ isRead: true }, { createdAt: { lt: limite } }] }],
+    },
+  });
+  return r.count;
 }
 
 // Papéis que enxergam as notificações operacionais da loja

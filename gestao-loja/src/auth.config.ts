@@ -30,7 +30,9 @@ export const authConfig = {
     : undefined,
   callbacks: {
     authorized({ auth, request }) {
-      const isLoggedIn = !!auth?.user;
+      // `invalid` é marcado pelo jwt do lado Node (auth.ts) quando a conta
+      // deixou de existir ou virou EX_MEMBRO — o cookie passa a valer nada.
+      const isLoggedIn = !!auth?.user && !auth.user.invalid;
       const { pathname } = request.nextUrl;
       const isPublic =
         pathname === "/login" ||
@@ -46,6 +48,8 @@ export const authConfig = {
       if (isPublic) return true;
       return isLoggedIn;
     },
+    // Sem Prisma (Edge): só copia os dados do login para o token. A releitura
+    // periódica do banco (cargo, grau, situação, loja) fica em auth.ts.
     jwt({ token, user }) {
       if (user) {
         token.id = user.id;
@@ -54,6 +58,10 @@ export const authConfig = {
         token.role = user.role;
         token.degree = user.degree;
         token.cim = user.cim;
+        token.status = user.status;
+        token.mustChangePassword = user.mustChangePassword;
+        token.refreshedAt = Date.now();
+        token.invalid = false;
       }
       return token;
     },
@@ -64,6 +72,8 @@ export const authConfig = {
       session.user.role = token.role as string;
       session.user.degree = token.degree as string;
       session.user.cim = token.cim as string;
+      session.user.mustChangePassword = token.mustChangePassword;
+      session.user.invalid = token.invalid === true;
       return session;
     },
   },

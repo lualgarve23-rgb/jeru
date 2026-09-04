@@ -1,5 +1,10 @@
+import { segredoConfere } from "@/lib/secrets";
 import { prisma } from "@/lib/prisma";
-import { syncLodgeNotifications } from "@/lib/notifications";
+import {
+  syncLodgeNotifications,
+  limparNotificacoesEventoAntigas,
+} from "@/lib/notifications";
+import { syncInadimplencia } from "@/lib/inadimplencia";
 import { enviarLembretesEmail } from "@/lib/lembretes-email";
 import { logInfo, logError, alertaCritico } from "@/lib/log";
 import { enfileirar } from "@/lib/fila";
@@ -12,7 +17,7 @@ import { mesAnterior } from "@/lib/resumo-mensal";
 
 export async function POST(request: Request) {
   const secret = process.env.CRON_SECRET?.trim();
-  if (!secret || request.headers.get("x-cron-secret") !== secret) {
+  if (!secret || !segredoConfere(request.headers.get("x-cron-secret"), secret)) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -22,8 +27,13 @@ export async function POST(request: Request) {
 
   // Dia 1º: enfileira o resumo mensal do mês fechado (VM + Secretário).
   // A checagem do job existente evita duplicar se o cron rodar de novo.
-  if (new Date().getDate() === 1) {
-    const { ano, mes } = mesAnterior(new Date());
+  // Dia calculado no fuso da Loja (America/Sao_Paulo) — em UTC o servidor
+  // vira o dia 1º três horas antes e o resumo sairia no dia errado.
+  const hojeSp = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date()); // "AAAA-MM-DD"
+  if (hojeSp.endsWith("-01")) {
+    const { ano, mes } = mesAnterior(new Date(`${hojeSp}T12:00:00`));
     for (const lodge of lodges) {
       try {
         const payload = { lodgeId: lodge.id, ano: String(ano), mes: String(mes) };
@@ -41,7 +51,19 @@ export async function POST(request: Request) {
   for (const lodge of lodges) {
     // falha numa loja não pode derrubar a varredura das demais
     try {
+      // inadimplência automática antes da varredura (as notificações de
+      // Esmoler/Tesoureiro dependem das capitações já marcadas VENCIDA)
+      try {
+        await syncInadimplencia(lodge.id);
+      } catch (e) {
+        logError("cron.notificacoes.inadimplencia-falhou", e, { lodgeId: lodge.id });
+      }
       await syncLodgeNotifications(lodge.id);
+      await prisma.lodge.update({
+        where: { id: lodge.id },
+        data: { notificacoesSyncAt: new Date() },
+      });
+      await limparNotificacoesEventoAntigas(lodge.id);
       const r = await enviarLembretesEmail(lodge.id);
       emails += r.sent;
     } catch (e) {

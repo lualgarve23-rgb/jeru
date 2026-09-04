@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
 import { isGovbrConfigured } from "@/lib/govbr";
+import { Suspense } from "react";
+import { Destaque } from "@/components/destaque";
 import { cargoLabel, estadoProcesso, cargosProcessoDoUsuario } from "@/lib/processos";
 import { SelecaoCadeia } from "./cadeia-fields";
 import {
@@ -38,6 +40,14 @@ const govbrMsgs: Record<string, string> = {
   negado: "Autorização cancelada no gov.br.",
   "cpf-divergente":
     "A conta gov.br usada não é do próprio assinante (CPF divergente).",
+  "cpf-indisponivel":
+    "O gov.br não informou o CPF da conta usada — não foi possível confirmar que é a sua. Tente novamente ou use o portal assinador.iti.br.",
+  concorrencia:
+    "Outra assinatura foi gravada neste documento enquanto você assinava — recarregue e tente de novo.",
+  "irmao-nao-ativo":
+    "O irmão não está com situação ATIVO — o atestado não pode ser assinado.",
+  "trava-financeira":
+    "O irmão tem capitações vencidas — o atestado só pode ser assinado após a regularização ou um override justificado do Tesoureiro.",
   "ja-assinou": "Você já assinou este documento.",
   "sessao-expirada": "Sessão do gov.br expirou — tente novamente.",
   ordem: "Ainda não é a sua vez — siga a ordem da cadeia de assinantes.",
@@ -50,7 +60,7 @@ const govbrMsgs: Record<string, string> = {
 export default async function ProcessosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ govbr?: string }>;
+  searchParams: Promise<{ govbr?: string; destaque?: string }>;
 }) {
   const user = await requireUser();
   // Cargos de gestão veem tudo; Orador e Vigilantes (cargo do rito, nível
@@ -117,6 +127,10 @@ export default async function ProcessosPage({
         </p>
       </div>
 
+      <Suspense fallback={null}>
+        <Destaque />
+      </Suspense>
+
       {govbrMsg && (
         <p
           className={`rounded-md border p-3 text-sm ${
@@ -178,7 +192,7 @@ export default async function ProcessosPage({
           const minhaVez = !!estado?.minhaVez && doc.status !== "ASSINADO";
           const temAssinatura = doc.assinantes.some((a) => a.signedAt);
           return (
-            <div key={doc.id} className="space-y-3 rounded-lg border p-4">
+            <div key={doc.id} id={`processo-${doc.id}`} className="space-y-3 rounded-lg border p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{doc.titulo}</span>
                 <Badge

@@ -20,12 +20,14 @@ import { grausVisiveis, GRAUS_ACERVO } from "@/lib/graus";
 import { downloadFromLodgeDrive } from "@/lib/google-drive";
 import { notificationWhere } from "@/lib/notifications";
 import { buscarFaq, FAQ_CHAVES } from "@/lib/assistente/faq";
+import { pendenciasDoUsuario, haQuantoTempo } from "@/lib/pendencias";
 
 export type AssistenteUser = {
   id: string;
   lodgeId: string;
   role: string;
   degree?: string; // grau do irmão — segmenta biblioteca e documentos
+  cargoRito?: string | null; // Orador/Vigilantes assinam pelo cargo do rito
   name: string;
 };
 
@@ -82,6 +84,41 @@ function dataBr(d: Date) {
   return d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
 }
 
+// Conteúdo de documentos (atas, pranchas, biblioteca, Drive) volta ao modelo
+// entre delimitadores explícitos: o system prompt manda tratar o que está
+// dentro como DADO citável, nunca como instrução (anti prompt injection).
+export const DOC_INICIO = "<<<DOCUMENTO>>>";
+export const DOC_FIM = "<<<FIM>>>";
+export function documento(texto: string | null | undefined): string {
+  return `${DOC_INICIO}\n${(texto ?? "").replace(/<<<(DOCUMENTO|FIM)>>>/g, "<<>>")}\n${DOC_FIM}`;
+}
+
+// Irmãos da loja com solicitação em andamento (atestado, Quitte, afastamento)
+// — universo permitido à situacao_financeira_irmao
+export async function irmaosComProcessoEmAndamento(lodgeId: string): Promise<Set<string>> {
+  const [atestados, quittes, afastamentos] = await Promise.all([
+    prisma.atestadoRegularidade.findMany({
+      where: { lodgeId, status: "SOLICITADO" },
+      select: { userId: true },
+    }),
+    prisma.quittePlacet.findMany({
+      where: { lodgeId, status: { in: ["PENDENTE", "EM_ANALISE"] } },
+      select: { userId: true },
+    }),
+    prisma.pedidoAfastamento.findMany({
+      where: {
+        lodgeId,
+        OR: [
+          { status: { in: ["AGUARDANDO_OBREIRO", "SOLICITADO", "EM_ASSINATURA"] } },
+          { status: "ASSINADO", enviadoAt: null },
+        ],
+      },
+      select: { userId: true },
+    }),
+  ]);
+  return new Set([...atestados, ...quittes, ...afastamentos].map((x) => x.userId));
+}
+
 // Trechos do texto ao redor de cada ocorrência do termo (para citar a ata
 // sem despejar o documento inteiro no contexto do modelo)
 function trechos(texto: string, termo: string, max = 2, raio = 220) {
@@ -104,6 +141,95 @@ function trechos(texto: string, termo: string, max = 2, raio = 220) {
 
 
 export const FERRAMENTAS: Ferramenta[] = [
+  {
+    nome: "minha_fila",
+    descricao:
+      "O que está parado esperando o usuário AGORA ('minha vez'): assinaturas gov.br na vez do cargo dele (atestados, Quitte Placet, processos, Form. 116, atas — inclui Orador e Vigilantes pelo cargo do rito), aprovações de despesa, registros da Secretaria, capitações vencidas, convites de sessão sem resposta e alertas dirigidos. Cada item traz a ação e o link direto no app.",
+    inputSchema: semInput,
+    disponivel: paraTodos,
+    executar: async (user) => {
+      const itens = await pendenciasDoUsuario({
+        id: user.id,
+        lodgeId: user.lodgeId,
+        role: user.role,
+        cargoRito: user.cargoRito,
+        degree: user.degree,
+      });
+      if (!itens.length) return { total: 0, info: "Nada pendente com você." };
+      return {
+        total: itens.length,
+        itens: itens.slice(0, 20).map((p) => ({
+          tipo: p.tipo,
+          titulo: p.titulo,
+          contexto: p.contexto,
+          acao: p.acao,
+          desde: haQuantoTempo(p.desde),
+          link: p.link,
+        })),
+      };
+    },
+  },
+  {
+    nome: "situacao_financeira_irmao",
+    descricao:
+      "Secretário: situação financeira de UM irmão que tem solicitação em andamento (atestado de regularidade, Quitte Placet ou afastamento) — capitações em aberto com valor e vencimento e as últimas 3 pagas. Só aceita irmãos com processo em andamento; não expõe o quadro inteiro. Use o userId devolvido por processos_loja.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        userId: {
+          type: "string",
+          description: "id do irmão (de processos_loja)",
+        },
+      },
+      required: ["userId"],
+      additionalProperties: false,
+    },
+    disponivel: (u) => u.role === "SECRETARIO",
+    executar: async (user, input) => {
+      const alvo = String(input.userId ?? "");
+      // O id vindo da IA só vale se o irmão for da loja do usuário E tiver
+      // solicitação em andamento (é o que a Secretaria precisa checar)
+      const comProcesso = await irmaosComProcessoEmAndamento(user.lodgeId);
+      if (!alvo || !comProcesso.has(alvo)) {
+        return {
+          erro: "Irmão sem solicitação em andamento nesta loja — a situação financeira só é consultada para atestado, Quitte Placet ou afastamento abertos.",
+        };
+      }
+      const irmao = await prisma.user.findFirst({
+        where: { id: alvo, lodgeId: user.lodgeId },
+        select: { name: true, cim: true, status: true },
+      });
+      if (!irmao) return { erro: "Irmão não encontrado nesta loja." };
+      const [abertas, pagas] = await Promise.all([
+        prisma.invoice.findMany({
+          where: { lodgeId: user.lodgeId, userId: alvo, status: { in: ["PENDENTE", "VENCIDA"] } },
+          orderBy: { dueDate: "asc" },
+          select: { description: true, status: true, amountCents: true, dueDate: true },
+        }),
+        prisma.invoice.findMany({
+          where: { lodgeId: user.lodgeId, userId: alvo, status: "PAGA" },
+          orderBy: { paidAt: "desc" },
+          take: 3,
+          select: { description: true, amountCents: true, paidAt: true },
+        }),
+      ]);
+      return {
+        irmao: { nome: irmao.name, cim: irmao.cim, situacao: irmao.status },
+        emAberto: abertas.map((i) => ({
+          descricao: i.description,
+          status: i.status,
+          valor: centavos(i.amountCents),
+          vencimento: dataBr(i.dueDate),
+        })),
+        totalEmAberto: centavos(abertas.reduce((s, i) => s + i.amountCents, 0)),
+        ultimasPagas: pagas.map((i) => ({
+          descricao: i.description,
+          valor: centavos(i.amountCents),
+          pagaEm: i.paidAt ? dataBr(i.paidAt) : null,
+        })),
+      };
+    },
+  },
   {
     nome: "minhas_capitacoes",
     descricao:
@@ -618,6 +744,7 @@ export const FERRAMENTAS: Ferramenta[] = [
             signedByTesAt: true,
             signedBySecAt: true,
             signedByMasterAt: true,
+            userId: true,
             user: { select: { name: true } },
           },
         }),
@@ -632,12 +759,14 @@ export const FERRAMENTAS: Ferramenta[] = [
             signedBySecAt: true,
             signedByOradorAt: true,
             signedByMasterAt: true,
+            userId: true,
             user: { select: { name: true } },
           },
         }),
       ]);
       return {
         atestados: atestados.map((a) => ({
+          userId: a.userId,
           solicitante: a.user.name,
           status: a.status,
           solicitadoEm: dataBr(a.solicitadoAt),
@@ -648,6 +777,7 @@ export const FERRAMENTAS: Ferramenta[] = [
           ].filter(Boolean),
         })),
         quittePlacets: quittes.map((q) => ({
+          userId: q.userId,
           solicitante: q.user.name,
           status: q.status,
           solicitadoEm: dataBr(q.dataSolicitacao),
@@ -738,7 +868,7 @@ export const FERRAMENTAS: Ferramenta[] = [
         return rows.map((r) => ({
           fonte: `Ata nº ${r.number}, sessão de ${dataBr(r.date)}`,
           status: r.status,
-          trechos: r.trechos,
+          trechos: documento(r.trechos),
         }));
       // Fallback: substring exata (nomes próprios, códigos, siglas fora do stemming)
       const atas = await prisma.ata.findMany({
@@ -773,7 +903,7 @@ export const FERRAMENTAS: Ferramenta[] = [
       return atas.map((a) => ({
         fonte: `Ata nº ${a.number}, sessão de ${dataBr(a.session.date)}`,
         status: a.status,
-        trechos: trechos(a.content, termo),
+        trechos: trechos(a.content, termo).map(documento),
       }));
     },
   },
@@ -826,7 +956,7 @@ export const FERRAMENTAS: Ferramenta[] = [
         fonte: `Prancha nº ${r.number}/${r.year} — ${r.subject}`,
         destinatario: r.recipient,
         data: dataBr(r.createdAt),
-        trechos: r.trechos,
+        trechos: documento(r.trechos),
       }));
     },
   },
@@ -881,7 +1011,7 @@ export const FERRAMENTAS: Ferramenta[] = [
       return rows.map((r) => ({
         id: r.id,
         fonte: `"${r.titulo}"${r.autor ? `, de ${r.autor}` : ""} (${r.categoria})`,
-        trechos: r.trechos ?? "(termo encontrado no título/autor/descrição)",
+        trechos: documento(r.trechos ?? "(termo encontrado no título/autor/descrição)"),
       }));
     },
   },
@@ -920,7 +1050,7 @@ export const FERRAMENTAS: Ferramenta[] = [
       return {
         fonte: `"${item.titulo}"${item.autor ? `, de ${item.autor}` : ""} (${item.categoria})`,
         truncado: item.textoExtraido.length > LIMITE,
-        texto: item.textoExtraido.slice(0, LIMITE),
+        texto: documento(item.textoExtraido.slice(0, LIMITE)),
       };
     },
   },
@@ -1021,7 +1151,7 @@ export const FERRAMENTAS: Ferramenta[] = [
       return {
         titulo: doc.title,
         truncado: texto.length > LIMITE,
-        texto: texto.slice(0, LIMITE),
+        texto: documento(texto.slice(0, LIMITE)),
       };
     },
   },

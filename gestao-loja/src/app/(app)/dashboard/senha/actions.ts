@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { passwordRuleError } from "@/lib/password";
+import { auditar } from "@/lib/audit";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
@@ -38,6 +39,13 @@ export async function changePassword(
   await prisma.user.update({
     where: { id: user.id },
     data: { passwordHash: await bcrypt.hash(next, 10), mustChangePassword: false },
+  });
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "senha.trocar",
+    entidade: "User",
+    entidadeId: user.id,
   });
 
   return { ok: "Senha alterada com sucesso." };

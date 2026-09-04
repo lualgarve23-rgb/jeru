@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { gerarAtaPdf } from "@/lib/ata-pdf";
 import { resolveParaDataUri } from "@/lib/media";
+import { brlCents, contextoFinanceiroDoIrmao, type ContextoFinanceiro } from "@/lib/contexto-financeiro";
 
 // Atestado de Regularidade: declaração de que o irmão é membro efetivo e está
 // regular com seus deveres, assinada pelo Venerável Mestre, pelo Tesoureiro e
@@ -40,6 +41,58 @@ export function ordemAssinaturaAtestado(role: string, a: AtestadoAssinaturas) {
         : null,
     ultimaAssinatura: !!a.signedByTesAt && !!a.signedBySecAt,
   };
+}
+
+// Próximo cargo da cadeia ainda sem assinatura (null = todos assinaram)
+export function proximoCargoAtestado(
+  a: AtestadoAssinaturas
+): "TESOUREIRO" | "SECRETARIO" | "VENERAVEL_MESTRE" | null {
+  if (!a.signedByTesAt) return "TESOUREIRO";
+  if (!a.signedBySecAt) return "SECRETARIO";
+  if (!a.signedByMasterAt) return "VENERAVEL_MESTRE";
+  return null;
+}
+
+// Item 7: a cadeia só anda se alguém ATIVO ocupa o próximo cargo (todos os
+// três são níveis de acesso — User.currentRole). Mensagem de bloqueio ou null.
+export async function bloqueioCargoAusenteAtestado(
+  lodgeId: string,
+  a: AtestadoAssinaturas
+): Promise<string | null> {
+  const proximo = proximoCargoAtestado(a);
+  if (!proximo) return null;
+  const ocupado = await prisma.user.count({
+    where: { lodgeId, status: "ATIVO", currentRole: proximo },
+  });
+  return ocupado > 0
+    ? null
+    : `Nenhum irmão ativo ocupa o cargo de ${cargoAssinanteAtestado(proximo)} — cadastre em Cargos para a cadeia de assinaturas continuar.`;
+}
+
+// Trava financeira do atestado ("regular com o recolhimento de metais"):
+// QUALQUER capitação vencida bloqueia as assinaturas, a menos que o
+// Tesoureiro tenha registrado um override justificado. Puro — recebe o
+// contexto já lido (contextoFinanceiroDoIrmao) e o atestado.
+export function bloqueioFinanceiroAtestado(
+  ctx: Pick<ContextoFinanceiro, "emAberto" | "totalVencidoCents">,
+  atestado: { overrideAt: Date | null }
+): string | null {
+  if (atestado.overrideAt) return null;
+  const vencidas = ctx.emAberto.filter((i) => i.vencida);
+  if (vencidas.length === 0) return null;
+  const n = vencidas.length;
+  return `Há ${n} capitaç${n === 1 ? "ão vencida" : "ões vencidas"} (${brlCents(ctx.totalVencidoCents)}); regularize ou registre um override.`;
+}
+
+// Idem, lendo o contexto do banco (para actions e rotas)
+export async function bloqueioFinanceiroAtestadoDoIrmao(
+  lodgeId: string,
+  userId: string,
+  atestado: { overrideAt: Date | null }
+): Promise<string | null> {
+  if (atestado.overrideAt) return null;
+  const ctx = await contextoFinanceiroDoIrmao(lodgeId, userId);
+  return bloqueioFinanceiroAtestado(ctx, atestado);
 }
 
 export function camposAssinaturaAtestado(role: string, userId: string) {

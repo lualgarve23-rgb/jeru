@@ -41,6 +41,10 @@ const govbrMensagens: Record<string, string> = {
   ordem: "O Venerável Mestre assina primeiro no gov.br — aguarde a assinatura dele.",
   "cpf-divergente":
     "A conta gov.br usada não é do próprio assinante (CPF divergente).",
+  "cpf-indisponivel":
+    "O gov.br não informou o CPF da conta usada — não foi possível confirmar que é a sua. Tente novamente.",
+  concorrencia:
+    "Outra assinatura foi gravada nesta ata enquanto você assinava — recarregue e tente de novo.",
   "sessao-expirada": "Sessão de assinatura expirada — tente novamente.",
   negado: "Autorização negada no gov.br.",
   falhou: "Falha ao assinar com o gov.br — tente novamente.",

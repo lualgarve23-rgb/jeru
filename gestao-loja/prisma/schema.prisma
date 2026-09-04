@@ -54,6 +54,8 @@ model Lodge {
   minFreqProgressao  Int      @default(50)
   // Nº de capitações vencidas para o membro ficar IRREGULAR (inadimplência)
   limiteInadimplencia Int     @default(3)
+  // Última varredura da central de notificações (throttle do sync no login)
+  notificacoesSyncAt  DateTime?
   // Licença do sistema cobrada da loja (opcional, definida no cadastro pelo
   // SUPER_ADMIN; a cobrança boleto/Pix sai da conta Asaas da plataforma)
   licencaValor      Decimal? @db.Decimal(10, 2)
@@ -123,6 +125,7 @@ model Lodge {
   bibliotecaItens     BibliotecaItem[]
   processoDocumentos  ProcessoDocumento[]
   assistenteConversas AssistenteConversa[]
+  contatosEsmoler     ContatoEsmoler[]
 
   @@map("lodges")
 }
@@ -199,6 +202,13 @@ model User {
   // Foto do membro (data URI, upload pelo próprio usuário em /dashboard/perfil)
   photoUrl       String?
   status         MemberStatus @default(ATIVO)
+  // Última mudança MANUAL de status (Secretaria/afastamento/Quitte) — o sync
+  // de inadimplência só reverte IRREGULAR→ATIVO quando statusMotivo é
+  // "inadimplencia"; LICENCIADO/EX_MEMBRO nunca são tocados por ele
+  statusManualAt DateTime?
+  statusMotivo   String?
+  // Fim previsto da licença (data da sessão + dias do Form. 116)
+  licencaFim     DateTime?
   // Obreiro filiado (quadro de outra loja): não recolhe capitação — fica de
   // fora da geração de mensalidades e das assinaturas recorrentes do Asaas
   filiado        Boolean      @default(false)
@@ -255,6 +265,8 @@ model User {
   processosCriados       ProcessoDocumento[] @relation("ProcessoCriadoPor")
   processosAssinados     ProcessoAssinante[] @relation("ProcessoAssinanteUser")
   assistenteConversas    AssistenteConversa[]
+  contatosEsmolerRecebidos ContatoEsmoler[] @relation("ContatoEsmolerUser")
+  contatosEsmolerFeitos    ContatoEsmoler[] @relation("ContatoEsmolerAutor")
 
   @@unique([lodgeId, cim])
   @@unique([lodgeId, cpf])
@@ -953,8 +965,18 @@ model QuittePlacet {
   motivo             String?
   dataSolicitacao    DateTime     @default(now())
   quitacaoFinanceira Boolean      @default(false)
+  // Última reconsulta automática/manual das capitações (Nada Consta)
+  quitacaoConsultadaAt DateTime?
+  // Nada Consta confirmado pelo Tesoureiro/VM — libera a trava financeira
+  // mesmo com capitações em aberto (equivale a um override justificado)
+  quitacaoConfirmadaPorId String?
+  quitacaoConfirmadaAt    DateTime?
   status             StatusPlacet @default(PENDENTE)
+  // Parecer da Secretaria quando o pedido é NEGADO (só de PENDENTE/EM_ANALISE)
+  parecerNegativa    String?
 
+  // Cadeia de TRÊS assinaturas gov.br: Secretário → Orador → Venerável Mestre
+  // (a terceira aprova o placet; APROVADO/NEGADO não saem por arraste)
   signedByMasterId String?
   signedByMasterAt DateTime?
   signedBySecId    String?
@@ -1024,6 +1046,11 @@ model AtestadoRegularidade {
   signedByMasterAt DateTime?
   govbrPdf         Bytes?
   driveFileId      String? // PDF final arquivado no Google Drive da Loja
+  // Override financeiro do Tesoureiro: libera a assinatura mesmo com
+  // capitações vencidas, com justificativa registrada (auditada)
+  overrideTesoureiroId String?
+  overrideJustificativa String?
+  overrideAt            DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1200,6 +1227,25 @@ model AssistenteMensagem {
 
   @@index([conversaId, createdAt])
   @@map("assistente_mensagens")
+}
+
+// Registro de contato fraterno do Esmoler (Hospitaleiro) com um irmão em
+// acompanhamento (inadimplência, frequência, licença, aniversário). Nota
+// livre, visível ao Esmoler e ao Venerável Mestre na página /esmoler.
+model ContatoEsmoler {
+  id        String   @id @default(cuid())
+  lodgeId   String
+  userId    String // irmão contatado
+  autorId   String // quem registrou (Esmoler ou VM)
+  nota      String
+  createdAt DateTime @default(now())
+
+  lodge Lodge @relation(fields: [lodgeId], references: [id], onDelete: Cascade)
+  user  User  @relation("ContatoEsmolerUser", fields: [userId], references: [id], onDelete: Cascade)
+  autor User  @relation("ContatoEsmolerAutor", fields: [autorId], references: [id], onDelete: Cascade)
+
+  @@index([lodgeId, userId])
+  @@map("contatos_esmoler")
 }
 
 // Trilha de auditoria: quem alterou o quê (membros, baixas, configs, roles).

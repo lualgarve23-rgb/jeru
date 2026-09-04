@@ -33,6 +33,7 @@ import {
   HandCoins,
   Inbox,
   CalendarOff,
+  HandHeart,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -68,6 +69,7 @@ const icons: Record<string, LucideIcon> = {
   benemerencia: HandCoins,
   solicitacoes: Inbox,
   afastamento: CalendarOff,
+  esmoler: HandHeart,
 };
 
 export type NavItem = {

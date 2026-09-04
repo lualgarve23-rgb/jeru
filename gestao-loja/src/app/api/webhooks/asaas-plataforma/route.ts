@@ -1,3 +1,4 @@
+import { segredoConfere } from "@/lib/secrets";
 import { prisma } from "@/lib/prisma";
 import { logInfo } from "@/lib/log";
 import { getPlatformAsaas } from "@/lib/platform-config";
@@ -12,7 +13,7 @@ import { getPlatformAsaas } from "@/lib/platform-config";
 
 export async function POST(request: Request) {
   const { webhookToken: secret } = await getPlatformAsaas();
-  if (!secret || request.headers.get("asaas-access-token") !== secret) {
+  if (!secret || !segredoConfere(request.headers.get("asaas-access-token"), secret)) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -43,9 +44,7 @@ export async function POST(request: Request) {
       where: { id: lodge.id },
       data: {
         licencaStatus: "PAGA",
-        licencaPagaEm: payment.paymentDate
-          ? new Date(payment.paymentDate)
-          : new Date(),
+        licencaPagaEm: paymentDateValida(payment.paymentDate),
       },
     });
     logInfo("webhook.asaas-plataforma", { lodgeId: lodge.id, event, result: "paga" });
@@ -63,4 +62,11 @@ export async function POST(request: Request) {
     return Response.json({ result: "vencida" });
   }
   return Response.json({ result: "ignored" });
+}
+
+// paymentDate do Asaas ("AAAA-MM-DD"); inválida/ausente → agora
+function paymentDateValida(v: string | undefined): Date {
+  if (!v) return new Date();
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? new Date() : d;
 }

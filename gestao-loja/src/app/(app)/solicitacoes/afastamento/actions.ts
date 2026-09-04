@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { aposEventoDaLoja } from "@/lib/apos-evento";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { auditar } from "@/lib/audit";
@@ -81,6 +82,7 @@ export async function solicitarAfastamento(
     entidadeId: pedido.id,
     detalhes: { dias },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidar();
   return {
     ok: "Requerimento gerado — agora assine-o com a sua conta gov.br para o pedido seguir à Secretaria.",
@@ -98,7 +100,7 @@ export async function uploadRequerimentoAssinadoGovbr(
   const user = await requireUser();
   const p = await prisma.pedidoAfastamento.findUnique({
     where: { id: pedidoId, lodgeId: user.lodgeId, userId: user.id },
-    select: { status: true },
+    select: { status: true, requerimentoPdf: true, user: { select: { cpf: true } } },
   });
   if (!p) return { error: "Pedido não encontrado." };
   if (p.status !== "AGUARDANDO_OBREIRO") {
@@ -111,7 +113,14 @@ export async function uploadRequerimentoAssinadoGovbr(
   if (!pdf.subarray(0, 5).toString("latin1").startsWith("%PDF-")) {
     return { error: "O arquivo enviado não é um PDF." };
   }
-  const erro = validarUploadAssinado({ pdf, anterior: null, nomeAssinante: user.name });
+  // O requerimento gerado pelo sistema é o "anterior": o PDF assinado tem de
+  // ser a continuação incremental dele, não um arquivo qualquer.
+  const { erro } = await validarUploadAssinado({
+    pdf,
+    anterior: p.requerimentoPdf ? Buffer.from(p.requerimentoPdf) : null,
+    nomeAssinante: user.name,
+    cpf: p.user.cpf,
+  });
   if (erro) return { error: erro };
 
   await prisma.pedidoAfastamento.update({
@@ -130,6 +139,7 @@ export async function uploadRequerimentoAssinadoGovbr(
     entidadeId: pedidoId,
     detalhes: { via: "portal-iti" },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidar();
   return {
     ok: "Requerimento assinado — o pedido seguiu à Secretaria para deliberação em sessão.",
@@ -156,6 +166,7 @@ export async function cancelarAfastamento(pedidoId: string): Promise<ActionResul
     entidadeId: pedidoId,
     detalhes: { status: p.status },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidar();
   return { ok: "Pedido de afastamento cancelado." };
 }

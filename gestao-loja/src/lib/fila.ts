@@ -4,8 +4,10 @@ import {
   enviarConvitesSessao,
   enviarMinutaAtaValidacao,
   enviarAtaAssinadaAosMembros,
+  enviarDocumentoConcluidoAoSolicitante,
 } from "@/lib/envios";
 import { enviarResumoMensal } from "@/lib/resumo-mensal";
+import { enviarNotificacaoImediata } from "@/lib/lembretes-email";
 
 // Fila persistente (#13): tabela jobs no Postgres, worker disparado por
 // /api/cron/fila (systemd timer, a cada minuto). Payloads carregam só ids —
@@ -22,6 +24,12 @@ const handlers: Record<string, (p: Payload) => Promise<void>> = {
     enviarAtaAssinadaAosMembros(p.lodgeId, p.ataId, p.solicitanteId),
   "resumo.mensal": (p) =>
     enviarResumoMensal(p.lodgeId, Number(p.ano), Number(p.mes)),
+  // Assinatura pendente nova → e-mail na hora ao cargo da vez / ao irmão
+  "notificacao.imediata": (p) =>
+    enviarNotificacaoImediata(p.lodgeId, p.notificationId),
+  // Atestado/Quitte concluído → PDF assinado ao solicitante
+  "solicitacao.concluida": (p) =>
+    enviarDocumentoConcluidoAoSolicitante(p.lodgeId, p.tipo, p.id),
 };
 
 export async function enfileirar(
@@ -41,10 +49,39 @@ export async function enfileirar(
   return job.id;
 }
 
+// Já existe job do tipo aguardando/rodando para o mesmo payload (ex.: a mesma
+// sessão)? Evita disparo duplicado por clique repetido.
+export async function jobEmAndamento(
+  tipo: keyof typeof handlers,
+  payload: Payload
+): Promise<boolean> {
+  const job = await prisma.job.findFirst({
+    where: {
+      tipo,
+      status: { in: ["PENDENTE", "PROCESSANDO"] },
+      lodgeId: payload.lodgeId ?? null,
+      payload: { equals: payload },
+    },
+    select: { id: true },
+  });
+  return !!job;
+}
+
 // Processa até `limite` jobs vencidos. Claim atômico por updateMany
 // (single-instance; se um dia houver mais workers, trocar por
 // SELECT ... FOR UPDATE SKIP LOCKED).
 export async function processarFila(limite = 10) {
+  // Job preso em PROCESSANDO (worker caiu no meio) volta à fila depois de
+  // 10 min sem atualização — a próxima tentativa conta no backoff normal.
+  const presos = await prisma.job.updateMany({
+    where: {
+      status: "PROCESSANDO",
+      updatedAt: { lt: new Date(Date.now() - 10 * 60_000) },
+    },
+    data: { status: "PENDENTE", ultimoErro: "Recuperado: worker interrompido" },
+  });
+  if (presos.count > 0) logInfo("fila.presos-recuperados", { quantidade: presos.count });
+
   const devidos = await prisma.job.findMany({
     where: { status: "PENDENTE", executarEm: { lte: new Date() } },
     orderBy: { executarEm: "asc" },

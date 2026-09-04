@@ -1,5 +1,3 @@
-import { InfoDica } from "@/components/info-dica";
-import { AJUDA } from "@/lib/ajuda";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -51,6 +49,13 @@ import {
 import { signAtaInline } from "./sign-actions";
 import { NOTIFICATION_VIEWERS, syncLodgeNotifications } from "@/lib/notifications";
 import { cargosProcesso } from "@/lib/processos";
+import { pendenciasDoUsuario } from "@/lib/pendencias";
+import { frequenciaAnual } from "@/lib/frequencia";
+import { capitacaoVencida, inicioDoDiaSaoPaulo } from "@/lib/datas-sp";
+import { pendenteComAfastamento } from "@/lib/afastamento";
+import { proximoCargoQuitte, cargoAssinanteQuitte } from "@/lib/quitte";
+import { MinhaVez } from "./minha-vez";
+import { FilaLoja } from "./fila-loja";
 
 function brl(cents: number) {
   return (cents / 100).toLocaleString("pt-BR", {
@@ -213,43 +218,6 @@ function AtestadosPendentesCard({
   );
 }
 
-/* Faixa-herói dos cargos de gestão: saudação + cargo, no mesmo gradiente
-   do dashboard do Obreiro, mas mais baixa (foco desktop). */
-function GestorHero({
-  userName,
-  roleLabel,
-  subtitle,
-}: {
-  userName: string;
-  roleLabel: string;
-  subtitle: string;
-}) {
-  const firstName = userName.split(" ")[0];
-  const hoje = new Date().toLocaleDateString("pt-BR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-  return (
-    <section className="bg-hero-gradient shadow-raised animate-rise flex flex-wrap items-center justify-between gap-3 rounded-3xl p-5 text-white sm:p-6">
-      <div className="min-w-0">
-        <p className="text-sm text-white/80">Olá,</p>
-        <h1 className="flex items-center gap-1.5 truncate text-2xl font-bold leading-tight">
-          {firstName}
-          <InfoDica titulo="Dashboard" texto={AJUDA.dashboard} />
-        </h1>
-        <p className="mt-0.5 text-xs text-white/70">{subtitle}</p>
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-1.5">
-        <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
-          {roleLabel}
-        </span>
-        <span className="text-xs capitalize text-white/70">{hoje}</span>
-      </div>
-    </section>
-  );
-}
-
 function diasAtras(dias: number) {
   return new Date(Date.now() - dias * 24 * 60 * 60 * 1000);
 }
@@ -306,16 +274,13 @@ function MemberManagementCard() {
 async function MemberDashboard({
   userId,
   lodgeId,
-  userName,
   roleLabel,
 }: {
   userId: string;
   lodgeId: string;
-  userName: string;
   roleLabel: string;
 }) {
-  const yearStart = new Date(new Date().getFullYear(), 0, 1);
-  const [me, openInvoices, lastDegree, sessionsYear, myAttendances] =
+  const [me, openInvoices, lastDegree, frequencia, atestado, quitte, afastamento] =
     await Promise.all([
       prisma.user.findUniqueOrThrow({
         where: { id: userId },
@@ -329,18 +294,82 @@ async function MemberDashboard({
         where: { lodgeId, userId },
         orderBy: { date: "desc" },
       }),
-      prisma.lodgeSession.count({
-        where: { lodgeId, date: { gte: yearStart, lte: new Date() } },
+      // #16: mesma régua da Secretaria — só sessões do grau do irmão e
+      // posteriores à iniciação contam
+      frequenciaAnual(lodgeId),
+      prisma.atestadoRegularidade.findFirst({
+        where: { lodgeId, userId },
+        orderBy: { solicitadoAt: "desc" },
+        select: { status: true, signedByTesAt: true, signedBySecAt: true },
       }),
-      prisma.attendance.count({
-        where: {
-          lodgeId,
-          userId,
-          checkedIn: true,
-          session: { date: { gte: yearStart } },
+      prisma.quittePlacet.findFirst({
+        where: { lodgeId, userId },
+        orderBy: { dataSolicitacao: "desc" },
+        select: {
+          status: true,
+          quitacaoFinanceira: true,
+          cartaNome: true,
+          dataSessaoComunicacao: true,
+          ataNome: true,
+          formularioNome: true,
+          formularioEnviadoAt: true,
+          signedBySecAt: true,
+          signedByOradorAt: true,
+          signedByMasterAt: true,
         },
       }),
+      prisma.pedidoAfastamento.findFirst({
+        where: { lodgeId, userId },
+        orderBy: { createdAt: "desc" },
+        select: { status: true, signedBySecAt: true, enviadoAt: true },
+      }),
     ]);
+  const minhaFreq = frequencia.find((f) => f.userId === userId);
+  const sessionsYear = minhaFreq?.sessoesComputadas ?? 0;
+  const myAttendances = minhaFreq?.presencas ?? 0;
+
+  // "Minhas solicitações" — com quem cada pedido está pendente
+  const solicitacoes: { titulo: string; href: string; estado: string; ativo: boolean }[] = [];
+  if (atestado) {
+    solicitacoes.push({
+      titulo: "Atestado de Regularidade",
+      href: "/secretaria/atestados",
+      estado:
+        atestado.status === "ASSINADO"
+          ? "Documento pronto"
+          : `Pendente com: ${!atestado.signedByTesAt ? "Tesoureiro" : !atestado.signedBySecAt ? "Secretário" : "Venerável Mestre"}`,
+      ativo: atestado.status !== "ASSINADO",
+    });
+  }
+  if (quitte) {
+    solicitacoes.push({
+      titulo: "Quitte Placet",
+      href: "/secretaria/quitte-placets",
+      estado:
+        quitte.status === "APROVADO"
+          ? quitte.formularioEnviadoAt
+            ? "Emitido e enviado à Guarda dos Selos"
+            : "Assinado — aguardando envio"
+          : quitte.status === "NEGADO"
+            ? "Negado"
+            : !quitte.cartaNome
+              ? "Pendente com: você (anexar a carta)"
+              : !quitte.quitacaoFinanceira
+                ? "Pendente com: Tesouraria (Nada Consta)"
+                : !quitte.dataSessaoComunicacao || !quitte.ataNome || !quitte.formularioNome
+                  ? "Pendente com: Secretaria (sessão, ata e Form. 122)"
+                  : `Pendente com: ${cargoAssinanteQuitte(proximoCargoQuitte(quitte) ?? "VENERAVEL_MESTRE")}`,
+      ativo: quitte.status !== "NEGADO" && !quitte.formularioEnviadoAt,
+    });
+  }
+  if (afastamento) {
+    solicitacoes.push({
+      titulo: "Afastamento (Form. 116)",
+      href: "/solicitacoes/afastamento",
+      estado: pendenteComAfastamento(afastamento),
+      ativo: afastamento.status !== "INDEFERIDO" && !afastamento.enviadoAt,
+    });
+  }
 
   // Orador e Vigilantes (cargo do rito) assinam na cadeia dos Processos —
   // o card "aguardando minha vez" aparece só quando há algo na vez deles
@@ -365,7 +394,7 @@ async function MemberDashboard({
 
   const emAberto = openInvoices.reduce((s, i) => s + i.amountCents, 0);
   const vencidas = openInvoices.filter(
-    (i) => i.status === "VENCIDA" || i.dueDate < new Date()
+    (i) => i.status === "VENCIDA" || capitacaoVencida(i.dueDate)
   ).length;
 
   // Interstício para o próximo grau
@@ -389,54 +418,42 @@ async function MemberDashboard({
     }
   }
 
-  const freq =
-    sessionsYear > 0
-      ? `${Math.round((myAttendances / sessionsYear) * 100)}%`
-      : "—";
-
-  const firstName = userName.split(" ")[0];
+  const freq = minhaFreq?.percentual != null ? `${minhaFreq.percentual}%` : "—";
   const regular = me.status !== "IRREGULAR";
 
   return (
     <>
-      {/* Card-herói: saudação + resumo financeiro, estilo app de banco */}
-      <section className="bg-hero-gradient shadow-raised animate-rise rounded-3xl p-5 text-white sm:p-6">
+      {/* Resumo financeiro do irmão (o herói "Minha vez" fica acima) */}
+      <section className="shadow-card rounded-3xl border border-border bg-card p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-sm text-white/80">Olá,</p>
-            <h1 className="truncate text-2xl font-bold leading-tight">
-              {firstName}
-            </h1>
-            <p className="mt-0.5 text-xs text-white/70">
-              {roleLabel} · {degreeLabels[me.degree] ?? me.degree}
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Mensalidades em aberto
+            </p>
+            <p className="text-3xl font-bold tabular-nums">
+              {openInvoices.length === 0 ? "R$ 0,00" : brl(emAberto)}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {openInvoices.length === 0
+                ? "Tudo em dia. Nenhuma pendência!"
+                : vencidas > 0
+                  ? `${vencidas} vencida(s) de ${openInvoices.length} pendente(s)`
+                  : `${openInvoices.length} pendente(s)`}
             </p>
           </div>
-          <span
-            className={cn(
-              "shrink-0 rounded-full px-3 py-1 text-xs font-semibold",
-              regular
-                ? "bg-white/15 text-white"
-                : "bg-destructive text-white"
-            )}
-          >
-            {memberStatusLabels[me.status] ?? me.status}
-          </span>
-        </div>
-
-        <div className="mt-5">
-          <p className="text-xs uppercase tracking-wide text-white/70">
-            Mensalidades em aberto
-          </p>
-          <p className="text-3xl font-bold tabular-nums">
-            {openInvoices.length === 0 ? "R$ 0,00" : brl(emAberto)}
-          </p>
-          <p className="mt-0.5 text-xs text-white/80">
-            {openInvoices.length === 0
-              ? "Tudo em dia. Nenhuma pendência!"
-              : vencidas > 0
-                ? `${vencidas} vencida(s) de ${openInvoices.length} pendente(s)`
-                : `${openInvoices.length} pendente(s)`}
-          </p>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <span
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-semibold",
+                regular ? "bg-success-soft text-success" : "bg-destructive text-white"
+              )}
+            >
+              {memberStatusLabels[me.status] ?? me.status}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {roleLabel} · {degreeLabels[me.degree] ?? me.degree}
+            </span>
+          </div>
         </div>
       </section>
 
@@ -523,7 +540,36 @@ async function MemberDashboard({
           )}
         </CardContent>
       </Card>
-      {processosToSign.length > 0 && (
+      {solicitacoes.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Minhas solicitações</CardTitle>
+            <CardDescription>Com quem cada pedido está agora.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2 text-sm">
+              {solicitacoes.map((sol) => (
+                <li key={sol.titulo}>
+                  <Link
+                    href={sol.href}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background p-3 transition-colors hover:bg-muted/50"
+                  >
+                    <span className="font-medium">{sol.titulo}</span>
+                    <Badge variant={sol.ativo ? "warning" : "success"}>{sol.estado}</Badge>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <Link
+              href="/solicitacoes"
+              className="mt-3 block text-sm font-medium text-primary hover:underline"
+            >
+              Ver todas as solicitações →
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+      {(processosToSign.length > 0 || quittesToSign.length > 0) && (
         <AtestadosPendentesCard atestados={[]} processos={processosToSign} quittes={quittesToSign} />
       )}
     </>
@@ -764,7 +810,7 @@ async function TesoureiroDashboard({ lodgeId }: { lodgeId: string }) {
         where: {
           lodgeId,
           status: { in: ["PENDENTE", "VENCIDA"] },
-          dueDate: { lt: new Date() },
+          dueDate: { lt: inicioDoDiaSaoPaulo() },
         },
         include: { user: { select: { name: true, cim: true } } },
         orderBy: { dueDate: "asc" },
@@ -1013,6 +1059,8 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
         </Card>
       )}
 
+      <FilaLoja lodgeId={lodgeId} />
+
       <MemberManagementCard />
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -1100,35 +1148,6 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Despesas aguardando minha aprovação</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {expensesToApprove.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhuma pendência.</p>
-            ) : (
-              <ul className="space-y-2 text-sm">
-                {expensesToApprove.map((e) => (
-                  <li
-                    key={e.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background p-3"
-                  >
-                    <span className="min-w-0 break-words">{e.description}</span>
-                    <span className="shrink-0 font-medium">{brl(e.amountCents)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <Link
-              href="/tesouraria/despesas"
-              className="mt-3 block text-sm font-medium text-primary hover:underline"
-            >
-              Ir para as despesas →
-            </Link>
-          </CardContent>
-        </Card>
-
         <AtestadosPendentesCard atestados={atestadosToSign} processos={processosToSign} />
       </div>
     </>
@@ -1160,7 +1179,7 @@ async function ConselhoDashboard({ lodgeId }: { lodgeId: string }) {
         where: {
           lodgeId,
           status: { in: ["PENDENTE", "VENCIDA"] },
-          dueDate: { lt: new Date() },
+          dueDate: { lt: inicioDoDiaSaoPaulo() },
         },
       }),
     ]);
@@ -1245,25 +1264,30 @@ export default async function DashboardPage() {
   if (user.role === "SUPER_ADMIN") redirect("/admin");
 
   const isGestor = ["SECRETARIO", "TESOUREIRO", "VENERAVEL_MESTRE", "CONSELHO_CONTAS"].includes(user.role);
+  const pendencias = await pendenciasDoUsuario({
+    id: user.id,
+    lodgeId: user.lodgeId,
+    role: user.role,
+  });
 
   return (
     <div className="space-y-6">
-      {/* O dashboard do Obreiro abre com o card-herói próprio; os cargos de
-          gestão recebem a faixa-herói de saudação com o cargo em destaque */}
-      {isGestor && (
-        <GestorHero
-          userName={user.name}
-          roleLabel={roleLabels[user.role] ?? user.role}
-          subtitle={
-            {
-              SECRETARIO: "Resumo da Secretaria",
-              TESOUREIRO: "Resumo da Tesouraria",
-              VENERAVEL_MESTRE: "Resumo da Loja e pendências de assinatura",
-              CONSELHO_CONTAS: "Fiscalização — somente leitura",
-            }[user.role] ?? "Resumo da Loja"
-          }
-        />
-      )}
+      {/* Herói "Minha vez" — o que está parado esperando o usuário, em todos
+          os perfis (assinaturas, aprovações, registros, pagamentos, convites) */}
+      <MinhaVez
+        pendencias={pendencias}
+        userName={user.name}
+        roleLabel={roleLabels[user.role] ?? user.role}
+        subtitle={
+          {
+            SECRETARIO: "Resumo da Secretaria",
+            TESOUREIRO: "Resumo da Tesouraria",
+            VENERAVEL_MESTRE: "Resumo da Loja e fila de processos",
+            CONSELHO_CONTAS: "Fiscalização — somente leitura",
+            ESMOLER: "Acompanhamento fraterno dos irmãos",
+          }[user.role] ?? undefined
+        }
+      />
 
       {user.role === "SECRETARIO" && (
         <SecretarioDashboard lodgeId={user.lodgeId} />
@@ -1282,7 +1306,6 @@ export default async function DashboardPage() {
         <MemberDashboard
           userId={user.id}
           lodgeId={user.lodgeId}
-          userName={user.name}
           roleLabel={roleLabels[user.role] ?? user.role}
         />
       )}

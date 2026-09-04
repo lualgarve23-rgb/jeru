@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { auditar } from "@/lib/audit";
 import { systemPrompt } from "@/lib/assistente/prompt";
+import { pendenciasDoUsuario } from "@/lib/pendencias";
 import { limiteDiarioPara, separarSugestoes } from "@/lib/assistente/limites";
 import {
   ferramentasPara,
@@ -129,6 +130,17 @@ export async function POST(req: NextRequest) {
     data: { conversaId: conversa.id, role: "user", content: mensagem },
   });
 
+  // Cargo do rito e grau entram no contexto das ferramentas (Orador e
+  // Vigilantes assinam por cargoRito; o grau segmenta os acervos)
+  user.cargoRito = perfil.cargoRito;
+  user.degree = perfil.degree;
+  const pendencias = await pendenciasDoUsuario({
+    id: user.id,
+    lodgeId: user.lodgeId,
+    role: user.role,
+    cargoRito: perfil.cargoRito,
+    degree: perfil.degree,
+  }).catch(() => []);
   const ferramentas = ferramentasPara(user);
   const client = new Anthropic();
   const system = systemPrompt({
@@ -140,6 +152,7 @@ export async function POST(req: NextRequest) {
     cargoRito: perfil.cargoRito,
     degree: perfil.degree,
     rota,
+    pendencias,
   });
 
   const messages: Anthropic.MessageParam[] = [

@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { aposEventoDaLoja } from "@/lib/apos-evento";
+import { eventoProcessoConcluido } from "@/lib/eventos-solicitacoes";
 import { prisma } from "@/lib/prisma";
 import { garantirPdf } from "@/lib/docx-pdf";
 import { logError } from "@/lib/log";
@@ -71,6 +73,7 @@ export async function criarProcessoDocumento(
       },
     },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/processos");
   return {
     ok: `Processo aberto — ordem de assinatura: ${cadeia
@@ -150,6 +153,7 @@ export async function criarProcessoDaPrancha(
       },
     },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/processos");
   revalidatePath("/secretaria/pranchas");
   return {
@@ -204,7 +208,8 @@ export async function uploadProcessoAssinadoGovbr(
   // preservada como prefixo PAdES), que há assinatura nova e que ela é do
   // próprio remetente — mesma proteção do atestado/atas contra subir um PDF
   // antigo ou de outro documento por engano.
-  const erroAssinatura = validarUploadAssinado({
+  const { erro: erroAssinatura } = await validarUploadAssinado({
+    cpf: (await prisma.user.findUnique({ where: { id: user.id }, select: { cpf: true } }))?.cpf,
     pdf,
     anterior: doc.govbrPdf ? Buffer.from(doc.govbrPdf) : null,
     nomeAssinante: user.name,
@@ -229,9 +234,12 @@ export async function uploadProcessoAssinadoGovbr(
   ]);
   let driveAviso = "";
   if (estado.ultimaAssinatura) {
+    await eventoProcessoConcluido(user.lodgeId, documentoId);
     driveAviso = await concluirProcessoNaPrancha(documentoId, user.lodgeId, user.id);
+    aposEventoDaLoja(user.lodgeId);
     revalidatePath("/secretaria/pranchas");
   }
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/processos");
   return {
     ok: estado.ultimaAssinatura
@@ -326,10 +334,12 @@ export async function enviarProcessoDocumento(
       where: { id: doc.pranchaId, lodgeId: user.lodgeId },
       data: { enviadaAt: new Date() },
     });
+    aposEventoDaLoja(user.lodgeId);
     revalidatePath("/secretaria/pranchas");
     revalidatePath("/secretaria/progressoes");
     revalidatePath("/secretaria/admissoes");
   }
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/processos");
   return {
     ok: `Documento enviado para ${para}${
@@ -353,6 +363,9 @@ export async function excluirProcessoDocumento(
   if (doc.enviadoAt) {
     return { error: "O processo já foi enviado — não pode ser excluído." };
   }
+  if (doc.status === "ASSINADO") {
+    return { error: "O processo já está assinado por toda a cadeia — não pode ser excluído." };
+  }
   await prisma.processoDocumento.delete({
     where: { id: documentoId, lodgeId: user.lodgeId },
   });
@@ -362,8 +375,14 @@ export async function excluirProcessoDocumento(
     acao: "processo.excluir",
     entidade: "ProcessoDocumento",
     entidadeId: documentoId,
-    detalhes: { titulo: doc.titulo, assinaturas: doc.assinantes.filter((a) => a.signedAt).length },
+    detalhes: {
+      titulo: doc.titulo,
+      status: doc.status,
+      pranchaId: doc.pranchaId,
+      assinaturas: doc.assinantes.filter((a) => a.signedAt).length,
+    },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/processos");
   revalidatePath("/secretaria/pranchas");
   return { ok: "Processo excluído." };

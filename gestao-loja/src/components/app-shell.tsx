@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SidebarNav, type NavItem } from "@/components/sidebar-nav";
+import { HeaderSino, type SinoDados } from "@/components/header-sino";
 
 type LodgeInfo = {
   logoUrl: string | null;
@@ -33,6 +34,7 @@ export function AppShell({
   cim,
   navItems,
   unreadNotifications = 0,
+  sino,
   signOutAction,
   children,
 }: {
@@ -43,6 +45,8 @@ export function AppShell({
   cim: string;
   navItems: NavItem[];
   unreadNotifications?: number;
+  // Sino do desktop (pendências + últimas notificações); ausente no admin
+  sino?: SinoDados;
   signOutAction: () => Promise<void>;
   children: React.ReactNode;
 }) {
@@ -135,7 +139,14 @@ export function AppShell({
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 p-4 pb-28 pt-20 print:ml-0 print:p-0 lg:ml-64 lg:p-8 lg:pt-8">{children}</main>
+      <main className="min-w-0 flex-1 p-4 pb-28 pt-20 print:ml-0 print:p-0 lg:ml-64 lg:p-8 lg:pt-4">
+        {sino && (
+          <div className="mb-3 hidden justify-end print:hidden lg:flex">
+            <HeaderSino dados={sino} />
+          </div>
+        )}
+        {children}
+      </main>
 
       <BottomNav
         navItems={navItems}

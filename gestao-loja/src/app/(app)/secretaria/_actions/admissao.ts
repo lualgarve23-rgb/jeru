@@ -2,17 +2,30 @@
 
 
 import { revalidatePath } from "next/cache";
+import { aposEventoDaLoja } from "@/lib/apos-evento";
 import {
   StatusAdmissao } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
 import { appUrl } from "@/lib/utils";
+import { auditar } from "@/lib/audit";
 import { sendLodgeEmail } from "@/lib/gmail";
 import { type ActionResult, requireSecretariaWriter, validarAnexo, gravarAnexoCandidato } from "./_shared";
 import { saveAdmissaoFoto, deleteMedia, validarImagem } from "@/lib/media";
 
 // ───────────────────── Pipeline de Admissão (Kanban) ─────────────────────
+
+// Etapas do pipeline, na ordem em que ele caminha (REPROVADO fica fora:
+// só pela ação explícita reprovarProcessoAdmissao)
+const ORDEM_ADMISSAO: StatusAdmissao[] = [
+  "DOCUMENTACAO",
+  "EDITAL_PUBLICADO",
+  "SINDICANCIA",
+  "ESCRUTINIO",
+  "AGUARDANDO_PLACET",
+  "INICIADO",
+];
 
 // Move o card no Kanban — só avança/retrocede uma etapa por vez, e a
 // entrada em ESCRUTINIO exige que as certidões já tenham sido validadas.
@@ -21,11 +34,22 @@ export async function moveProcessoAdmissao(
   toStatus: StatusAdmissao
 ): Promise<ActionResult> {
   const user = await requireSecretariaWriter();
-  const processo = await prisma.processoAdmissao.findUniqueOrThrow({
+  const processo = await prisma.processoAdmissao.findUnique({
     where: { id: processoId, lodgeId: user.lodgeId },
   });
+  if (!processo) return { error: "Processo não encontrado." };
   if (processo.status === "INICIADO" || processo.status === "REPROVADO") {
     return { error: "Processo já encerrado." };
+  }
+  if (toStatus === "REPROVADO") {
+    return { error: "A reprovação é feita pelo botão “Reprovar”, não pelo arraste." };
+  }
+  const fromIdx = ORDEM_ADMISSAO.indexOf(processo.status);
+  const toIdx = ORDEM_ADMISSAO.indexOf(toStatus);
+  if (toIdx < 0) return { error: "Etapa inválida." };
+  if (toIdx === fromIdx) return undefined;
+  if (Math.abs(toIdx - fromIdx) !== 1) {
+    return { error: "Mova o card uma etapa por vez — o pipeline não pula etapas." };
   }
   if (toStatus === "ESCRUTINIO" && !processo.certidoesValidas) {
     return {
@@ -34,9 +58,15 @@ export async function moveProcessoAdmissao(
   }
 
   // Gate do Placet: o candidato só é INICIADO com a prancha do pedido de
-  // Placet assinada (cadeia gov.br na seção Processos, quando com anexo)
-  // e enviada à Guarda dos Selos
-  if (toStatus === "INICIADO" && processo.pranchaId) {
+  // Placet (expedida ao entrar em AGUARDANDO_PLACET) assinada (cadeia gov.br
+  // na seção Processos, quando com anexo) e enviada à Guarda dos Selos
+  if (toStatus === "INICIADO") {
+    if (!processo.pranchaId) {
+      return {
+        error:
+          "Não há prancha do Placet de Iniciação vinculada — passe o card por “Aguardando Placet” para expedi-la.",
+      };
+    }
     const prancha = await prisma.prancha.findUnique({
       where: { id: processo.pranchaId },
       select: {
@@ -90,6 +120,7 @@ export async function moveProcessoAdmissao(
       },
     });
     data.pranchaId = prancha.id;
+    aposEventoDaLoja(user.lodgeId);
     revalidatePath("/secretaria/pranchas");
   }
 
@@ -97,6 +128,15 @@ export async function moveProcessoAdmissao(
     where: { id: processoId, lodgeId: user.lodgeId },
     data,
   });
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "admissao.mover",
+    entidade: "ProcessoAdmissao",
+    entidadeId: processoId,
+    detalhes: { candidato: processo.nomeCandidato, de: processo.status, para: toStatus },
+  });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/admissoes");
   return { ok: "Processo atualizado." };
 }
@@ -121,6 +161,7 @@ export async function setFotoProcessoAdmissao(
     data: { fotoUrl: key },
   });
   await deleteMedia(antes.fotoUrl);
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/admissoes");
   return { ok: "Foto do candidato atualizada." };
 }
@@ -134,6 +175,7 @@ export async function setCertidoesValidas(
     where: { id: processoId, lodgeId: user.lodgeId },
     data: { certidoesValidas: value },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/admissoes");
   return { ok: "Certidões atualizadas." };
 }
@@ -142,10 +184,27 @@ export async function reprovarProcessoAdmissao(
   processoId: string
 ): Promise<ActionResult> {
   const user = await requireSecretariaWriter();
+  const processo = await prisma.processoAdmissao.findUnique({
+    where: { id: processoId, lodgeId: user.lodgeId },
+    select: { status: true, nomeCandidato: true },
+  });
+  if (!processo) return { error: "Processo não encontrado." };
+  if (processo.status === "INICIADO" || processo.status === "REPROVADO") {
+    return { error: "Processo já encerrado." };
+  }
   await prisma.processoAdmissao.update({
     where: { id: processoId, lodgeId: user.lodgeId },
     data: { status: "REPROVADO", aprovado: false },
   });
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "admissao.reprovar",
+    entidade: "ProcessoAdmissao",
+    entidadeId: processoId,
+    detalhes: { candidato: processo.nomeCandidato, de: processo.status },
+  });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/admissoes");
   return { ok: "Processo reprovado." };
 }
@@ -249,6 +308,7 @@ export async function indicarCandidato(
       });
     } catch (e) {
       console.error("e-mail do candidato", e);
+      aposEventoDaLoja(user.lodgeId);
       revalidatePath("/secretaria/admissoes");
       return {
         ok:
@@ -256,6 +316,7 @@ export async function indicarCandidato(
       };
     }
   }
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/admissoes");
   return {
     ok: email
@@ -305,6 +366,7 @@ export async function anexarFormularioCandidatoPublico(
     })),
     skipDuplicates: true,
   });
+  aposEventoDaLoja(processo.lodgeId);
   revalidatePath(`/candidato/${token}`);
   revalidatePath("/secretaria/admissoes");
   return { ok: "Formulário recebido. Obrigado!" };
@@ -336,6 +398,7 @@ export async function anexarFormularioCandidato(
   const valid = validarAnexo(formData.get("arquivo") as File | null);
   if ("error" in valid) return valid;
   await gravarAnexoCandidato(processo.id, valid.file, user.name);
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/admissoes");
   return { ok: "Formulário anexado." };
 }
@@ -355,6 +418,7 @@ export async function removerAnexoCandidato(
     return { error: "Só o padrinho ou a Secretaria podem remover anexos." };
   }
   await prisma.candidatoAnexo.delete({ where: { id: anexoId } });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/admissoes");
   return { ok: "Anexo removido." };
 }

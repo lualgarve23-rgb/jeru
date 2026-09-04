@@ -9,7 +9,9 @@ import { unreadCount } from "@/lib/notifications";
 import { grausInstrucaoPermitidos } from "@/lib/permissions";
 import { cargosProcesso } from "@/lib/processos";
 import { Assistente } from "@/components/assistente/assistente";
-import { sugestoesVisiveis } from "@/lib/assistente/sugestoes";
+import { sugestoesVisiveis, sugestoesDinamicas } from "@/lib/assistente/sugestoes";
+import { pendenciasDoUsuario } from "@/lib/pendencias";
+import { notificationWhere } from "@/lib/notifications";
 
 function navFor(role: string, cargoRito: string | null, unread: number): NavItem[] {
   if (role === "SUPER_ADMIN") {
@@ -49,6 +51,8 @@ function navFor(role: string, cargoRito: string | null, unread: number): NavItem
       ? [{ href: "/dashboard/instrucoes", label: "Instruções", icon: "instrucoes" as const, section: "Secretaria" }]
       : []),
     { href: "/secretaria/visitas", label: "Visitas a Oficinas", icon: "visitas", section: "Secretaria", roles: fiscal },
+    // Esmoler (Hospitaleiro): irmãos a acompanhar e registro de contatos
+    { href: "/esmoler", label: "Acompanhamento fraterno", icon: "esmoler", section: "Secretaria", roles: ["ESMOLER", "VENERAVEL_MESTRE"] },
     // Solicitações à Secretaria — abertas a todos os irmãos do quadro
     { href: "/solicitacoes", label: "Minhas solicitações", icon: "solicitacoes", section: "Solicitações" },
     { href: "/secretaria/atestados", label: "Atestado de Regularidade", icon: "atestado", section: "Solicitações" },
@@ -81,7 +85,7 @@ export default async function AppLayout({
   });
   if (mustChangePassword) redirect("/trocar-senha");
 
-  const [lodge, unread] = await Promise.all([
+  const [lodge, unread, pendencias, ultimas] = await Promise.all([
     prisma.lodge.findUnique({
       where: { id: user.lodgeId },
       select: {
@@ -94,6 +98,17 @@ export default async function AppLayout({
       },
     }),
     user.role === "SUPER_ADMIN" ? Promise.resolve(0) : unreadCount(user),
+    user.role === "SUPER_ADMIN"
+      ? Promise.resolve([])
+      : pendenciasDoUsuario({ id: user.id, lodgeId: user.lodgeId, role: user.role, cargoRito }),
+    user.role === "SUPER_ADMIN"
+      ? Promise.resolve([])
+      : prisma.notification.findMany({
+          where: notificationWhere(user),
+          orderBy: [{ isRead: "asc" }, { createdAt: "desc" }],
+          take: 5,
+          select: { id: true, title: true, isRead: true, createdAt: true },
+        }),
   ]);
 
   // Licença do sistema vencida bloqueia toda a loja (menos o super admin)
@@ -115,13 +130,31 @@ export default async function AppLayout({
       cim={user.cim}
       navItems={navFor(user.role, cargoRito, unread)}
       unreadNotifications={unread}
+      sino={
+        user.role === "SUPER_ADMIN"
+          ? undefined
+          : {
+              pendencias: pendencias.length,
+              notificacoes: ultimas.map((n) => ({
+                id: n.id,
+                title: n.title,
+                isRead: n.isRead,
+                createdAt: n.createdAt.toISOString(),
+              })),
+            }
+      }
       signOutAction={handleSignOut}
     >
       {children}
       {user.role !== "SUPER_ADMIN" &&
         lodge?.assistenteAtivo &&
         !!process.env.ANTHROPIC_API_KEY && (
-          <Assistente sugestoes={sugestoesVisiveis({ role: user.role, cargoRito })} />
+          <Assistente
+            sugestoes={[
+              ...sugestoesDinamicas(pendencias),
+              ...sugestoesVisiveis({ role: user.role, cargoRito }),
+            ]}
+          />
         )}
     </AppShell>
   );

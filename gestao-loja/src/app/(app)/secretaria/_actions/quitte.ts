@@ -2,13 +2,17 @@
 
 
 import { revalidatePath } from "next/cache";
+import { aposEventoDaLoja } from "@/lib/apos-evento";
+import { eventoQuitte } from "@/lib/eventos-solicitacoes";
 import {
   StatusPlacet } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { garantirPdf } from "@/lib/docx-pdf";
 import { logError } from "@/lib/log";
 import { auditar } from "@/lib/audit";
-import { requireUser } from "@/lib/session";
+import { mudarStatusMembro } from "@/lib/status-membro";
+import { requireUser, requireRole } from "@/lib/session";
+import { notificarEvento, usuariosDoCargo } from "@/lib/notificar-evento";
 import { canWriteSecretaria } from "@/lib/permissions";
 import { sendLodgeEmail, GUARDA_SELOS_EMAIL } from "@/lib/gmail";
 import {
@@ -19,6 +23,8 @@ import {
   cargoQuitteDoUsuario,
   cargoAssinanteQuitte,
   proximoCargoQuitte,
+  temPendenciaFinanceira,
+  recalcularQuitacaoQuitte,
 } from "@/lib/quitte";
 import { validarUploadAssinado } from "@/lib/pdf-assinaturas";
 import { type ActionResult, requireSecretariaWriter, validarAnexo } from "./_shared";
@@ -78,26 +84,45 @@ export async function requestQuittePlacet(
     return { error: "Já existe um Quitte Placet em andamento para este irmão." };
   }
 
-  // Trava financeira: consulta a Tesouraria por pendências (Nada Consta).
-  const pendencias = await prisma.invoice.count({
+  // Trava financeira (Nada Consta): só capitação VENCIDA bloqueia — uma
+  // PENDENTE dentro do prazo não é pendência. Recalculado a cada baixa.
+  const abertas = await prisma.invoice.findMany({
     where: {
       lodgeId: user.lodgeId,
       userId,
       status: { in: ["PENDENTE", "VENCIDA"] },
     },
+    select: { status: true, dueDate: true },
   });
+  const quitacao = !temPendenciaFinanceira(abertas);
 
-  await prisma.quittePlacet.create({
+  const criado = await prisma.quittePlacet.create({
     data: {
       lodgeId: user.lodgeId,
       userId,
       motivo,
-      quitacaoFinanceira: pendencias === 0,
+      quitacaoFinanceira: quitacao,
+      quitacaoConsultadaAt: new Date(),
       cartaArquivo: Buffer.from(await carta.arrayBuffer()),
       cartaNome: carta.name.slice(0, 200),
       cartaMime: carta.type,
     },
+    select: { id: true },
   });
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "quitte.solicitar",
+    entidade: "QuittePlacet",
+    entidadeId: criado.id,
+    detalhes: {
+      solicitante: userId,
+      emNomeDe: userId !== user.id,
+      quitacaoFinanceira: quitacao,
+      carta: carta.name.slice(0, 200),
+    },
+  });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/quitte-placets");
   revalidatePath("/secretaria/processos");
   return {
@@ -105,32 +130,116 @@ export async function requestQuittePlacet(
   };
 }
 
-// Reconsulta a Tesouraria e atualiza a variável quitacaoFinanceira (Nada Consta)
+// Reconsulta a Tesouraria e atualiza a variável quitacaoFinanceira (Nada
+// Consta). O mesmo recálculo roda sozinho a cada baixa de capitação; o
+// bloqueio das assinaturas só cai sem capitações vencidas OU com o Nada
+// Consta confirmado pelo Tesoureiro (confirmarNadaConstaQuitte).
 export async function refreshQuitacaoFinanceira(
   placetId: string
 ): Promise<ActionResult> {
   const user = await requireSecretariaWriter();
   const placet = await prisma.quittePlacet.findUniqueOrThrow({
     where: { id: placetId, lodgeId: user.lodgeId },
+    select: { userId: true, quitacaoConfirmadaAt: true },
   });
-  const pendencias = await prisma.invoice.count({
-    where: {
-      lodgeId: user.lodgeId,
-      userId: placet.userId,
-      status: { in: ["PENDENTE", "VENCIDA"] },
+  const { quitacao, vencidas } = await recalcularQuitacaoQuitte(user.lodgeId, placet.userId);
+  aposEventoDaLoja(user.lodgeId);
+  revalidatePath("/secretaria/quitte-placets");
+  revalidatePath("/secretaria/processos");
+  if (placet.quitacaoConfirmadaAt) {
+    return {
+      ok: quitacao
+        ? "Nada Consta confirmado pela Tesouraria — sem capitações vencidas."
+        : `Nada Consta confirmado pelo Tesoureiro, apesar de ${vencidas} capitação(ões) vencida(s).`,
+    };
+  }
+  return {
+    ok: quitacao
+      ? "Nada Consta: nenhuma capitação vencida."
+      : `Ainda há ${vencidas} capitação(ões) vencida(s) — o Tesoureiro pode confirmar o Nada Consta em Processos.`,
+  };
+}
+
+// Confirmação do Nada Consta pelo Tesoureiro (ou pelo VM): libera a trava
+// financeira mesmo com capitações em aberto — equivale a um override, fica
+// auditado e o Secretário é avisado. Só em placets em andamento.
+export async function confirmarNadaConstaQuitte(
+  placetId: string
+): Promise<ActionResult> {
+  const user = await requireRole("TESOUREIRO", "VENERAVEL_MESTRE");
+  const placet = await prisma.quittePlacet.findUnique({
+    where: { id: placetId, lodgeId: user.lodgeId },
+    select: {
+      status: true,
+      userId: true,
+      quitacaoConfirmadaAt: true,
+      user: { select: { name: true } },
     },
   });
-  await prisma.quittePlacet.update({
-    where: { id: placetId, lodgeId: user.lodgeId },
-    data: { quitacaoFinanceira: pendencias === 0 },
+  if (!placet) return { error: "Quitte Placet não encontrado." };
+  if (placet.status !== "PENDENTE" && placet.status !== "EM_ANALISE") {
+    return { error: "Quitte Placet já encerrado." };
+  }
+  if (placet.quitacaoConfirmadaAt) {
+    return { ok: "O Nada Consta deste Quitte Placet já estava confirmado." };
+  }
+  const abertas = await prisma.invoice.findMany({
+    where: { lodgeId: user.lodgeId, userId: placet.userId, status: { in: ["PENDENTE", "VENCIDA"] } },
+    select: { status: true, dueDate: true },
   });
+  const vencidas = abertas.filter((i) => temPendenciaFinanceira([i])).length;
+  const agora = new Date();
+  const r = await prisma.quittePlacet.updateMany({
+    where: {
+      id: placetId,
+      lodgeId: user.lodgeId,
+      status: { in: ["PENDENTE", "EM_ANALISE"] },
+    },
+    data: {
+      quitacaoFinanceira: true,
+      quitacaoConsultadaAt: agora,
+      quitacaoConfirmadaPorId: user.id,
+      quitacaoConfirmadaAt: agora,
+    },
+  });
+  if (r.count === 0) return { error: "O Quitte Placet mudou de situação — recarregue a página." };
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "quitte.nada-consta",
+    entidade: "QuittePlacet",
+    entidadeId: placetId,
+    detalhes: {
+      solicitante: placet.userId,
+      capitacoesEmAberto: abertas.length,
+      capitacoesVencidas: vencidas,
+      override: vencidas > 0,
+    },
+  });
+  const secretarios = await usuariosDoCargo(prisma, user.lodgeId, "SECRETARIO");
+  const destinos: (string | null)[] = secretarios.length ? secretarios : [null];
+  for (const userId of destinos) {
+    await notificarEvento(prisma, {
+      lodgeId: user.lodgeId,
+      sourceKey: `qp-nada-consta:${placetId}${userId ? `:${userId}` : ""}`,
+      userId,
+      type: "FINANCIAL_APPROVAL",
+      title: `Tesoureiro confirmou o Nada Consta — Quitte Placet de ${placet.user.name}`,
+      description:
+        `${user.name} (${user.role === "TESOUREIRO" ? "Tesoureiro" : "Venerável Mestre"}) confirmou o Nada Consta` +
+        (vencidas > 0 ? ` apesar de ${vencidas} capitação(ões) vencida(s)` : "") +
+        ". A trava financeira foi liberada — o processo segue para a sessão de comunicação e as assinaturas.",
+      link: `/secretaria/processos?destaque=quitte-${placetId}#quitte-${placetId}`,
+    });
+  }
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/quitte-placets");
   revalidatePath("/secretaria/processos");
   return {
     ok:
-      pendencias === 0
-        ? "Nada Consta confirmado pela Tesouraria."
-        : `Ainda há ${pendencias} mensalidade(s) pendente(s).`,
+      vencidas > 0
+        ? `Nada Consta confirmado apesar de ${vencidas} capitação(ões) vencida(s) — registrado na auditoria e o Secretário foi avisado.`
+        : "Nada Consta confirmado — o Secretário foi avisado.",
   };
 }
 
@@ -149,15 +258,16 @@ export async function uploadQuittePlacetAssinadoGovbr(
     where: { id: user.id },
     select: { cargoRito: true },
   });
-  const cargo = cargoQuitteDoUsuario(user.role, meu?.cargoRito);
-  if (!cargo) {
-    return { error: "O seu cargo não assina o Quitte Placet (Secretário, Orador e Venerável Mestre)." };
-  }
   const placet = await prisma.quittePlacet.findUnique({
     where: { id: placetId, lodgeId: user.lodgeId },
     include: { user: { select: { name: true } } },
   });
   if (!placet) return { error: "Quitte Placet não encontrado." };
+  // Cargo da vez entre os do usuário (quem acumula dois cargos assina por ambos)
+  const cargo = cargoQuitteDoUsuario(user.role, meu?.cargoRito, placet);
+  if (!cargo) {
+    return { error: "O seu cargo não assina o Quitte Placet (Secretário, Orador e Venerável Mestre)." };
+  }
   const bloqueio = bloqueioAssinaturaQuitte(placet);
   if (bloqueio) return { error: bloqueio };
   const ordem = ordemAssinaturaQuitte(cargo, placet);
@@ -183,7 +293,8 @@ export async function uploadQuittePlacetAssinadoGovbr(
   // preservada como prefixo PAdES), que há assinatura nova e que ela é do
   // próprio remetente — mesma proteção do atestado/atas contra subir um PDF
   // antigo ou de outro documento por engano.
-  const erroAssinatura = validarUploadAssinado({
+  const { erro: erroAssinatura } = await validarUploadAssinado({
+    cpf: (await prisma.user.findUnique({ where: { id: user.id }, select: { cpf: true } }))?.cpf,
     pdf,
     anterior: placet.govbrPdf ? Buffer.from(placet.govbrPdf) : null,
     nomeAssinante: user.name,
@@ -192,8 +303,10 @@ export async function uploadQuittePlacetAssinadoGovbr(
     return { error: erroAssinatura };
   }
 
-  await prisma.quittePlacet.update({
-    where: { id: placetId, lodgeId: user.lodgeId },
+  // Trava otimista (updatedAt lido): outra assinatura gravada em paralelo
+  // invalida esta
+  const gravado = await prisma.quittePlacet.updateMany({
+    where: { id: placetId, lodgeId: user.lodgeId, updatedAt: placet.updatedAt },
     data: {
       govbrPdf: new Uint8Array(pdf),
       ...camposAssinaturaQuitte(cargo, user.id),
@@ -202,6 +315,18 @@ export async function uploadQuittePlacetAssinadoGovbr(
         : ("EM_ANALISE" as const),
     },
   });
+  if (gravado.count === 0) {
+    return { error: "Outra assinatura foi gravada neste Quitte Placet enquanto você enviava — recarregue e tente de novo." };
+  }
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "quitte.assinar",
+    entidade: "QuittePlacet",
+    entidadeId: placetId,
+    detalhes: { via: "portal-iti", cargo, aprovou: ordem.ultimaAssinatura },
+  });
+  await eventoQuitte(user.lodgeId, placetId, "assinatura");
   let driveAviso = "";
   if (ordem.ultimaAssinatura) {
     driveAviso = await arquivarQuitteNoDrive(
@@ -212,6 +337,7 @@ export async function uploadQuittePlacetAssinadoGovbr(
       pdf
     );
   }
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/quitte-placets");
   revalidatePath("/secretaria/processos");
   const proximo = proximoCargoQuitte({
@@ -225,15 +351,48 @@ export async function uploadQuittePlacetAssinadoGovbr(
   };
 }
 
-export async function negarQuittePlacet(placetId: string): Promise<ActionResult> {
+// Negativa pela Secretaria, com parecer obrigatório exibido ao irmão. Só de
+// PENDENTE/EM_ANALISE — um placet APROVADO (três assinaturas gov.br) ou já
+// NEGADO não muda de estado por aqui.
+export async function negarQuittePlacet(
+  placetId: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
   const user = await requireSecretariaWriter();
-  await prisma.quittePlacet.update({
+  const parecer = String(formData.get("parecer") ?? "").trim().slice(0, 2000);
+  if (!parecer) return { error: "Escreva o parecer da negativa — ele é exibido ao irmão." };
+  const placet = await prisma.quittePlacet.findUnique({
     where: { id: placetId, lodgeId: user.lodgeId },
-    data: { status: "NEGADO" },
+    select: { status: true, userId: true },
   });
+  if (!placet) return { error: "Quitte Placet não encontrado." };
+  if (placet.status !== "PENDENTE" && placet.status !== "EM_ANALISE") {
+    return { error: "Só um Quitte Placet pendente ou em análise pode ser negado." };
+  }
+  const r = await prisma.quittePlacet.updateMany({
+    where: {
+      id: placetId,
+      lodgeId: user.lodgeId,
+      status: { in: ["PENDENTE", "EM_ANALISE"] },
+    },
+    data: { status: "NEGADO", parecerNegativa: parecer },
+  });
+  if (r.count === 0) return { error: "O Quitte Placet mudou de situação — recarregue a página." };
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "quitte.negar",
+    entidade: "QuittePlacet",
+    entidadeId: placetId,
+    detalhes: { solicitante: placet.userId, de: placet.status, parecer },
+  });
+  await eventoQuitte(user.lodgeId, placetId, "negado");
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/quitte-placets");
   revalidatePath("/secretaria/processos");
-  return { ok: "Quitte Placet negado." };
+  revalidatePath("/solicitacoes");
+  return { ok: "Quitte Placet negado — o parecer fica visível ao irmão." };
 }
 
 // ───── Quitte Placet: formulário oficial (Form. 122) e etapas do kanban ─────
@@ -289,6 +448,7 @@ export async function anexarFormularioQuittePlacet(
       signedByMasterAt: null,
     },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/quitte-placets");
   revalidatePath("/secretaria/processos");
   return { ok: "Formulário anexado ao Quitte Placet." };
@@ -351,6 +511,7 @@ export async function registrarSessaoQuittePlacet(
     entidadeId: placetId,
     detalhes: { dataSessao: dataStr, ata: ata?.ataNome ?? placet.ataNome },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/quitte-placets");
   revalidatePath("/secretaria/processos");
   return { ok: "Sessão de comunicação registrada e ata anexada ao Quitte Placet." };
@@ -410,24 +571,38 @@ export async function enviarQuittePlacetGSelos(
     where: { id: placetId, lodgeId: user.lodgeId },
     data: { formularioEnviadoAt: new Date() },
   });
+  // Quitte Placet enviado à Guarda dos Selos = desligamento do quadro
+  await mudarStatusMembro(prisma, {
+    userId: placet.userId,
+    lodgeId: user.lodgeId,
+    novoStatus: "EX_MEMBRO",
+    motivo: "Quitte Placet enviado à Guarda dos Selos",
+    porUserId: user.id,
+    porNome: user.name,
+  });
+  await eventoQuitte(user.lodgeId, placetId, "enviado");
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/quitte-placets");
   revalidatePath("/secretaria/processos");
-  return { ok: `Enviado para ${GUARDA_SELOS_EMAIL}.` };
+  revalidatePath("/secretaria/membros");
+  return { ok: `Enviado para ${GUARDA_SELOS_EMAIL}. ${placet.user.name} passou a Ex-membro.` };
 }
 
-// Move o card no kanban do Quitte Placet. "Em análise" é o início efetivo do
-// processo; a aprovação só acontece pelas duas assinaturas (signQuittePlacet).
+// Move o card no kanban do Quitte Placet — só entre PENDENTE e EM_ANALISE.
+// A aprovação sai das três assinaturas gov.br (Secretário, Orador, VM) e a
+// negativa da ação explícita com parecer; APROVADO e NEGADO são finais.
 export async function moveQuittePlacet(
   placetId: string,
   toStatus: StatusPlacet
 ): Promise<ActionResult> {
   const user = await requireSecretariaWriter();
-  const placet = await prisma.quittePlacet.findUniqueOrThrow({
+  const placet = await prisma.quittePlacet.findUnique({
     where: { id: placetId, lodgeId: user.lodgeId },
     select: { status: true },
   });
-  if (placet.status === "APROVADO") {
-    return { error: "Quitte Placet já aprovado — processo encerrado." };
+  if (!placet) return { error: "Quitte Placet não encontrado." };
+  if (placet.status === "APROVADO" || placet.status === "NEGADO") {
+    return { error: "Quitte Placet já encerrado — não pode ser reaberto pelo arraste." };
   }
   if (toStatus === "APROVADO") {
     return {
@@ -435,10 +610,28 @@ export async function moveQuittePlacet(
         "A aprovação sai das assinaturas do Secretário, do Orador e do Venerável Mestre, não do arraste.",
     };
   }
-  await prisma.quittePlacet.update({
-    where: { id: placetId, lodgeId: user.lodgeId },
+  if (toStatus === "NEGADO") {
+    return { error: "Use o botão “Negar” e informe o parecer — a negativa não sai do arraste." };
+  }
+  if (toStatus === placet.status) return { ok: "Processo atualizado." };
+  const r = await prisma.quittePlacet.updateMany({
+    where: {
+      id: placetId,
+      lodgeId: user.lodgeId,
+      status: { in: ["PENDENTE", "EM_ANALISE"] },
+    },
     data: { status: toStatus },
   });
+  if (r.count === 0) return { error: "O Quitte Placet mudou de situação — recarregue a página." };
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "quitte.mover",
+    entidade: "QuittePlacet",
+    entidadeId: placetId,
+    detalhes: { de: placet.status, para: toStatus },
+  });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/quitte-placets");
   revalidatePath("/secretaria/processos");
   return {
@@ -470,6 +663,7 @@ export async function excluirQuittePlacet(placetId: string): Promise<ActionResul
     entidadeId: placetId,
     detalhes: { solicitante: p.userId, status: p.status, assinaturaSec: !!p.signedBySecAt },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/quitte-placets");
   revalidatePath("/secretaria/processos");
   return { ok: "Quitte Placet excluído." };

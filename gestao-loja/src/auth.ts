@@ -5,10 +5,17 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "@/auth.config";
 import { contasPorCim } from "@/lib/contas";
+import { auditar } from "@/lib/audit";
+import { sincronizarLojaSeAntiga } from "@/lib/apos-evento";
 
 // Anti-força-bruta no login (loja.md §segurança)
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
+
+// A sessão é JWT: cargo/grau/situação ficariam congelados até o logout. A
+// cada REFRESH_MS o token é conferido com o banco (lado Node — o middleware
+// usa só o auth.config, sem Prisma).
+const REFRESH_MS = 5 * 60_000;
 
 const credentialsSchema = z.object({
   cim: z
@@ -23,6 +30,55 @@ const credentialsSchema = z.object({
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
+  events: {
+    // Login de qualquer perfil: varredura da central da loja (inadimplência +
+    // notificações), com throttle de 10 min (Lodge.notificacoesSyncAt) —
+    // o sino do irmão já abre atualizado. Fire-and-forget: não atrasa o login.
+    signIn({ user }) {
+      const lodgeId = (user as { lodgeId?: string }).lodgeId;
+      if (lodgeId) void sincronizarLojaSeAntiga(lodgeId);
+    },
+  },
+  callbacks: {
+    ...authConfig.callbacks,
+    async jwt(params) {
+      const token = authConfig.callbacks.jwt(params);
+      if (params.user) return token; // login agora: acabou de vir do banco
+      if (!token.id) return token;
+      const idade = Date.now() - (token.refreshedAt ?? 0);
+      if (idade < REFRESH_MS && !token.invalid) return token;
+      try {
+        const u = await prisma.user.findUnique({
+          where: { id: token.id },
+          select: {
+            currentRole: true,
+            degree: true,
+            status: true,
+            lodgeId: true,
+            mustChangePassword: true,
+            lodge: { select: { name: true } },
+          },
+        });
+        if (!u || u.status === "EX_MEMBRO") {
+          token.invalid = true;
+          token.refreshedAt = Date.now();
+          return token;
+        }
+        token.role = u.currentRole;
+        token.degree = u.degree;
+        token.status = u.status;
+        token.lodgeId = u.lodgeId;
+        token.lodgeName = u.lodge.name;
+        token.mustChangePassword = u.mustChangePassword;
+        token.invalid = false;
+        token.refreshedAt = Date.now();
+      } catch (e) {
+        // banco indisponível: mantém o token como está e tenta na próxima
+        console.error("[auth] falha ao reler o usuário da sessão", e);
+      }
+      return token;
+    },
+  },
   providers: [
     Credentials({
       name: "CIM + Senha",
@@ -65,16 +121,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             // senha errada: conta a falha em todas as contas não bloqueadas
             for (const u of livres) {
               const attempts = u.failedLoginAttempts + 1;
+              const bloquear = attempts >= MAX_LOGIN_ATTEMPTS;
               await prisma.user.update({
                 where: { id: u.id },
                 data: {
                   failedLoginAttempts: attempts,
-                  lockedUntil:
-                    attempts >= MAX_LOGIN_ATTEMPTS
-                      ? new Date(Date.now() + LOCKOUT_MINUTES * 60_000)
-                      : null,
+                  lockedUntil: bloquear
+                    ? new Date(Date.now() + LOCKOUT_MINUTES * 60_000)
+                    : null,
                 },
               });
+              if (bloquear) {
+                await auditar({
+                  lodgeId: u.lodgeId,
+                  ator: { id: u.id, name: u.name },
+                  acao: "login.bloqueio",
+                  entidade: "User",
+                  entidadeId: u.id,
+                  detalhes: { tentativas: attempts, minutos: LOCKOUT_MINUTES },
+                });
+              }
             }
           }
           // 2+ contas com a mesma senha e sem loja escolhida: a página de
@@ -91,6 +157,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           });
         }
 
+        await auditar({
+          lodgeId: user.lodgeId,
+          ator: { id: user.id, name: user.name },
+          acao: "login.sucesso",
+          entidade: "User",
+          entidadeId: user.id,
+        });
+
         return {
           id: user.id,
           name: user.name,
@@ -100,6 +174,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           lodgeName: user.lodge.name,
           role: user.currentRole,
           degree: user.degree,
+          status: user.status,
+          mustChangePassword: user.mustChangePassword,
         };
       },
     }),

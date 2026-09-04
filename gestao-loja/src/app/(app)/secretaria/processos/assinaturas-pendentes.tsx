@@ -1,12 +1,23 @@
 import { prisma } from "@/lib/prisma";
 import { isGovbrConfigured } from "@/lib/govbr";
-import { ordemAssinaturaAtestado } from "@/lib/atestado";
+import {
+  ordemAssinaturaAtestado,
+  bloqueioCargoAusenteAtestado,
+  bloqueioFinanceiroAtestado,
+} from "@/lib/atestado";
 import {
   ordemAssinaturaQuitte,
   bloqueioAssinaturaQuitte,
+  bloqueioCargoAusenteQuitte,
   cargoQuitteDosCargos,
   assinaturasQuitte,
 } from "@/lib/quitte";
+import {
+  brlCents,
+  contextoFinanceiroDoIrmao,
+  type ContextoFinanceiro,
+} from "@/lib/contexto-financeiro";
+import { memberStatusLabels } from "@/lib/labels";
 import {
   ARTIGOS_AFASTAMENTO,
   ordemAssinaturaAfastamento,
@@ -23,11 +34,16 @@ import {
 import { GUARDA_SELOS_EMAIL } from "@/lib/gmail";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { uploadAtestadoAssinadoGovbr, excluirAtestado } from "../_actions/atestados";
+import {
+  uploadAtestadoAssinadoGovbr,
+  excluirAtestado,
+  overrideFinanceiroAtestadoForm,
+} from "../_actions/atestados";
 import {
   uploadQuittePlacetAssinadoGovbr,
   excluirQuittePlacet,
   registrarSessaoQuittePlacet,
+  confirmarNadaConstaQuitte,
 } from "../_actions/quitte";
 import { canWriteSecretaria } from "@/lib/permissions";
 import { AutoDownload } from "@/components/auto-download";
@@ -107,6 +123,104 @@ export function PortalIti({
   );
 }
 
+// Cargos que veem o painel Tesouraria nos cards (VM, Secretário, Tesoureiro
+// e Conselho de Contas); o link para a cobrança só para quem opera a
+// Tesouraria (Conselho é somente leitura)
+export const VE_PAINEL_TESOURARIA = ["VENERAVEL_MESTRE", "SECRETARIO", "TESOUREIRO", "CONSELHO_CONTAS"];
+const ABRE_COBRANCA = ["VENERAVEL_MESTRE", "SECRETARIO", "TESOUREIRO"];
+
+// Painel "Tesouraria" do card: situação sincronizada do cadastro, capitações
+// em aberto (com o que já venceu) e as últimas pagas — para quem assina
+// "regular com o recolhimento de metais" ou confirma o Nada Consta decidir
+// vendo os números, e não um status possivelmente defasado.
+export function PainelTesouraria({
+  ctx,
+  role,
+  consultadaAt,
+}: {
+  ctx: ContextoFinanceiro;
+  role: string;
+  consultadaAt?: Date | null;
+}) {
+  if (!VE_PAINEL_TESOURARIA.includes(role)) return null;
+  const linka = ABRE_COBRANCA.includes(role);
+  const vencidas = ctx.emAberto.filter((i) => i.vencida);
+  const statusTone =
+    ctx.status === "ATIVO" ? "success" : ctx.status === "IRREGULAR" ? "danger" : "warning";
+  return (
+    <div className="space-y-2 rounded-md border bg-muted/20 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Tesouraria
+        </span>
+        <Badge variant={statusTone}>
+          Situação: {memberStatusLabels[ctx.status] ?? ctx.status}
+          {ctx.statusMotivo === "inadimplencia" ? " (inadimplência automática)" : ""}
+        </Badge>
+        {ctx.emAberto.length === 0 ? (
+          <Badge variant="success">Nenhuma capitação em aberto</Badge>
+        ) : (
+          <Badge variant={vencidas.length > 0 ? "danger" : "warning"}>
+            {ctx.emAberto.length} em aberto ({brlCents(ctx.totalEmAbertoCents)})
+            {vencidas.length > 0
+              ? ` · ${vencidas.length} vencida${vencidas.length > 1 ? "s" : ""} (${brlCents(ctx.totalVencidoCents)})`
+              : ""}
+          </Badge>
+        )}
+        {ctx.asaasAtivo && (
+          <span className="text-xs text-muted-foreground" title="Baixas automáticas pelo gateway Asaas">
+            Asaas ativo
+          </span>
+        )}
+        {consultadaAt && (
+          <span className="text-xs text-muted-foreground">
+            consultado em {consultadaAt.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+          </span>
+        )}
+      </div>
+      {ctx.emAberto.length > 0 && (
+        <ul className="space-y-1 text-xs">
+          {ctx.emAberto.map((i) => (
+            <li key={i.id} className="flex flex-wrap items-center gap-2">
+              <span className="font-medium">Capitação {i.referencia}</span>
+              <span>{brlCents(i.valorCents)}</span>
+              <span className="text-muted-foreground">
+                vence em {i.dueDate.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
+              </span>
+              {i.vencida ? (
+                <Badge variant="danger">Vencida</Badge>
+              ) : (
+                <Badge variant="outline">No prazo</Badge>
+              )}
+              {linka && (
+                <a
+                  href={`/tesouraria/mensalidades/${i.id}`}
+                  className="font-medium text-primary hover:underline"
+                >
+                  abrir cobrança
+                </a>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="text-xs text-muted-foreground">
+        Últimas pagas:{" "}
+        {ctx.ultimasPagas.length === 0
+          ? "nenhuma capitação paga registrada."
+          : ctx.ultimasPagas
+              .map(
+                (p) =>
+                  `${p.referencia} (${brlCents(p.valorCents)}${
+                    p.paidAt ? `, em ${p.paidAt.toLocaleDateString("pt-BR")}` : ""
+                  })`
+              )
+              .join(" · ")}
+      </p>
+    </div>
+  );
+}
+
 export async function AtestadosParaAssinar({
   lodgeId,
   role,
@@ -114,14 +228,34 @@ export async function AtestadosParaAssinar({
   lodgeId: string;
   role: string;
 }) {
-  if (!["TESOUREIRO", "SECRETARIO", "VENERAVEL_MESTRE"].includes(role)) return null;
+  // Conselho de Contas entra só para conferir o painel Tesouraria (não assina)
+  if (!["TESOUREIRO", "SECRETARIO", "VENERAVEL_MESTRE", "CONSELHO_CONTAS"].includes(role)) return null;
   const govbrOk = isGovbrConfigured();
+  const podeAssinar = role !== "CONSELHO_CONTAS";
   const podeExcluir = canWriteSecretaria(role);
   const pendentes = await prisma.atestadoRegularidade.findMany({
     where: { lodgeId, status: "SOLICITADO" },
     include: { user: { select: { name: true, cim: true, status: true } } },
     orderBy: { solicitadoAt: "asc" },
   });
+  // Item 7: próximo cargo da cadeia sem ocupante ATIVO → aviso no card
+  const cargoAusente = new Map<string, string>();
+  // Painel Tesouraria + trava financeira (qualquer capitação vencida bloqueia,
+  // salvo override justificado do Tesoureiro)
+  const contextos = new Map<string, ContextoFinanceiro>();
+  for (const a of pendentes) {
+    const msg = await bloqueioCargoAusenteAtestado(lodgeId, a);
+    if (msg) cargoAusente.set(a.id, msg);
+    contextos.set(a.id, await contextoFinanceiroDoIrmao(lodgeId, a.userId));
+  }
+  const tesoureirosOverride = await prisma.user.findMany({
+    where: {
+      lodgeId,
+      id: { in: pendentes.map((a) => a.overrideTesoureiroId).filter((x): x is string => !!x) },
+    },
+    select: { id: true, name: true },
+  });
+  const nomeTesoureiro = new Map(tesoureirosOverride.map((u) => [u.id, u.name]));
 
   return (
     <Card>
@@ -130,7 +264,7 @@ export async function AtestadosParaAssinar({
         <CardDescription>
           Tripla assinatura gov.br — Tesoureiro, depois Secretário e por último
           o Venerável Mestre. O irmão solicitante acompanha o andamento na
-          página do Atestado e recebe o PDF selado ao final.
+          página do Atestado e será avisado quando concluir.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -143,8 +277,14 @@ export async function AtestadosParaAssinar({
             {pendentes.map((a) => {
               const ordem = ordemAssinaturaAtestado(role, a);
               const jaAssinei = ordem.jaAssinou;
+              const ctx = contextos.get(a.id)!;
+              const bloqueioFin = bloqueioFinanceiroAtestado(ctx, a);
               const minhaVez =
-                !jaAssinei && !ordem.aguardando && a.user.status === "ATIVO";
+                podeAssinar &&
+                !jaAssinei &&
+                !ordem.aguardando &&
+                a.user.status === "ATIVO" &&
+                !bloqueioFin;
               const numAssinaturas = [
                 a.signedByTesAt,
                 a.signedBySecAt,
@@ -152,7 +292,7 @@ export async function AtestadosParaAssinar({
               ].filter(Boolean).length;
               const pdf = `/secretaria/atestados/${a.id}/pdf`;
               return (
-                <li key={a.id} className="space-y-2 p-3 text-sm">
+                <li key={a.id} id={`atestado-${a.id}`} className="space-y-2 p-3 text-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span>
                       <strong>{a.user.name}</strong> · CIM {a.user.cim}
@@ -188,15 +328,20 @@ export async function AtestadosParaAssinar({
                         </a>
                       </Button>
                     )}
-                    {jaAssinei && (
+                    {podeAssinar && jaAssinei && (
                       <span className="text-xs text-muted-foreground">
                         Você já assinou.
                       </span>
                     )}
-                    {!jaAssinei && ordem.aguardando && (
+                    {podeAssinar && !jaAssinei && ordem.aguardando && (
                       <span className="text-xs text-muted-foreground">
                         Aguardando a assinatura do {ordem.aguardando}.
                       </span>
+                    )}
+                    {a.overrideAt && (
+                      <Badge variant="gold" title={a.overrideJustificativa ?? ""}>
+                        Override do Tesoureiro em {a.overrideAt.toLocaleDateString("pt-BR")}
+                      </Badge>
                     )}
                     {podeExcluir && (
                       <ActionButton
@@ -207,6 +352,53 @@ export async function AtestadosParaAssinar({
                       />
                     )}
                   </div>
+                  {cargoAusente.has(a.id) && (
+                    <p className="rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                      {cargoAusente.get(a.id)}
+                    </p>
+                  )}
+                  <PainelTesouraria ctx={ctx} role={role} />
+                  {bloqueioFin && (
+                    <p className="rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-800">
+                      Trava financeira: {bloqueioFin}
+                      {role !== "TESOUREIRO" && " Só o Tesoureiro registra o override."}
+                    </p>
+                  )}
+                  {a.overrideAt && a.overrideJustificativa && (
+                    <p className="rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                      Override financeiro registrado por{" "}
+                      {nomeTesoureiro.get(a.overrideTesoureiroId ?? "") ?? "Tesoureiro"} em{" "}
+                      {a.overrideAt.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}:{" "}
+                      <em>{a.overrideJustificativa}</em>
+                    </p>
+                  )}
+                  {role === "TESOUREIRO" && bloqueioFin && (
+                    <details className="rounded-md border bg-muted/20 p-3">
+                      <summary className="cursor-pointer text-sm font-medium">
+                        Registrar override financeiro (liberar assinaturas)
+                      </summary>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Use quando houver acordo ou pagamento ainda não baixado. A
+                        justificativa fica na auditoria e visível neste card.
+                      </p>
+                      <ActionForm
+                        action={overrideFinanceiroAtestadoForm.bind(null, a.id)}
+                        submitLabel="Registrar override"
+                        className="mt-2"
+                      >
+                        <Label htmlFor={`override-${a.id}`}>Justificativa</Label>
+                        <textarea
+                          id={`override-${a.id}`}
+                          name="justificativa"
+                          required
+                          minLength={10}
+                          maxLength={1000}
+                          rows={3}
+                          className="w-full rounded-md border bg-background p-2 text-sm"
+                        />
+                      </ActionForm>
+                    </details>
+                  )}
                   {minhaVez && (
                     <PortalIti
                       href={`${pdf}?download=1`}
@@ -234,19 +426,27 @@ export async function QuittePlacetsParaAssinar({
   role: string;
   cargos: string[]; // cargosProcesso(): nível de acesso + cargo do rito
 }) {
-  // Cadeia Secretário → Orador → VM; Orador entra pelo cargo do rito
-  const cargoQuitte = cargoQuitteDosCargos(cargos);
-  if (!cargoQuitte) return null;
+  // Cadeia Secretário → Orador → VM; Orador entra pelo cargo do rito.
+  // Tesoureiro (confirma o Nada Consta) e Conselho (confere) entram só para
+  // ver o painel Tesouraria — não assinam.
+  const naCadeia = !!cargoQuitteDosCargos(cargos);
+  const soConfere = ["TESOUREIRO", "CONSELHO_CONTAS"].includes(role);
+  if (!naCadeia && !soConfere) return null;
   const govbrOk = isGovbrConfigured();
   const podeExcluir = canWriteSecretaria(role);
+  const podeConfirmarNadaConsta = ["TESOUREIRO", "VENERAVEL_MESTRE"].includes(role);
   const placets = await prisma.quittePlacet.findMany({
     where: { lodgeId, status: { in: ["PENDENTE", "EM_ANALISE"] } },
     orderBy: { dataSolicitacao: "asc" },
     select: {
       id: true,
+      userId: true,
       status: true,
       dataSolicitacao: true,
       quitacaoFinanceira: true,
+      quitacaoConsultadaAt: true,
+      quitacaoConfirmadaAt: true,
+      quitacaoConfirmadaPorId: true,
       signedByMasterAt: true,
       signedBySecAt: true,
       signedByOradorAt: true,
@@ -258,6 +458,24 @@ export async function QuittePlacetsParaAssinar({
       user: { select: { name: true, cim: true } },
     },
   });
+  // Item 7: próximo cargo da cadeia sem ocupante ATIVO → bloqueio no card
+  const cargoAusente = new Map<string, string>();
+  const contextos = new Map<string, ContextoFinanceiro>();
+  for (const p of placets) {
+    const msg = await bloqueioCargoAusenteQuitte(lodgeId, p);
+    if (msg) cargoAusente.set(p.id, msg);
+    if (VE_PAINEL_TESOURARIA.includes(role)) {
+      contextos.set(p.id, await contextoFinanceiroDoIrmao(lodgeId, p.userId));
+    }
+  }
+  const confirmadores = await prisma.user.findMany({
+    where: {
+      lodgeId,
+      id: { in: placets.map((p) => p.quitacaoConfirmadaPorId).filter((x): x is string => !!x) },
+    },
+    select: { id: true, name: true },
+  });
+  const nomeConfirmador = new Map(confirmadores.map((u) => [u.id, u.name]));
 
   return (
     <Card>
@@ -279,22 +497,31 @@ export async function QuittePlacetsParaAssinar({
         ) : (
           <ul className="divide-y rounded-md border">
             {placets.map((p) => {
-              const bloqueio = bloqueioAssinaturaQuitte({
-                status: p.status,
-                quitacaoFinanceira: p.quitacaoFinanceira,
-                cartaNome: p.cartaNome,
-                dataSessaoComunicacao: p.dataSessaoComunicacao,
-                ataNome: p.ataNome,
-                formularioNome: p.formularioNome,
-                formularioMime: p.formularioMime,
-                govbrPdf: assinaturasQuitte(p) > 0 ? Buffer.alloc(1) : null,
-              });
-              const ordem = ordemAssinaturaQuitte(cargoQuitte, p);
+              // Cargo da vez entre os do usuário (quem acumula dois cargos
+              // assina por ambos, um de cada vez)
+              const cargoQuitte = cargoQuitteDosCargos(cargos, p);
+              const bloqueio =
+                bloqueioAssinaturaQuitte({
+                  status: p.status,
+                  quitacaoFinanceira: p.quitacaoFinanceira,
+                  quitacaoConfirmadaAt: p.quitacaoConfirmadaAt,
+                  cartaNome: p.cartaNome,
+                  dataSessaoComunicacao: p.dataSessaoComunicacao,
+                  ataNome: p.ataNome,
+                  formularioNome: p.formularioNome,
+                  formularioMime: p.formularioMime,
+                  govbrPdf: assinaturasQuitte(p) > 0 ? Buffer.alloc(1) : null,
+                }) ?? cargoAusente.get(p.id) ?? null;
+              const ordem = cargoQuitte
+                ? ordemAssinaturaQuitte(cargoQuitte, p)
+                : { jaAssinou: false, aguardando: null as string | null, ultimaAssinatura: false };
               const sessaoOk = !!p.dataSessaoComunicacao && !!p.ataNome;
-              const minhaVez = !ordem.jaAssinou && !ordem.aguardando && !bloqueio;
+              const minhaVez = !!cargoQuitte && !ordem.jaAssinou && !ordem.aguardando && !bloqueio;
+              const ctx = contextos.get(p.id);
+              const travaFinanceira = !p.quitacaoFinanceira && !p.quitacaoConfirmadaAt;
               const form = `/secretaria/quitte-placets/formulario/${p.id}`;
               return (
-                <li key={p.id} className="space-y-2 p-3 text-sm">
+                <li key={p.id} id={`quitte-${p.id}`} className="space-y-2 p-3 text-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span>
                       <strong>{p.user.name}</strong> · CIM {p.user.cim}
@@ -358,10 +585,28 @@ export async function QuittePlacetsParaAssinar({
                         Você já assinou.
                       </span>
                     )}
-                    {!ordem.jaAssinou && ordem.aguardando && (
+                    {cargoQuitte && !ordem.jaAssinou && ordem.aguardando && (
                       <span className="text-xs text-muted-foreground">
                         Aguardando a assinatura do {ordem.aguardando}.
                       </span>
+                    )}
+                    {p.quitacaoConfirmadaAt ? (
+                      <Badge variant="gold">
+                        Nada Consta confirmado por{" "}
+                        {nomeConfirmador.get(p.quitacaoConfirmadaPorId ?? "") ?? "Tesouraria"} em{" "}
+                        {p.quitacaoConfirmadaAt.toLocaleDateString("pt-BR")}
+                      </Badge>
+                    ) : (
+                      <Badge variant={p.quitacaoFinanceira ? "success" : "danger"}>
+                        {p.quitacaoFinanceira ? "Nada Consta" : "Capitações vencidas"}
+                      </Badge>
+                    )}
+                    {podeConfirmarNadaConsta && travaFinanceira && (
+                      <ActionButton
+                        action={confirmarNadaConstaQuitte.bind(null, p.id)}
+                        label="Confirmar Nada Consta"
+                        confirm={`Confirmar o Nada Consta de ${p.user.name} mesmo com capitações vencidas? A confirmação libera a trava financeira, fica na auditoria e o Secretário é avisado.`}
+                      />
                     )}
                     {podeExcluir && (
                       <ActionButton
@@ -376,6 +621,9 @@ export async function QuittePlacetsParaAssinar({
                     <p className="rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
                       {bloqueio}
                     </p>
+                  )}
+                  {ctx && (
+                    <PainelTesouraria ctx={ctx} role={role} consultadaAt={p.quitacaoConsultadaAt} />
                   )}
                   {podeExcluir && (
                     <details
@@ -520,7 +768,7 @@ export async function AfastamentosParaAssinar({
                 ? `${p.dataSessao.getFullYear()}-${String(p.dataSessao.getMonth() + 1).padStart(2, "0")}-${String(p.dataSessao.getDate()).padStart(2, "0")}`
                 : "";
               return (
-                <li key={p.id} className="space-y-2 p-3 text-sm">
+                <li key={p.id} id={`afastamento-${p.id}`} className="space-y-2 p-3 text-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span>
                       <strong>{p.user.name}</strong> · CIM {p.user.cim}

@@ -1,6 +1,5 @@
 import { InfoDica } from "@/components/info-dica";
 import { AJUDA } from "@/lib/ajuda";
-import Link from "next/link";
 import {
   Check,
   CheckCheck,
@@ -95,9 +94,10 @@ function NotificationItem({ n }: { n: Notification }) {
         </span>
         <div className="min-w-0 flex-1">
           {n.link ? (
-            <Link href={n.link} className="block transition-opacity hover:opacity-80">
+            // <a> simples (sem prefetch): /n/<id> marca como lida e redireciona ao item
+            <a href={`/n/${n.id}`} className="block transition-opacity hover:opacity-80">
               {body}
-            </Link>
+            </a>
           ) : (
             body
           )}

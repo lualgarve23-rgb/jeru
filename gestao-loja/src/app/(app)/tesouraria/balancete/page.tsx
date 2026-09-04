@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { intervaloMesSaoPaulo, partesSaoPaulo } from "@/lib/datas-sp";
 import { requireRole } from "@/lib/session";
 import { InfoDica } from "@/components/info-dica";
 import { AJUDA } from "@/lib/ajuda";
@@ -43,11 +44,12 @@ export default async function BalancetePage({
     "CONSELHO_CONTAS"
   );
   const sp = await searchParams;
-  const now = new Date();
-  const month = Number(sp.mes) || now.getMonth() + 1;
-  const year = Number(sp.ano) || now.getFullYear();
-  const start = new Date(year, month - 1, 1);
-  const end = new Date(year, month, 1);
+  const hoje = partesSaoPaulo(new Date());
+  const mesParam = Number(sp.mes);
+  const month = mesParam >= 1 && mesParam <= 12 ? mesParam : hoje.mes;
+  const year = Number(sp.ano) || hoje.ano;
+  // mês civil em São Paulo (não no fuso do servidor)
+  const { inicio: start, fim: end } = intervaloMesSaoPaulo(year, month);
 
   const isWriter = canWriteTesouraria(user.role);
   const [transactions, categorias] = await Promise.all([

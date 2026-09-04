@@ -2,6 +2,8 @@
 
 
 import { revalidatePath } from "next/cache";
+import { aposEventoDaLoja } from "@/lib/apos-evento";
+import { eventoAtaAssinada } from "@/lib/eventos-solicitacoes";
 import { redirect } from "next/navigation";
 import {
   Degree,
@@ -185,6 +187,7 @@ export async function atualizarPresencasAta(
     where: { id: ata.id, lodgeId: user.lodgeId },
     data: { content },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath(`/secretaria/sessoes/${sessionId}`);
   revalidatePath(`/secretaria/atas/${ata.id}`);
   return {
@@ -231,6 +234,7 @@ export async function updateAta(
       govbrSolicitado,
     },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath(`/secretaria/atas/${ataId}`);
   return {
     ok: liberar
@@ -267,6 +271,7 @@ export async function setAtaGovbr(
     where: { id: ataId, lodgeId: user.lodgeId },
     data: { govbrSolicitado: solicitar },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath(`/secretaria/atas/${ataId}`);
   return {
     ok: solicitar
@@ -314,6 +319,7 @@ export async function sendAtaForReview(ataId: string): Promise<ActionResult> {
     where: { id: ataId, lodgeId: user.lodgeId },
     data: { status: "EM_VALIDACAO", sentForReviewAt: new Date() },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath(`/secretaria/atas/${ataId}`);
   return { ok: `Minuta a caminho de ${emails.length} irmão(s) — envio em instantes.` };
 }
@@ -370,6 +376,11 @@ export async function signAta(ataId: string): Promise<ActionResult> {
     where: { id: ataId, lodgeId: user.lodgeId },
     data,
   });
+  await eventoAtaAssinada(
+    user.lodgeId,
+    ataId,
+    user.role === "VENERAVEL_MESTRE" ? "VENERAVEL_MESTRE" : "SECRETARIO"
+  );
 
   // Ata selada: o PDF assinado vai automaticamente ao Drive da Loja
   // (best-effort — falha no Drive não desfaz a assinatura)
@@ -389,6 +400,7 @@ export async function signAta(ataId: string): Promise<ActionResult> {
     }
   }
 
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath(`/secretaria/atas/${ataId}`);
   return {
     ok:
@@ -456,7 +468,8 @@ export async function uploadAtaAssinadaGovbr(
   }
   // Confere que é a MESMA ata (versão anterior preservada como prefixo
   // PAdES), que há assinatura nova e que ela é do próprio remetente.
-  const erroAssinatura = validarUploadAssinado({
+  const { erro: erroAssinatura } = await validarUploadAssinado({
+    cpf: (await prisma.user.findUnique({ where: { id: user.id }, select: { cpf: true } }))?.cpf,
     pdf,
     anterior:
       !etapaVm && ata.govbrPdf ? Buffer.from(ata.govbrPdf) : null,
@@ -477,8 +490,10 @@ export async function uploadAtaAssinadaGovbr(
         : { govbrSecAt: new Date(), status: "ASSINADA" as const }),
     },
   });
+  await eventoAtaAssinada(user.lodgeId, ataId, etapaVm ? "VENERAVEL_MESTRE" : "SECRETARIO");
 
   if (etapaVm) {
+    aposEventoDaLoja(user.lodgeId);
     revalidatePath(`/secretaria/atas/${ataId}`);
     return {
       ok: "Assinatura gov.br do Venerável Mestre registrada. Agora o Secretário baixa esta versão, assina e sobe o arquivo final.",
@@ -521,6 +536,7 @@ export async function uploadAtaAssinadaGovbr(
     }`;
   }
 
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath(`/secretaria/atas/${ataId}`);
   return { ok: `Assinatura gov.br concluída pelos dois cargos.${driveAviso}` };
 }
@@ -581,6 +597,7 @@ export async function createPrancha(
       driveFileId,
     },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/pranchas");
   return { ok: driveFileId ? "Prancha expedida com anexo." : "Prancha expedida." };
 }
@@ -624,7 +641,8 @@ export async function uploadPranchaAssinadaGovbr(
   }
   // O anexo original fica no Drive (sem versão anterior comparável), então a
   // validação cobre a assinatura em si: precisa existir e ser do remetente.
-  const erroAssinatura = validarUploadAssinado({
+  const { erro: erroAssinatura } = await validarUploadAssinado({
+    cpf: (await prisma.user.findUnique({ where: { id: user.id }, select: { cpf: true } }))?.cpf,
     pdf,
     anterior: null,
     nomeAssinante: user.name,
@@ -657,6 +675,7 @@ export async function uploadPranchaAssinadaGovbr(
   }
 
 
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/pranchas");
   return {
     ok: `Anexo assinado no gov.br registrado — a prancha está pronta para envio.${driveAviso}`,
@@ -709,6 +728,7 @@ export async function sendPranchaToGSelos(
     where: { id: pranchaId, lodgeId: user.lodgeId },
     data: { enviadaAt: new Date() },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/pranchas");
   revalidatePath("/secretaria/progressoes");
   revalidatePath("/secretaria/admissoes");
@@ -749,6 +769,7 @@ export async function sendAtaToMembers(ataId: string): Promise<ActionResult> {
     ataId,
     solicitanteId: user.id,
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath(`/secretaria/atas/${ataId}`);
   return { ok: `Ata a caminho de ${emails.length} irmão(s) — envio em instantes.` };
 }
@@ -800,6 +821,7 @@ export async function uploadDocument(
       error: e instanceof Error ? e.message : "Falha no upload ao Drive.",
     };
   }
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/documentos");
   return { ok: "Documento enviado ao Google Drive da Loja." };
 }
@@ -817,6 +839,7 @@ export async function updateDocumentoGrau(
     where: { id, lodgeId: user.lodgeId },
     data: { grauMinimo: grau as never },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/documentos");
   return { ok: "Nível de acesso atualizado." };
 }

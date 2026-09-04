@@ -2,11 +2,13 @@
 
 
 import { revalidatePath } from "next/cache";
+import { aposEventoDaLoja } from "@/lib/apos-evento";
 import {
   Degree,
   StatusProgressao } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { dataMinimaProgressao } from "@/lib/intersticio";
+import { auditar } from "@/lib/audit";
 import { type ActionResult, requireSecretariaWriter } from "./_shared";
 
 // ───────────────────────── Progressão de Graus ─────────────────────────
@@ -70,8 +72,49 @@ export async function createProcessoProgressao(
   await prisma.processoProgressao.create({
     data: { lodgeId: user.lodgeId, userId, grauAlvo },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/progressoes");
   return { ok: `Progressão de ${member.name} iniciada.` };
+}
+
+// Frequência no período do processo, pela MESMA regra de lib/frequencia.ts:
+// só sessões que o obreiro podia assistir (grau da sessão ≤ grau dele) e
+// posteriores à iniciação; só presença efetiva (checkedIn), não RSVP ou
+// justificativa.
+const DEGREE_RANK: Record<string, number> = { APRENDIZ: 1, COMPANHEIRO: 2, MESTRE: 3 };
+
+async function frequenciaNoProcesso(lodgeId: string, userId: string, inicio: Date) {
+  const fim = new Date();
+  const [membro, sessions, atts] = await Promise.all([
+    prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { degree: true, initiationDate: true },
+    }),
+    prisma.lodgeSession.findMany({
+      where: { lodgeId, date: { gte: inicio, lte: fim } },
+      select: { id: true, date: true, degree: true },
+    }),
+    prisma.attendance.findMany({
+      where: {
+        lodgeId,
+        userId,
+        checkedIn: true,
+        session: { date: { gte: inicio, lte: fim } },
+      },
+      select: { sessionId: true },
+    }),
+  ]);
+  const rank = DEGREE_RANK[membro.degree] ?? 3;
+  const computadas = sessions.filter(
+    (s) =>
+      (DEGREE_RANK[s.degree] ?? 1) <= rank &&
+      (!membro.initiationDate || s.date >= membro.initiationDate)
+  );
+  const presentes = new Set(atts.map((a) => a.sessionId));
+  return {
+    sessoes: computadas.length,
+    presencas: computadas.filter((s) => presentes.has(s.id)).length,
+  };
 }
 
 const ORDEM_PROGRESSAO: StatusProgressao[] = [
@@ -127,24 +170,12 @@ export async function moveProcessoProgressao(
     fromIdx <= ORDEM_PROGRESSAO.indexOf("INSTRUCAO_E_FREQUENCIA") &&
     toIdx > ORDEM_PROGRESSAO.indexOf("INSTRUCAO_E_FREQUENCIA")
   ) {
-    const [lodge, sessoes, presencas] = await Promise.all([
+    const [lodge, { sessoes, presencas }] = await Promise.all([
       prisma.lodge.findUniqueOrThrow({
         where: { id: user.lodgeId },
         select: { minFreqProgressao: true },
       }),
-      prisma.lodgeSession.count({
-        where: {
-          lodgeId: user.lodgeId,
-          date: { gte: processo.dataInicio, lte: new Date() },
-        },
-      }),
-      prisma.attendance.count({
-        where: {
-          lodgeId: user.lodgeId,
-          userId: processo.userId,
-          session: { date: { gte: processo.dataInicio, lte: new Date() } },
-        },
-      }),
+      frequenciaNoProcesso(user.lodgeId, processo.userId, processo.dataInicio),
     ]);
     if (sessoes > 0) {
       const pct = Math.round((presencas / sessoes) * 100);
@@ -251,6 +282,7 @@ export async function moveProcessoProgressao(
       },
     });
     data.pranchaId = prancha.id;
+    aposEventoDaLoja(user.lodgeId);
     revalidatePath("/secretaria/pranchas");
   }
 
@@ -262,6 +294,19 @@ export async function moveProcessoProgressao(
   await prisma.processoProgressao.update({
     where: { id: processoId, lodgeId: user.lodgeId },
     data,
+  });
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "progressao.mover",
+    entidade: "ProcessoProgressao",
+    entidadeId: processoId,
+    detalhes: {
+      obreiro: processo.userId,
+      grauAlvo: processo.grauAlvo,
+      de: processo.status,
+      para: toStatus,
+    },
   });
 
   // Conclusão: atualiza o grau definitivo e o histórico (base do próximo interstício)
@@ -279,9 +324,11 @@ export async function moveProcessoProgressao(
         date,
       },
     });
+    aposEventoDaLoja(user.lodgeId);
     revalidatePath("/secretaria/membros");
   }
 
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/progressoes");
   return { ok: "Processo atualizado." };
 }
@@ -295,6 +342,7 @@ export async function setPlacetDeferido(
     where: { id: processoId, lodgeId: user.lodgeId },
     data: { placetDeferido: value },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/progressoes");
   return { ok: "Placet atualizado." };
 }
@@ -308,6 +356,7 @@ export async function setComunicadoEnviado(
     where: { id: processoId, lodgeId: user.lodgeId },
     data: { comunicadoEnviado: value },
   });
+  aposEventoDaLoja(user.lodgeId);
   revalidatePath("/secretaria/progressoes");
   return { ok: "Comunicação atualizada." };
 }

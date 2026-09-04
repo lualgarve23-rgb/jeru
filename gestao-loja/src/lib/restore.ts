@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { deleteLodgeData } from "@/lib/lodge-delete";
+import { USER_CAMPOS_OMITIDOS } from "@/lib/backup";
 
 // Restauração do backup da Loja (ZIP gerado em /api/backup) — SUPER_ADMIN.
 // Substitui TODOS os dados da loja de mesmo número (ou recria a loja, se não
@@ -12,7 +13,15 @@ import { deleteLodgeData } from "@/lib/lodge-delete";
 // O backup não contém segredos, portanto:
 //  - credenciais da loja (Asaas, Google, Gmail) são preservadas da loja atual;
 //  - senhas: preservadas por CIM quando o membro ainda existe; membros sem
-//    senha preservada recebem hash aleatório e recuperam por "Esqueci a senha".
+//    senha preservada recebem hash aleatório e recuperam por "Esqueci a senha";
+//  - cardToken (carteirinha) é regenerado — o backup não o contém.
+//
+// Compatível com ZIPs antigos: JSON ausente = modelo pulado; binário ausente
+// em campo opcional = null; binário ausente em campo obrigatório = registro
+// não restaurado (aviso).
+//
+// Regra: TODO modelo que backup.ts grava é lido aqui, na ordem de FK — teste
+// estático em __tests__/backup-cobertura.test.ts.
 
 type Row = Record<string, unknown>;
 
@@ -35,6 +44,47 @@ function acharPorId(zip: JSZip, pasta: string, id: string): JSZip.JSZipObject | 
     if (!achado && rel.startsWith(`${id}__`)) achado = f;
   });
   return achado;
+}
+
+// Recompõe os campos Bytes gravados por separarBinarios (backup.ts):
+// arquivos/<pasta>/<id>__<campo>.<ext>. Campos obrigatórios sem arquivo no
+// ZIP deixam o registro de fora (aviso); opcionais viram null.
+async function juntarBinarios(
+  zip: JSZip,
+  pasta: string,
+  rows: Row[],
+  campos: string[],
+  obrigatorios: string[],
+  avisos: string[],
+  rotulo: string
+): Promise<Row[]> {
+  const porPrefixo = new Map<string, JSZip.JSZipObject>();
+  zip.folder(`arquivos/${pasta}`)?.forEach((rel, f) => {
+    const m = /^([^/]+?)__([A-Za-z0-9]+)\.[A-Za-z0-9]+$/.exec(rel);
+    if (m) porPrefixo.set(`${m[1]}__${m[2]}`, f);
+  });
+  const saida: Row[] = [];
+  for (const row of rows) {
+    const novo: Row = { ...row };
+    let faltando: string | null = null;
+    for (const campo of campos) {
+      const f = porPrefixo.get(`${row.id}__${campo}`);
+      if (f) {
+        novo[campo] = Buffer.from(await f.async("nodebuffer"));
+      } else {
+        novo[campo] = null;
+        if (obrigatorios.includes(campo)) faltando = campo;
+      }
+    }
+    if (faltando) {
+      avisos.push(
+        `${rotulo}: arquivo "${faltando}" do registro ${row.id} não encontrado no ZIP — registro não restaurado.`
+      );
+      continue;
+    }
+    saida.push(novo);
+  }
+  return saida;
 }
 
 export async function restaurarBackupLoja(zipBuffer: Buffer): Promise<{
@@ -79,6 +129,16 @@ export async function restaurarBackupLoja(zipBuffer: Buffer): Promise<{
     candidatoAnexos,
     quittePlacets,
     processosProgressao,
+    processosDocumento,
+    processosAssinantes,
+    atestados,
+    afastamentos,
+    mutuaEntregas,
+    contatosEsmoler,
+    notificacoes,
+    auditoria,
+    conversas,
+    mensagens,
   ] = await Promise.all([
     lerJson(zip, "membros.json"),
     lerJson(zip, "familiares.json"),
@@ -104,6 +164,16 @@ export async function restaurarBackupLoja(zipBuffer: Buffer): Promise<{
     lerJson(zip, "candidato-anexos.json"),
     lerJson(zip, "quitte-placets.json"),
     lerJson(zip, "processos-progressao.json"),
+    lerJson(zip, "processos-documentos.json"),
+    lerJson(zip, "processos-assinantes.json"),
+    lerJson(zip, "atestados-regularidade.json"),
+    lerJson(zip, "pedidos-afastamento.json"),
+    lerJson(zip, "mutua-entregas.json"),
+    lerJson(zip, "contatos-esmoler.json"),
+    lerJson(zip, "notificacoes.json"),
+    lerJson(zip, "auditoria.json"),
+    lerJson(zip, "assistente-conversas.json"),
+    lerJson(zip, "assistente-mensagens.json"),
   ]);
 
   // ── O que preservar da loja atual (segredos ficam fora do backup) ──
@@ -187,14 +257,43 @@ export async function restaurarBackupLoja(zipBuffer: Buffer): Promise<{
     }
   }
 
+  // Binários dos modelos gravados por separarBinarios (backup.ts). Quitte
+  // Placet de ZIPs antigos trazia os Bytes serializados no JSON — descartados
+  // aqui (viram null), pois o Prisma não os aceita nesse formato.
+  const processosComArquivo = await juntarBinarios(
+    zip, "processos", processosDocumento, ["arquivo", "govbrPdf"], ["arquivo"],
+    avisos, "Processos"
+  );
+  const idsProcessos = new Set(processosComArquivo.map((p) => String(p.id)));
+  const quitteComArquivo = await juntarBinarios(
+    zip, "quitte-placets", quittePlacets,
+    ["cartaArquivo", "ataArquivo", "govbrPdf", "formularioArquivo"], [],
+    avisos, "Quitte Placet"
+  );
+  const atestadosComArquivo = await juntarBinarios(
+    zip, "atestados", atestados, ["govbrPdf"], [], avisos, "Atestados"
+  );
+  const afastamentosComArquivo = await juntarBinarios(
+    zip, "afastamentos", afastamentos,
+    ["requerimentoPdf", "formularioPdf", "govbrPdf"], [], avisos, "Afastamentos"
+  );
+  const mutuaComArquivo = await juntarBinarios(
+    zip, "mutua", mutuaEntregas, ["arquivo"], [], avisos, "Mútua"
+  );
+
   // ── Membros: senha preservada por CIM, senão hash aleatório ──
   const hashAleatorio = await bcrypt.hash(randomBytes(32).toString("hex"), 10);
   let senhasPreservadas = 0;
   const membrosData = membros.map((m) => {
     const antes = preservado.get(String(m.cim));
     if (antes) senhasPreservadas++;
+    // ZIPs antigos podem trazer campos hoje omitidos (cardToken, lockout…):
+    // removidos para o cardToken ser regenerado (default cuid) e o estado de
+    // autenticação começar limpo.
+    const limpo: Row = { ...m };
+    for (const k of USER_CAMPOS_OMITIDOS) delete limpo[k];
     return {
-      ...m,
+      ...limpo,
       passwordHash: antes?.passwordHash ?? hashAleatorio,
       photoUrl: antes?.photoUrl ?? null,
       signatureUrl: antes?.signatureUrl ?? null,
@@ -256,10 +355,27 @@ export async function restaurarBackupLoja(zipBuffer: Buffer): Promise<{
       await tx.transaction.createMany({ data: cast(transactions) });
       await tx.processoAdmissao.createMany({ data: cast(processosAdmissao) });
       await tx.candidatoAnexo.createMany({ data: cast(anexosComArquivo) });
-      await tx.quittePlacet.createMany({ data: cast(quittePlacets) });
+      await tx.quittePlacet.createMany({ data: cast(quitteComArquivo) });
       await tx.processoProgressao.createMany({
         data: cast(processosProgressao),
       });
+      // Caixa de assinaturas: documento (FK User + Prancha) e assinantes
+      for (const p of processosComArquivo) {
+        await tx.processoDocumento.create({ data: castRow(p) });
+      }
+      await tx.processoAssinante.createMany({
+        data: cast(
+          processosAssinantes.filter((a) => idsProcessos.has(String(a.documentoId)))
+        ),
+      });
+      await tx.atestadoRegularidade.createMany({ data: cast(atestadosComArquivo) });
+      await tx.pedidoAfastamento.createMany({ data: cast(afastamentosComArquivo) });
+      await tx.mutuaEntrega.createMany({ data: cast(mutuaComArquivo) });
+      await tx.contatoEsmoler.createMany({ data: cast(contatosEsmoler) });
+      await tx.notification.createMany({ data: cast(notificacoes) });
+      await tx.auditEvent.createMany({ data: cast(auditoria) });
+      await tx.assistenteConversa.createMany({ data: cast(conversas) });
+      await tx.assistenteMensagem.createMany({ data: cast(mensagens) });
     },
     { timeout: 120_000 }
   );

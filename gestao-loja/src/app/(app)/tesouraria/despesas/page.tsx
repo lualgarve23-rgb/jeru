@@ -110,7 +110,7 @@ export default async function DespesasPage() {
         </TableHeader>
         <TableBody>
           {expenses.map((e) => (
-            <TableRow key={e.id}>
+            <TableRow key={e.id} id={`despesa-${e.id}`}>
               <TableCell>
                 {e.description}
                 {e.supplier && (

@@ -1,3 +1,4 @@
+import { segredoConfere } from "@/lib/secrets";
 import { backupTodasLojas } from "@/lib/backup-plataforma";
 import { logInfo, alertaCritico } from "@/lib/log";
 
@@ -6,7 +7,7 @@ import { logInfo, alertaCritico } from "@/lib/log";
 
 export async function POST(request: Request) {
   const secret = process.env.CRON_SECRET?.trim();
-  if (!secret || request.headers.get("x-cron-secret") !== secret) {
+  if (!secret || !segredoConfere(request.headers.get("x-cron-secret"), secret)) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
   try {

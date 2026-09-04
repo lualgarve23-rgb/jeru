@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { signAta } from "@/app/(app)/secretaria/actions";
+import { approveExpense } from "@/app/(app)/tesouraria/actions";
 
 type ActionResult = { error?: string; ok?: string } | undefined;
 
@@ -29,6 +30,20 @@ export async function signAtaInline(
   const error = await confirmPassword(String(formData.get("password") ?? ""));
   if (error) return { error };
   const result = await signAta(ataId);
+  revalidatePath("/dashboard");
+  return result;
+}
+
+// Aprovação inline de despesa (VM/Tesoureiro) no dashboard — mesma
+// confirmação por senha; a regra de negócio fica em approveExpense.
+export async function approveExpenseInline(
+  expenseId: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const error = await confirmPassword(String(formData.get("password") ?? ""));
+  if (error) return { error };
+  const result = await approveExpense(expenseId);
   revalidatePath("/dashboard");
   return result;
 }

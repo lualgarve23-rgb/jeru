@@ -17,8 +17,9 @@ describe("rate limit das rotas públicas", () => {
     expect(regraPara("/candidato/abc123")).toBeTruthy();
     expect(regraPara("/verificar/abc123")).toBeTruthy();
     expect(regraPara("/esqueci-senha")).toBeTruthy();
+    expect(regraPara("/login")).toBeTruthy();
+    expect(regraPara("/api/auth/callback/credentials")).toBeTruthy();
     expect(regraPara("/dashboard")).toBeNull();
-    expect(regraPara("/login")).toBeNull();
     expect(regraPara("/api/webhooks/asaas")).toBeNull();
   });
 

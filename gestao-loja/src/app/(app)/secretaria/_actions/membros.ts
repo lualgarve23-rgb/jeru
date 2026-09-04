@@ -10,6 +10,8 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { auditar } from "@/lib/audit";
 import { validarProgressao } from "@/lib/intersticio";
+import { mudarStatusMembro } from "@/lib/status-membro";
+import type { MemberStatus } from "@prisma/client";
 import { saveUserImage, deleteMedia, validarImagem } from "@/lib/media";
 import { type ActionResult, requireSecretariaWriter } from "./_shared";
 
@@ -113,6 +115,21 @@ export async function updateMember(
       )?.signatureUrl ?? null;
   }
 
+  // Mudança de situação passa pelo ponto central (cancela assinatura Asaas,
+  // cancela capitações futuras, marca status manual, audita e notifica)
+  const novoStatus = String(formData.get("status") ?? "") as MemberStatus;
+  if (!["ATIVO", "IRREGULAR", "LICENCIADO", "EX_MEMBRO"].includes(novoStatus)) {
+    return { error: "Situação inválida." };
+  }
+  await mudarStatusMembro(prisma, {
+    userId: memberId,
+    lodgeId: user.lodgeId,
+    novoStatus,
+    motivo: "alteração manual pela Secretaria",
+    porUserId: user.id,
+    porNome: user.name,
+  });
+
   await prisma.user.update({
     // filtro composto garante o isolamento por tenant
     where: { id: memberId, lodgeId: user.lodgeId },
@@ -132,7 +149,6 @@ export async function updateMember(
       nomePai: (formData.get("nomePai") as string) || null,
       nomeMae: (formData.get("nomeMae") as string) || null,
       tipoSanguineo: (formData.get("tipoSanguineo") as string) || null,
-      status: formData.get("status") as never,
       filiado: formData.get("filiado") === "on",
       ...(signatureUrl ? { signatureUrl } : {}),
     },

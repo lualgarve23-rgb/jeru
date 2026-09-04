@@ -18,10 +18,48 @@ Há dois caminhos de backup, ambos gerando o mesmo ZIP por loja (`src/lib/backup
    Lojas 9999 (demo) e 7777 (testes) ficam de fora.
 
 O ZIP contém: `dados/*.json` (dump fiel, ids originais), `planilhas/*.csv`,
-`arquivos/` (PDFs gov.br, biblioteca, anexos de candidatos, fundo do certificado)
-e `LEIA-ME.txt`. **Nunca contém segredos**: hashes de senha, códigos de recuperação,
-chaves Asaas, tokens de webhook, refresh tokens Google, senha de app do Gmail,
-fotos/assinaturas (data URI) e QR/invite tokens de sessões ficam de fora.
+`arquivos/` (binários do banco), `media/` (fotos/assinaturas) e `LEIA-ME.txt`.
+**Nunca contém segredos**: hashes de senha, códigos de recuperação e seus prazos,
+contadores de bloqueio de login (`failedLoginAttempts`/`lockedUntil`), `cardToken`
+da carteirinha (regenerado no restore), chaves Asaas, tokens de webhook, refresh
+tokens Google, senha de app do Gmail e QR/invite tokens de sessões ficam de fora.
+
+### Cobertura (desde 2026-09-05)
+
+**Regra:** todo modelo do schema com `lodgeId` entra no backup, é lido pelo
+restore e é apagado por `deleteLodgeData` (`src/lib/lodge-delete.ts`). Única
+exceção deliberada: a fila `Job` (transitória — só é apagada com a loja). Os
+filhos sem `lodgeId` (familiares, registros do Meta, anexos de candidato,
+assinantes de processo, mensagens do assistente) vão e voltam junto com o pai.
+
+Cobertura garantida por testes estáticos que leem o `schema.prisma`
+(`npx vitest run`): `src/lib/__tests__/backup-cobertura.test.ts` e
+`src/lib/__tests__/lodge-delete-cobertura.test.ts`. **Modelo novo com `lodgeId`
+ou campo `Bytes` novo quebra o teste até ser incluído nos três arquivos.**
+
+Além do que já existia (membros, sessões, presenças, atas, pranchas, finanças,
+admissões, progressão, biblioteca, Quitte Placet), o ZIP agora carrega:
+processos da caixa de assinaturas (`processos-documentos.json` +
+`processos-assinantes.json`), atestados de regularidade, pedidos de afastamento
+(Form. 116), entregas da Mútua, notificações, auditoria (`auditoria.json`) e
+conversas/mensagens do assistente.
+
+**Campos `Bytes` nunca vão no JSON** (serializados estouravam o ZIP e faziam o
+restore abortar). Ficam em `arquivos/<pasta>/<id>__<campo>.<ext>`:
+
+| Modelo | Pasta | Campos |
+|--------|-------|--------|
+| ProcessoDocumento | `arquivos/processos/` | `arquivo` (obrigatório), `govbrPdf` |
+| QuittePlacet | `arquivos/quitte-placets/` | `cartaArquivo`, `ataArquivo`, `govbrPdf`, `formularioArquivo` |
+| AtestadoRegularidade | `arquivos/atestados/` | `govbrPdf` |
+| PedidoAfastamento | `arquivos/afastamentos/` | `requerimentoPdf`, `formularioPdf`, `govbrPdf` |
+| MutuaEntrega | `arquivos/mutua/` | `arquivo` |
+| Ata / Prancha / BibliotecaItem / CandidatoAnexo / Lodge | nomes legados (`atas/`, `pranchas/`, `biblioteca/`, `candidatos/`, `certificado-visita-fundo.pdf`) | — |
+
+ZIPs antigos continuam restauráveis: JSON ausente = modelo pulado; binário
+opcional ausente = `null`; binário obrigatório ausente = registro não restaurado
+(aviso na tela). Os Bytes que o `quitte-placets.json` antigo trazia serializados
+são descartados no restore (viram `null`).
 
 Arquivos arquivados no **Google Drive da loja** (atas assinadas, pranchas, documentos,
 certificados de visita) não entram no ZIP — só as referências (`driveFileId`).
@@ -69,6 +107,9 @@ Também dá para disparar manualmente pelo botão **"Backup agora"** em `/admin`
   continuam válidas.
 - **Preservados da loja atual** (não estão no ZIP): credenciais da loja (Asaas,
   Google, Gmail — cifradas), fotos/assinaturas e senhas dos membros (casadas por CIM).
+- **Regenerados:** `cardToken` de todos os membros (o link antigo da carteirinha
+  `/verificar/<token>` deixa de valer — o irmão reabre a carteirinha no app).
+  Contadores de bloqueio de login zeram.
 - Membros sem senha preservada recebem hash aleatório + `mustChangePassword` →
   orientar "Esqueci a senha".
 - Avisos retornados na tela (ex.: binário de biblioteca ausente em backup antigo).
@@ -84,11 +125,16 @@ npx tsx scripts/seed-loja-testes.ts   # recria a loja 7777
 npx tsx scripts/testa-restore.ts      # backup → suja dados → restore → confere
 ```
 
-O teste valida: contagens idênticas, nome restaurado, senha preservada por CIM,
-segredo cifrado (`gmailAppPassword`) sobrevive e decifra, ZIP sem segredos.
+O teste valida: contagens idênticas (inclusive processos, assinantes, atestados,
+afastamentos, Mútua, notificações, auditoria e assistente), nome restaurado,
+senha preservada por CIM, `cardToken` regenerado, segredo cifrado
+(`gmailAppPassword`) sobrevive e decifra, ZIP sem segredos/cardToken, nenhum
+JSON com Bytes serializados, e um processo (com assinante) e uma entrega da
+Mútua criados com PDF voltam byte a byte.
 Rodar após qualquer mudança no schema Prisma ou em `backup.ts`/`restore.ts` —
 **campo novo no schema entra no backup automaticamente (dump fiel), mas confira
-se é segredo/binário e precisa entrar na lista de omissão de `backup.ts`.**
+se é segredo/binário e precisa entrar na lista de omissão ou em
+`separarBinarios` de `backup.ts`** (os testes estáticos cobram os `Bytes`).
 
 ## Falhas conhecidas e resposta
 

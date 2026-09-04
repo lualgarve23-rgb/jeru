@@ -194,3 +194,60 @@ export async function enviarAtaAssinadaAosMembros(
     data: { sentToMembersAt: new Date() },
   });
 }
+
+// Atestado de Regularidade / Quitte Placet concluído (todas as assinaturas
+// gov.br): o PDF assinado vai por e-mail ao próprio solicitante, com o link
+// da central. Disparado pela fila (tipo solicitacao.concluida).
+export async function enviarDocumentoConcluidoAoSolicitante(
+  lodgeId: string,
+  tipo: string,
+  id: string
+) {
+  const baseUrl = process.env.APP_URL ?? "http://localhost:3100";
+  const lodge = await prisma.lodge.findUniqueOrThrow({
+    where: { id: lodgeId },
+    select: { name: true, number: true },
+  });
+  let to = "";
+  let nome = "";
+  let assunto = "";
+  let texto = "";
+  let anexo: { filename: string; content: Buffer } | null = null;
+  if (tipo === "atestado") {
+    const a = await prisma.atestadoRegularidade.findUniqueOrThrow({
+      where: { id, lodgeId },
+      select: { status: true, govbrPdf: true, user: { select: { name: true, email: true } } },
+    });
+    if (a.status !== "ASSINADO") return;
+    to = a.user.email;
+    nome = a.user.name;
+    assunto = `Atestado de Regularidade assinado — ${lodge.name} nº ${lodge.number}`;
+    texto =
+      `Ir∴ ${nome}, o seu Atestado de Regularidade foi assinado via gov.br pelo Tesoureiro, pelo Secretário e pelo Venerável Mestre.\n` +
+      `Segue em anexo o PDF assinado (validável em validar.iti.gov.br). Ele também fica disponível em ${baseUrl}/secretaria/atestados.`;
+    if (a.govbrPdf) anexo = { filename: "atestado-regularidade-assinado-govbr.pdf", content: Buffer.from(a.govbrPdf) };
+  } else if (tipo === "quitte") {
+    const q = await prisma.quittePlacet.findUniqueOrThrow({
+      where: { id, lodgeId },
+      select: { status: true, govbrPdf: true, user: { select: { name: true, email: true } } },
+    });
+    if (q.status !== "APROVADO") return;
+    to = q.user.email;
+    nome = q.user.name;
+    assunto = `Quitte Placet aprovado — ${lodge.name} nº ${lodge.number}`;
+    texto =
+      `Ir∴ ${nome}, o seu Quitte Placet foi assinado via gov.br pelo Secretário, pelo Orador e pelo Venerável Mestre.\n` +
+      `Segue em anexo o Form. 122 assinado; a Secretaria fará o envio à Guarda dos Selos. Acompanhe em ${baseUrl}/solicitacoes.`;
+    if (q.govbrPdf) anexo = { filename: "quitte-placet-assinado-govbr.pdf", content: Buffer.from(q.govbrPdf) };
+  } else {
+    throw new Error(`Tipo de solicitação desconhecido: ${tipo}`);
+  }
+  if (!to.includes("@")) return;
+  await sendLodgeEmail({
+    lodgeId,
+    to,
+    subject: assunto,
+    text: `${texto}\n\n—\nMensagem automática do sistema Gestão NoPrumo.`,
+    attachments: anexo ? [anexo] : undefined,
+  });
+}
