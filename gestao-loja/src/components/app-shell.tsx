@@ -139,7 +139,7 @@ export function AppShell({
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 p-4 pb-28 pt-20 print:ml-0 print:p-0 lg:ml-64 lg:p-8 lg:pt-4">
+      <main className="min-w-0 flex-1 overflow-x-clip p-4 pb-28 pt-20 print:ml-0 print:p-0 lg:ml-64 lg:p-8 lg:pt-4">
         {sino && (
           <div className="mb-3 hidden justify-end print:hidden lg:flex">
             <HeaderSino dados={sino} />

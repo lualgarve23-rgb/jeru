@@ -7,6 +7,9 @@ import { Info } from "lucide-react";
 // (touch-friendly) e fecha com Esc ou clique fora. Acessível (aria-expanded).
 export function InfoDica({ titulo, texto }: { titulo?: string; texto: string }) {
   const [aberto, setAberto] = useState(false);
+  // Balão ancorado à direita quando o ícone está na metade direita da tela,
+  // para não ultrapassar a borda (no celular isso alargava a página inteira).
+  const [aDireita, setADireita] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -34,7 +37,11 @@ export function InfoDica({ titulo, texto }: { titulo?: string; texto: string }) 
         type="button"
         aria-label={titulo ? `O que é ${titulo}?` : "O que é esta tela?"}
         aria-expanded={aberto}
-        onClick={() => setAberto((v) => !v)}
+        onClick={() => {
+          const r = ref.current?.getBoundingClientRect();
+          if (r) setADireita(r.left + r.width / 2 > window.innerWidth / 2);
+          setAberto((v) => !v);
+        }}
         className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Info className="h-4 w-4" aria-hidden />
@@ -42,7 +49,7 @@ export function InfoDica({ titulo, texto }: { titulo?: string; texto: string }) 
       {aberto && (
         <span
           role="tooltip"
-          className="absolute left-0 top-9 z-50 w-72 max-w-[80vw] rounded-md border bg-popover p-3 text-left text-sm font-normal normal-case leading-relaxed text-popover-foreground shadow-md"
+          className={`absolute top-9 z-50 w-72 max-w-[80vw] rounded-md ${aDireita ? "right-0" : "left-0"} border bg-popover p-3 text-left text-sm font-normal normal-case leading-relaxed text-popover-foreground shadow-md`}
         >
           {titulo && <strong className="mb-1 block">{titulo}</strong>}
           {texto}
