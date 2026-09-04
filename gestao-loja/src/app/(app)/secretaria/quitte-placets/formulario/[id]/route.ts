@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { cargosProcessoDoUsuario } from "@/lib/processos";
 import { attachmentResponse } from "@/lib/download";
 
 // Download do Form. 122 anexado ao Quitte Placet (guardado no banco).
@@ -8,11 +9,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   // Fiscais sempre; o próprio irmão só quando o documento está pronto
-  // (APROVADO = assinado pelo Secretário e pelo VM)
+  // (APROVADO = assinado pelo Secretário, Orador e VM). O Orador (cargo do
+  // rito) baixa como assinante, para levar ao portal do ITI.
   const user = await requireUser();
-  const fiscal = ["SECRETARIO", "VENERAVEL_MESTRE", "CONSELHO_CONTAS"].includes(
-    user.role
-  );
+  const fiscal =
+    ["SECRETARIO", "VENERAVEL_MESTRE", "CONSELHO_CONTAS"].includes(user.role) ||
+    (await cargosProcessoDoUsuario(user)).includes("ORADOR");
   const { id } = await params;
   const placet = await prisma.quittePlacet.findUnique({
     where: { id, lodgeId: user.lodgeId },

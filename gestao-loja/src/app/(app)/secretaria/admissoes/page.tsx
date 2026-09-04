@@ -48,6 +48,14 @@ export default async function AdmissoesPage() {
     },
   });
   const baseUrl = appUrl();
+  // Secretaria pode cadastrar o candidato em nome do padrinho (irmão do quadro)
+  const irmaos = isWriter
+    ? await prisma.user.findMany({
+        where: { lodgeId: user.lodgeId, status: "ATIVO", currentRole: { not: "SUPER_ADMIN" } },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, cim: true },
+      })
+    : [];
 
   const listaDetalhada = processos
     .filter((p) => isWriter || p.padrinhoId === user.id)
@@ -107,6 +115,27 @@ export default async function AdmissoesPage() {
               <Label htmlFor="nomeCandidato">Nome do candidato</Label>
               <Input id="nomeCandidato" name="nomeCandidato" required />
             </div>
+            {isWriter && (
+              <div className="space-y-1">
+                <Label htmlFor="padrinhoId">Padrinho</Label>
+                <select
+                  id="padrinhoId"
+                  name="padrinhoId"
+                  defaultValue={user.id}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                >
+                  {irmaos.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} (CIM {m.cim}){m.id === user.id ? " — eu mesmo" : ""}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  Ao cadastrar em nome de outro irmão, ele passa a ser o padrinho
+                  do processo (vê o candidato, anexa formulários e é avisado).
+                </p>
+              </div>
+            )}
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label htmlFor="cpf">CPF</Label>

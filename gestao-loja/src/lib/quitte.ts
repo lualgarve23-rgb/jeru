@@ -1,38 +1,82 @@
 import { prisma } from "@/lib/prisma";
 import { arquivarVersaoFinalNoDrive, slugNome } from "@/lib/google-drive";
+import { cargosProcesso } from "@/lib/processos";
 // Quitte Placet — regras de assinatura gov.br.
-// Ordem de governança: Secretário assina primeiro e o Venerável Mestre por
-// último (padrão de todos os documentos oficiais: o VM sela o documento).
+// Ordem de governança: Secretário assina primeiro, o Orador em seguida e o
+// Venerável Mestre por último (padrão de todos os documentos oficiais: o VM
+// sela o documento). O Orador é cargo do rito (User.cargoRito), resolvido
+// como nos Processos — pode ter qualquer nível de acesso.
+
+export const CADEIA_QUITTE = ["SECRETARIO", "ORADOR", "VENERAVEL_MESTRE"] as const;
+export type CargoQuitte = (typeof CADEIA_QUITTE)[number];
+
+const LABEL_QUITTE: Record<CargoQuitte, string> = {
+  SECRETARIO: "Secretário",
+  ORADOR: "Orador",
+  VENERAVEL_MESTRE: "Venerável Mestre",
+};
 
 export type QuitteAssinaturas = {
   signedBySecAt: Date | null;
+  signedByOradorAt: Date | null;
   signedByMasterAt: Date | null;
 };
 
-export function ordemAssinaturaQuitte(role: string, p: QuitteAssinaturas) {
-  if (role === "SECRETARIO") {
-    return {
-      jaAssinou: !!p.signedBySecAt,
-      aguardando: null as string | null,
-      ultimaAssinatura: !!p.signedByMasterAt,
-    };
-  }
+function assinouEm(p: QuitteAssinaturas, cargo: CargoQuitte) {
+  return cargo === "SECRETARIO"
+    ? p.signedBySecAt
+    : cargo === "ORADOR"
+      ? p.signedByOradorAt
+      : p.signedByMasterAt;
+}
+
+// Cargo com que o usuário assina o Quitte Placet (o nível de acesso vale
+// antes do cargo do rito), ou null quando ele não está na cadeia.
+export function cargoQuitteDoUsuario(
+  role: string,
+  cargoRito?: string | null
+): CargoQuitte | null {
+  return cargoQuitteDosCargos(cargosProcesso(role, cargoRito));
+}
+
+// Idem, a partir da lista já resolvida por cargosProcesso()
+export function cargoQuitteDosCargos(cargos: string[]): CargoQuitte | null {
+  return CADEIA_QUITTE.find((c) => cargos.includes(c)) ?? null;
+}
+
+export function ordemAssinaturaQuitte(cargo: CargoQuitte, p: QuitteAssinaturas) {
+  const pos = CADEIA_QUITTE.indexOf(cargo);
+  const anteriorPendente = CADEIA_QUITTE.slice(0, pos).find((c) => !assinouEm(p, c));
+  const outrosAssinaram = CADEIA_QUITTE.filter((c) => c !== cargo).every((c) =>
+    assinouEm(p, c)
+  );
   return {
-    jaAssinou: !!p.signedByMasterAt,
-    aguardando: p.signedBySecAt ? null : "Secretário",
-    ultimaAssinatura: !!p.signedBySecAt,
+    jaAssinou: !!assinouEm(p, cargo),
+    aguardando: anteriorPendente ? LABEL_QUITTE[anteriorPendente] : (null as string | null),
+    ultimaAssinatura: outrosAssinaram,
   };
 }
 
-export function camposAssinaturaQuitte(role: string, userId: string) {
-  const agora = new Date();
-  return role === "SECRETARIO"
-    ? { signedBySecId: userId, signedBySecAt: agora }
-    : { signedByMasterId: userId, signedByMasterAt: agora };
+// Próximo cargo da cadeia ainda sem assinatura (null = todos assinaram)
+export function proximoCargoQuitte(p: QuitteAssinaturas): CargoQuitte | null {
+  return CADEIA_QUITTE.find((c) => !assinouEm(p, c)) ?? null;
 }
 
-export function cargoAssinanteQuitte(role: string) {
-  return role === "SECRETARIO" ? "Secretário" : "Venerável Mestre";
+export function assinaturasQuitte(p: QuitteAssinaturas) {
+  return CADEIA_QUITTE.filter((c) => assinouEm(p, c)).length;
+}
+
+export function camposAssinaturaQuitte(cargo: CargoQuitte, userId: string) {
+  const agora = new Date();
+  return cargo === "SECRETARIO"
+    ? { signedBySecId: userId, signedBySecAt: agora }
+    : cargo === "ORADOR"
+      ? { signedByOradorId: userId, signedByOradorAt: agora }
+      : { signedByMasterId: userId, signedByMasterAt: agora };
+}
+
+export function cargoAssinanteQuitte(cargo: CargoQuitte) {
+  return LABEL_QUITTE[cargo];
 }
 
 // Pré-condições comuns às assinaturas (OAuth gov.br e upload do portal ITI).
@@ -41,6 +85,8 @@ export function bloqueioAssinaturaQuitte(p: {
   status: string;
   quitacaoFinanceira: boolean;
   cartaNome: string | null;
+  dataSessaoComunicacao: Date | null;
+  ataNome: string | null;
   formularioNome: string | null;
   formularioMime: string | null;
   govbrPdf: Uint8Array | Buffer | null;
@@ -54,6 +100,9 @@ export function bloqueioAssinaturaQuitte(p: {
   if (!p.quitacaoFinanceira) {
     return "Trava financeira: a Tesouraria ainda não confirmou o Nada Consta.";
   }
+  if (!p.dataSessaoComunicacao || !p.ataNome) {
+    return "Registre a data da sessão em que o pedido foi comunicado à Loja e anexe a ata dessa sessão antes das assinaturas.";
+  }
   if (!p.formularioNome) {
     return "Anexe o Form. 122 preenchido (em PDF) antes das assinaturas gov.br.";
   }
@@ -63,7 +112,7 @@ export function bloqueioAssinaturaQuitte(p: {
   return null;
 }
 
-// Versão final do Quitte Placet (assinado pelos dois cargos) no Drive da Loja.
+// Versão final do Quitte Placet (assinado pelos três cargos) no Drive da Loja.
 export async function arquivarQuitteNoDrive(
   lodgeId: string,
   uploadedById: string,

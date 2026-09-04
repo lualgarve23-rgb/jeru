@@ -1,5 +1,6 @@
 import { NotificationType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { proximoCargoQuitte, cargoAssinanteQuitte } from "@/lib/quitte";
 import { INTERSTICE_MONTHS } from "@/lib/permissions";
 import { degreeLabels } from "@/lib/labels";
 import { cargoLabel, cargosProcesso } from "@/lib/processos";
@@ -245,15 +246,38 @@ async function collectPending(lodgeId: string): Promise<Pending[]> {
           "A emissão está travada até a Tesouraria confirmar o Nada Consta.",
         link: "/secretaria/quitte-placets",
       });
-    } else if (!qp.signedByMasterId || !qp.signedBySecId) {
+    } else if (!qp.dataSessaoComunicacao || !qp.ataNome) {
       pending.push({
-        sourceKey: `qp-sig:${qp.id}`,
-        type: "PENDING_SIGNATURE",
-        title: `Quitte Placet de ${qp.user.name} aguarda assinatura`,
+        sourceKey: `qp-sessao:${qp.id}`,
+        type: "MISSING_DATA",
+        title: `Quitte Placet de ${qp.user.name}: registrar a sessão de comunicação`,
         description:
-          "Quitação financeira confirmada — falta a dupla assinatura (Secretário e, por último, VM) na aba Processos.",
+          "Informe em Processos a data da sessão em que o pedido foi comunicado à Loja e anexe a ata — as assinaturas gov.br só liberam depois.",
         link: "/secretaria/processos",
       });
+    } else if (!qp.signedByMasterId || !qp.signedBySecId || !qp.signedByOradorId) {
+      // A vez de cada cargo compõe a sourceKey (recriada a cada avanço);
+      // quando é a vez do Orador (cargo do rito, geralmente nível Obreiro,
+      // sem acesso às notificações operacionais), a notificação também é
+      // dirigida a quem ocupa o cargo — como nos Processos.
+      const proximo = proximoCargoQuitte(qp) ?? "VENERAVEL_MESTRE";
+      const base = {
+        type: "PENDING_SIGNATURE" as const,
+        title: `Quitte Placet de ${qp.user.name} aguarda assinatura do ${cargoAssinanteQuitte(proximo)}`,
+        description: `Quitação financeira confirmada — é a vez do ${cargoAssinanteQuitte(proximo)} assinar na aba Processos (ordem: Secretário, Orador e Venerável Mestre).`,
+        link: "/secretaria/processos",
+      };
+      pending.push({ sourceKey: `qp-sig:${qp.id}:${proximo}`, ...base });
+      if (proximo === "ORADOR") {
+        const oradores = await prisma.user.findMany({
+          where: { lodgeId, status: "ATIVO", cargoRito: { not: null } },
+          select: { id: true, currentRole: true, cargoRito: true },
+        });
+        for (const u of oradores) {
+          if (!cargosProcesso(u.currentRole, u.cargoRito).includes("ORADOR")) continue;
+          pending.push({ sourceKey: `qp-sig:${qp.id}:${proximo}:${u.id}`, userId: u.id, ...base });
+        }
+      }
     }
   }
 

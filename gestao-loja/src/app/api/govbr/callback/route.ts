@@ -19,6 +19,7 @@ import {
   cargoAssinanteQuitte,
   bloqueioAssinaturaQuitte,
   arquivarQuitteNoDrive,
+  cargoQuitteDoUsuario,
 } from "@/lib/quitte";
 import {
   estadoProcesso,
@@ -87,7 +88,6 @@ export async function GET(req: NextRequest) {
 
   // ── Quitte Placet ──
   if (quitteId) {
-    if (!cargoFiscal) return NextResponse.redirect(new URL("/dashboard", baseUrl));
     return assinarQuitte(req, baseUrl, session.user, role!, quitteId);
   }
 
@@ -280,9 +280,9 @@ async function assinarProcesso(
   return res;
 }
 
-// Assinatura gov.br do Quitte Placet: Secretário primeiro, Venerável Mestre
-// por último. A PKCS#7 do ITI é embutida incrementalmente no Form. 122 (PDF)
-// anexado ao processo; a segunda assinatura aprova o placet.
+// Assinatura gov.br do Quitte Placet: Secretário, Orador (cargo do rito) e
+// Venerável Mestre por último. A PKCS#7 do ITI é embutida incrementalmente no
+// Form. 122 (PDF) anexado ao processo; a terceira assinatura aprova o placet.
 async function assinarQuitte(
   req: NextRequest,
   baseUrl: string,
@@ -298,7 +298,12 @@ async function assinarQuitte(
     return res;
   };
 
-  if (!["VENERAVEL_MESTRE", "SECRETARIO"].includes(role)) {
+  const meu = await prisma.user.findUnique({
+    where: { id: sessionUser.id },
+    select: { cargoRito: true },
+  });
+  const cargoQuitte = cargoQuitteDoUsuario(role, meu?.cargoRito);
+  if (!cargoQuitte) {
     return fail("nao-assinante");
   }
   const code = req.nextUrl.searchParams.get("code");
@@ -310,7 +315,7 @@ async function assinarQuitte(
   });
   if (!placet) return fail("falhou");
   if (bloqueioAssinaturaQuitte(placet)) return fail("bloqueado");
-  const ordem = ordemAssinaturaQuitte(role, placet);
+  const ordem = ordemAssinaturaQuitte(cargoQuitte, placet);
   if (ordem.jaAssinou) return fail("ja-assinou");
   if (ordem.aguardando) return fail("ordem");
 
@@ -326,7 +331,7 @@ async function assinarQuitte(
     }
 
     const base = placet.govbrPdf ?? placet.formularioArquivo!;
-    const cargo = cargoAssinanteQuitte(role);
+    const cargo = cargoAssinanteQuitte(cargoQuitte);
     const signed = await assinarPdfComGovbr(Buffer.from(base), token, {
       name: user.name,
       reason: `Assinatura gov.br — ${cargo}: ${user.name}`,
@@ -336,7 +341,7 @@ async function assinarQuitte(
       where: { id: quitteId, lodgeId: sessionUser.lodgeId },
       data: {
         govbrPdf: new Uint8Array(signed),
-        ...camposAssinaturaQuitte(role, sessionUser.id),
+        ...camposAssinaturaQuitte(cargoQuitte, sessionUser.id),
         status: ordem.ultimaAssinatura
           ? ("APROVADO" as const)
           : ("EM_ANALISE" as const),

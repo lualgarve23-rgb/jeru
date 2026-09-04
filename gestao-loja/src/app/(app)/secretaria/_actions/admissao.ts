@@ -165,6 +165,25 @@ export async function indicarCandidato(
   const fotoCheck = validarImagem(fotoFile, "A foto do candidato");
   if (fotoCheck.error) return { error: fotoCheck.error };
 
+  // Padrinho: quem indica é o próprio irmão logado, salvo quando a Secretaria
+  // (Secretário/VM) cadastra o pedido em nome de outro irmão do quadro
+  let padrinho: { id: string; name: string } = { id: user.id, name: user.name };
+  const padrinhoEscolhido = String(formData.get("padrinhoId") ?? "").trim();
+  if (padrinhoEscolhido && padrinhoEscolhido !== user.id) {
+    if (!canWriteSecretaria(user.role)) {
+      return { error: "Só a Secretaria pode cadastrar um candidato em nome de outro padrinho." };
+    }
+    const outro = await prisma.user.findUnique({
+      where: { id: padrinhoEscolhido, lodgeId: user.lodgeId },
+      select: { id: true, name: true, status: true },
+    });
+    if (!outro || outro.status !== "ATIVO") {
+      return { error: "Padrinho inválido — escolha um irmão ativo do quadro." };
+    }
+    padrinho = outro;
+  }
+  const emNomeDe = padrinho.id !== user.id;
+
   const [processo, responsaveis] = await Promise.all([
     prisma.processoAdmissao.create({
       data: {
@@ -174,15 +193,19 @@ export async function indicarCandidato(
         email,
         phone: String(formData.get("phone") ?? "").trim() || null,
 
-        padrinhoId: user.id,
+        padrinhoId: padrinho.id,
         observacoes: String(formData.get("observacoes") ?? "").trim() || null,
       },
     }),
     // Avisa a Secretaria e o Venerável de que há um candidato novo a conferir
+    // (e o padrinho, quando o cadastro foi feito em nome dele)
     prisma.user.findMany({
       where: {
         lodgeId: user.lodgeId,
-        currentRole: { in: ["SECRETARIO", "VENERAVEL_MESTRE"] },
+        OR: [
+          { currentRole: { in: ["SECRETARIO", "VENERAVEL_MESTRE"] } },
+          ...(emNomeDe ? [{ id: padrinho.id }] : []),
+        ],
       },
       select: { id: true },
     }),
@@ -200,7 +223,9 @@ export async function indicarCandidato(
       lodgeId: user.lodgeId,
       userId: r.id,
       title: "Novo candidato indicado",
-      description: `${user.name} indicou ${nomeCandidato} para iniciação.`,
+      description: emNomeDe
+        ? `${user.name} cadastrou ${nomeCandidato} para iniciação, indicado pelo padrinho ${padrinho.name}.`
+        : `${user.name} indicou ${nomeCandidato} para iniciação.`,
       type: "MISSING_DATA" as const,
       sourceKey: `candidato:${processo.id}:${r.id}`,
       link: "/secretaria/admissoes",
@@ -217,7 +242,7 @@ export async function indicarCandidato(
         subject: "Formulários de indicação — processo de admissão",
         text:
           `Prezado ${nomeCandidato},\n\n` +
-          `Você foi indicado por ${user.name}. Acesse o link abaixo para baixar os ` +
+          `Você foi indicado por ${padrinho.name}. Acesse o link abaixo para baixar os ` +
           `formulários de indicação, preenchê-los e devolvê-los pelo próprio link:\n\n` +
           `${appUrl()}/candidato/${processo.token}\n\n` +
           `O link é pessoal — não o compartilhe.`,

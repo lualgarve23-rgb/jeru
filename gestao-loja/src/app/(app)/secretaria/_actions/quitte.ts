@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { garantirPdf } from "@/lib/docx-pdf";
 import { logError } from "@/lib/log";
 import { auditar } from "@/lib/audit";
-import { requireUser, requireRole } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
 import { sendLodgeEmail, GUARDA_SELOS_EMAIL } from "@/lib/gmail";
 import {
@@ -16,6 +16,9 @@ import {
   camposAssinaturaQuitte,
   bloqueioAssinaturaQuitte,
   arquivarQuitteNoDrive,
+  cargoQuitteDoUsuario,
+  cargoAssinanteQuitte,
+  proximoCargoQuitte,
 } from "@/lib/quitte";
 import { validarUploadAssinado } from "@/lib/pdf-assinaturas";
 import { type ActionResult, requireSecretariaWriter, validarAnexo } from "./_shared";
@@ -134,14 +137,22 @@ export async function refreshQuitacaoFinanceira(
 // Assinatura gov.br pelo portal assinador.iti.br — mesmo processo do
 // atestado: o assinante baixa o Form. 122 (já com as assinaturas anteriores),
 // assina com a conta gov.br no portal e sobe o PDF aqui. Ordem de governança:
-// Secretário primeiro, Venerável Mestre por último. O OAuth gov.br direto
-// vive em /api/govbr/authorize?quitte=.
+// Secretário, Orador (cargo do rito) e Venerável Mestre por último. O OAuth
+// gov.br direto vive em /api/govbr/authorize?quitte=.
 export async function uploadQuittePlacetAssinadoGovbr(
   placetId: string,
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  const user = await requireRole("SECRETARIO", "VENERAVEL_MESTRE");
+  const user = await requireUser();
+  const meu = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { cargoRito: true },
+  });
+  const cargo = cargoQuitteDoUsuario(user.role, meu?.cargoRito);
+  if (!cargo) {
+    return { error: "O seu cargo não assina o Quitte Placet (Secretário, Orador e Venerável Mestre)." };
+  }
   const placet = await prisma.quittePlacet.findUnique({
     where: { id: placetId, lodgeId: user.lodgeId },
     include: { user: { select: { name: true } } },
@@ -149,7 +160,7 @@ export async function uploadQuittePlacetAssinadoGovbr(
   if (!placet) return { error: "Quitte Placet não encontrado." };
   const bloqueio = bloqueioAssinaturaQuitte(placet);
   if (bloqueio) return { error: bloqueio };
-  const ordem = ordemAssinaturaQuitte(user.role, placet);
+  const ordem = ordemAssinaturaQuitte(cargo, placet);
   if (ordem.jaAssinou) return { error: "Você já assinou este Quitte Placet." };
   if (ordem.aguardando) {
     return {
@@ -185,7 +196,7 @@ export async function uploadQuittePlacetAssinadoGovbr(
     where: { id: placetId, lodgeId: user.lodgeId },
     data: {
       govbrPdf: new Uint8Array(pdf),
-      ...camposAssinaturaQuitte(user.role, user.id),
+      ...camposAssinaturaQuitte(cargo, user.id),
       status: ordem.ultimaAssinatura
         ? ("APROVADO" as const)
         : ("EM_ANALISE" as const),
@@ -203,10 +214,14 @@ export async function uploadQuittePlacetAssinadoGovbr(
   }
   revalidatePath("/secretaria/quitte-placets");
   revalidatePath("/secretaria/processos");
+  const proximo = proximoCargoQuitte({
+    ...placet,
+    ...camposAssinaturaQuitte(cargo, user.id),
+  });
   return {
     ok: ordem.ultimaAssinatura
-      ? `Quitte Placet assinado via gov.br pelos dois cargos — documento emitido.${driveAviso}`
-      : "PDF assinado recebido — agora o Venerável Mestre baixa esta versão, assina no gov.br e sobe aqui.",
+      ? `Quitte Placet assinado via gov.br pelos três cargos — documento emitido.${driveAviso}`
+      : `PDF assinado recebido — agora o ${cargoAssinanteQuitte(proximo!)} baixa esta versão, assina no gov.br e sobe aqui.`,
   };
 }
 
@@ -268,6 +283,8 @@ export async function anexarFormularioQuittePlacet(
       govbrPdf: null,
       signedBySecId: null,
       signedBySecAt: null,
+      signedByOradorId: null,
+      signedByOradorAt: null,
       signedByMasterId: null,
       signedByMasterAt: null,
     },
@@ -275,6 +292,68 @@ export async function anexarFormularioQuittePlacet(
   revalidatePath("/secretaria/quitte-placets");
   revalidatePath("/secretaria/processos");
   return { ok: "Formulário anexado ao Quitte Placet." };
+}
+
+// Registra a sessão em que o pedido foi comunicado à Loja e anexa a ata dessa
+// sessão (PDF ou imagem). Feito pela Secretaria em Processos; sem os dois as
+// assinaturas gov.br ficam bloqueadas. Pode ser refeito enquanto não emitido.
+export async function registrarSessaoQuittePlacet(
+  placetId: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const placet = await prisma.quittePlacet.findUnique({
+    where: { id: placetId, lodgeId: user.lodgeId },
+    select: { id: true, status: true, ataNome: true },
+  });
+  if (!placet) return { error: "Quitte Placet não encontrado." };
+  if (placet.status === "APROVADO" || placet.status === "NEGADO") {
+    return { error: "Quitte Placet já encerrado." };
+  }
+  const dataStr = String(formData.get("dataSessao") ?? "").trim();
+  const data = dataStr ? new Date(`${dataStr}T12:00:00`) : null;
+  if (!data || Number.isNaN(data.getTime())) {
+    return { error: "Informe a data da sessão em que o pedido foi comunicado." };
+  }
+  if (data.getTime() > Date.now()) {
+    return { error: "A data da sessão de comunicação não pode ser futura." };
+  }
+  const file = formData.get("ata") as File | null;
+  const temArquivo = !!file && file.size > 0;
+  if (!temArquivo && !placet.ataNome) {
+    return { error: "Anexe a ata da sessão em que o pedido foi comunicado." };
+  }
+  let ata: { ataArquivo: Uint8Array<ArrayBuffer>; ataNome: string; ataMime: string } | null = null;
+  if (temArquivo) {
+    if (file.size > 15_000_000) {
+      return { error: "Arquivo muito grande — a ata deve ter até 15 MB." };
+    }
+    const mime = file.type || "application/octet-stream";
+    if (mime !== "application/pdf" && !mime.startsWith("image/")) {
+      return { error: "A ata deve ser um PDF ou uma imagem." };
+    }
+    ata = {
+      ataArquivo: new Uint8Array(await file.arrayBuffer()),
+      ataNome: file.name.slice(0, 200),
+      ataMime: mime,
+    };
+  }
+  await prisma.quittePlacet.update({
+    where: { id: placetId, lodgeId: user.lodgeId },
+    data: { dataSessaoComunicacao: data, ...(ata ?? {}) },
+  });
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "quitte.sessao",
+    entidade: "QuittePlacet",
+    entidadeId: placetId,
+    detalhes: { dataSessao: dataStr, ata: ata?.ataNome ?? placet.ataNome },
+  });
+  revalidatePath("/secretaria/quitte-placets");
+  revalidatePath("/secretaria/processos");
+  return { ok: "Sessão de comunicação registrada e ata anexada ao Quitte Placet." };
 }
 
 // Envia o Quitte Placet à Guarda dos Selos com o formulário em anexo
@@ -299,7 +378,7 @@ export async function enviarQuittePlacetGSelos(
   if (placet.status !== "APROVADO") {
     return {
       error:
-        "O Quitte Placet precisa das assinaturas gov.br do Secretário e do Venerável Mestre antes do envio.",
+        "O Quitte Placet precisa das assinaturas gov.br do Secretário, do Orador e do Venerável Mestre antes do envio.",
     };
   }
   // Vai a versão com as assinaturas PAdES do gov.br embutidas
@@ -316,7 +395,7 @@ export async function enviarQuittePlacetGSelos(
         `Loja ${placet.lodge.name} nº ${placet.lodge.number}\n` +
         `Obreiro: ${placet.user.name} (CIM ${placet.user.cim})\n` +
         (placet.motivo ? `Motivo: ${placet.motivo}\n` : "") +
-        `\nSegue em anexo o formulário de Quitte Placet assinado via gov.br pelo Secretário e pelo Venerável Mestre.`,
+        `\nSegue em anexo o formulário de Quitte Placet assinado via gov.br pelo Secretário, pelo Orador e pelo Venerável Mestre.`,
       attachments: [
         {
           filename: anexoNome,
@@ -353,7 +432,7 @@ export async function moveQuittePlacet(
   if (toStatus === "APROVADO") {
     return {
       error:
-        "A aprovação sai das assinaturas do Venerável Mestre e do Secretário, não do arraste.",
+        "A aprovação sai das assinaturas do Secretário, do Orador e do Venerável Mestre, não do arraste.",
     };
   }
   await prisma.quittePlacet.update({

@@ -48,7 +48,7 @@ function CardBody({ placet }: { placet: PlacetCard }) {
         <Badge variant={placet.quitacaoFinanceira ? "success" : "warning"}>
           {placet.quitacaoFinanceira ? "Nada Consta" : "Pendências"}
         </Badge>
-        <Badge variant="outline">{placet.assinaturas}/2 assinaturas</Badge>
+        <Badge variant="outline">{placet.assinaturas}/3 assinaturas</Badge>
         {placet.temFormulario && <Badge variant="outline">Form. 122</Badge>}
         {placet.enviadoGSelos && <Badge variant="success">Enviado</Badge>}
       </div>

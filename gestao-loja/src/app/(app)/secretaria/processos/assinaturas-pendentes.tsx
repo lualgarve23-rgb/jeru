@@ -1,7 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { isGovbrConfigured } from "@/lib/govbr";
 import { ordemAssinaturaAtestado } from "@/lib/atestado";
-import { ordemAssinaturaQuitte, bloqueioAssinaturaQuitte } from "@/lib/quitte";
+import {
+  ordemAssinaturaQuitte,
+  bloqueioAssinaturaQuitte,
+  cargoQuitteDosCargos,
+  assinaturasQuitte,
+} from "@/lib/quitte";
 import {
   ARTIGOS_AFASTAMENTO,
   ordemAssinaturaAfastamento,
@@ -19,7 +24,11 @@ import { GUARDA_SELOS_EMAIL } from "@/lib/gmail";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { uploadAtestadoAssinadoGovbr, excluirAtestado } from "../_actions/atestados";
-import { uploadQuittePlacetAssinadoGovbr, excluirQuittePlacet } from "../_actions/quitte";
+import {
+  uploadQuittePlacetAssinadoGovbr,
+  excluirQuittePlacet,
+  registrarSessaoQuittePlacet,
+} from "../_actions/quitte";
 import { canWriteSecretaria } from "@/lib/permissions";
 import { AutoDownload } from "@/components/auto-download";
 import { ActionForm, ActionButton } from "@/components/action-form";
@@ -219,11 +228,15 @@ export async function AtestadosParaAssinar({
 export async function QuittePlacetsParaAssinar({
   lodgeId,
   role,
+  cargos,
 }: {
   lodgeId: string;
   role: string;
+  cargos: string[]; // cargosProcesso(): nível de acesso + cargo do rito
 }) {
-  if (!["SECRETARIO", "VENERAVEL_MESTRE"].includes(role)) return null;
+  // Cadeia Secretário → Orador → VM; Orador entra pelo cargo do rito
+  const cargoQuitte = cargoQuitteDosCargos(cargos);
+  if (!cargoQuitte) return null;
   const govbrOk = isGovbrConfigured();
   const podeExcluir = canWriteSecretaria(role);
   const placets = await prisma.quittePlacet.findMany({
@@ -236,9 +249,12 @@ export async function QuittePlacetsParaAssinar({
       quitacaoFinanceira: true,
       signedByMasterAt: true,
       signedBySecAt: true,
+      signedByOradorAt: true,
       formularioNome: true,
       formularioMime: true,
       cartaNome: true,
+      dataSessaoComunicacao: true,
+      ataNome: true,
       user: { select: { name: true, cim: true } },
     },
   });
@@ -248,9 +264,11 @@ export async function QuittePlacetsParaAssinar({
       <CardHeader>
         <CardTitle>Quitte Placets</CardTitle>
         <CardDescription>
-          Form. 122 com as assinaturas gov.br do Secretário e, por último, do
-          Venerável Mestre. A triagem (carta, Nada Consta, anexo do Form. 122)
-          é feita na página do Quitte Placet; aqui só se assina.
+          Form. 122 com as assinaturas gov.br do Secretário, do Orador e, por
+          último, do Venerável Mestre. A triagem (carta, Nada Consta, anexo do Form. 122)
+          é feita na página do Quitte Placet; aqui a Secretaria registra a
+          sessão em que o pedido foi comunicado à Loja (com a ata) e os cargos
+          assinam.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -265,12 +283,14 @@ export async function QuittePlacetsParaAssinar({
                 status: p.status,
                 quitacaoFinanceira: p.quitacaoFinanceira,
                 cartaNome: p.cartaNome,
+                dataSessaoComunicacao: p.dataSessaoComunicacao,
+                ataNome: p.ataNome,
                 formularioNome: p.formularioNome,
                 formularioMime: p.formularioMime,
-                govbrPdf:
-                  p.signedBySecAt || p.signedByMasterAt ? Buffer.alloc(1) : null,
+                govbrPdf: assinaturasQuitte(p) > 0 ? Buffer.alloc(1) : null,
               });
-              const ordem = ordemAssinaturaQuitte(role, p);
+              const ordem = ordemAssinaturaQuitte(cargoQuitte, p);
+              const sessaoOk = !!p.dataSessaoComunicacao && !!p.ataNome;
               const minhaVez = !ordem.jaAssinou && !ordem.aguardando && !bloqueio;
               const form = `/secretaria/quitte-placets/formulario/${p.id}`;
               return (
@@ -283,16 +303,21 @@ export async function QuittePlacetsParaAssinar({
                         {p.dataSolicitacao.toLocaleDateString("pt-BR")}
                       </span>
                     </span>
-                    <a
-                      href={`/secretaria/quitte-placets#form-placet-${p.id}`}
-                      className="text-xs font-medium text-primary hover:underline"
-                    >
-                      Abrir triagem →
-                    </a>
+                    {podeExcluir && (
+                      <a
+                        href={`/secretaria/quitte-placets#form-placet-${p.id}`}
+                        className="text-xs font-medium text-primary hover:underline"
+                      >
+                        Abrir triagem →
+                      </a>
+                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={p.signedBySecAt ? "default" : "secondary"}>
                       Secretário {p.signedBySecAt ? "✓" : "pendente"}
+                    </Badge>
+                    <Badge variant={p.signedByOradorAt ? "default" : "secondary"}>
+                      Orador {p.signedByOradorAt ? "✓" : "pendente"}
                     </Badge>
                     <Badge variant={p.signedByMasterAt ? "default" : "secondary"}>
                       Venerável {p.signedByMasterAt ? "✓" : "pendente"}
@@ -306,6 +331,18 @@ export async function QuittePlacetsParaAssinar({
                       <Button asChild size="sm" variant="ghost">
                         <a href={`/secretaria/quitte-placets/carta/${p.id}`}>
                           Ver carta
+                        </a>
+                      </Button>
+                    )}
+                    <Badge variant={sessaoOk ? "default" : "secondary"}>
+                      {p.dataSessaoComunicacao
+                        ? `Comunicado em sessão de ${p.dataSessaoComunicacao.toLocaleDateString("pt-BR")}`
+                        : "Sessão de comunicação pendente"}
+                    </Badge>
+                    {p.ataNome && (
+                      <Button asChild size="sm" variant="ghost">
+                        <a href={`/secretaria/quitte-placets/ata/${p.id}`}>
+                          Ver ata da sessão
                         </a>
                       </Button>
                     )}
@@ -340,12 +377,64 @@ export async function QuittePlacetsParaAssinar({
                       {bloqueio}
                     </p>
                   )}
+                  {podeExcluir && (
+                    <details
+                      className="rounded-md border bg-muted/20 p-3"
+                      open={!sessaoOk}
+                    >
+                      <summary className="cursor-pointer text-sm font-medium">
+                        {sessaoOk
+                          ? "Sessão de comunicação (alterar)"
+                          : "Registrar a sessão em que o pedido foi comunicado"}
+                      </summary>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Informe a data da sessão em que o pedido de Quitte Placet
+                        foi comunicado à Loja e anexe a ata dessa sessão (PDF ou
+                        imagem). As assinaturas gov.br só liberam depois disso.
+                      </p>
+                      <div className="mt-2">
+                        <ActionForm
+                          action={registrarSessaoQuittePlacet.bind(null, p.id)}
+                          submitLabel={sessaoOk ? "Atualizar" : "Registrar sessão"}
+                        >
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-1">
+                              <Label htmlFor={`sessao-${p.id}`}>Data da sessão</Label>
+                              <Input
+                                id={`sessao-${p.id}`}
+                                name="dataSessao"
+                                type="date"
+                                required
+                                defaultValue={
+                                  p.dataSessaoComunicacao
+                                    ? p.dataSessaoComunicacao.toISOString().slice(0, 10)
+                                    : ""
+                                }
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label htmlFor={`ata-${p.id}`}>
+                                Ata da sessão {p.ataNome ? "(substituir)" : ""}
+                              </Label>
+                              <Input
+                                id={`ata-${p.id}`}
+                                name="ata"
+                                type="file"
+                                accept="application/pdf,image/*"
+                                required={!p.ataNome}
+                              />
+                            </div>
+                          </div>
+                        </ActionForm>
+                      </div>
+                    </details>
+                  )}
                   {minhaVez && (
                     <PortalIti
                       href={form}
                       action={uploadQuittePlacetAssinadoGovbr.bind(null, p.id)}
-                      comAnteriores={!!(p.signedBySecAt || p.signedByMasterAt)}
-                      chave={`quitte:${p.id}:${p.signedBySecAt ? 1 : 0}`}
+                      comAnteriores={assinaturasQuitte(p) > 0}
+                      chave={`quitte:${p.id}:${assinaturasQuitte(p)}`}
                     />
                   )}
                 </li>

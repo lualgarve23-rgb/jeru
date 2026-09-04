@@ -24,7 +24,7 @@ export const FAQ: Record<string, { titulo: string; resposta: string }> = {
   "quitte-placet": {
     titulo: "Quitte Placet",
     resposta:
-      "O pedido é feito em /secretaria/quitte-placets e exige a foto da carta escrita a próprio punho e assinada. Requer quitação financeira; as assinaturas (Secretário → Venerável) são pelo gov.br.",
+      "O pedido é feito em /secretaria/quitte-placets e exige a foto da carta escrita a próprio punho e assinada. Requer quitação financeira; as assinaturas (Secretário → Orador → Venerável) são pelo gov.br.",
   },
   afastamento: {
     titulo: "Pedido de Afastamento (Form. 116)",
@@ -86,7 +86,9 @@ export const GUIAS: Record<
     passos: [
       "O irmão ATIVO solicita em /secretaria/quitte-placets, anexando a foto/PDF da carta escrita a próprio punho e assinada (obrigatória).",
       "A Secretaria faz a triagem: confere a carta, o Nada Consta da Tesouraria (trava financeira) e prepara o Form. 122 em PDF.",
+      "Em /secretaria/processos a Secretaria registra a data da sessão em que o pedido foi comunicado à Loja e anexa a ata dessa sessão — obrigatórios antes das assinaturas.",
       "O Secretário assina pelo gov.br na aba /secretaria/processos.",
+      "O Orador (cargo do rito) assina em seguida, também em Processos.",
       "O Venerável Mestre assina por último.",
       "Aprovado, o documento é enviado à Guarda dos Selos pelo Gmail da Loja; o irmão acompanha tudo pela linha do tempo do pedido.",
     ],

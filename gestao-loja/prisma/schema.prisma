@@ -233,6 +233,7 @@ model User {
   quittePlacets         QuittePlacet[]
   quittePlacetsAsMaster QuittePlacet[]  @relation("QuittePlacetMaster")
   quittePlacetsAsSec    QuittePlacet[]  @relation("QuittePlacetSecretary")
+  quittePlacetsAsOrador QuittePlacet[]  @relation("QuittePlacetOrador")
   atestados             AtestadoRegularidade[] @relation("AtestadoUser")
   mutuaEntrega          MutuaEntrega?
   atestadosAsMaster     AtestadoRegularidade[] @relation("AtestadoMaster")
@@ -958,12 +959,21 @@ model QuittePlacet {
   signedByMasterAt DateTime?
   signedBySecId    String?
   signedBySecAt    DateTime?
+  // Orador (cargo do rito, User.cargoRito) — assina entre o Secretário e o VM
+  signedByOradorId String?
+  signedByOradorAt DateTime?
 
   // Carta de próprio punho (foto/PDF) anexada pelo irmão junto do pedido —
   // obrigatória; sem ela as assinaturas ficam bloqueadas
   cartaArquivo Bytes?
   cartaNome    String?
   cartaMime    String?
+  // Sessão em que o pedido foi comunicado à Loja e a ata dessa sessão
+  // (registradas pela Secretaria em Processos) — exigidas antes das assinaturas
+  dataSessaoComunicacao DateTime?
+  ataArquivo            Bytes?
+  ataNome               String?
+  ataMime               String?
   // Form. 122 com as assinaturas PAdES do ITI (gov.br) embutidas
   govbrPdf     Bytes?
 
@@ -983,6 +993,7 @@ model QuittePlacet {
   lodge          Lodge @relation(fields: [lodgeId], references: [id])
   signedByMaster User? @relation("QuittePlacetMaster", fields: [signedByMasterId], references: [id])
   signedBySec    User? @relation("QuittePlacetSecretary", fields: [signedBySecId], references: [id])
+  signedByOrador User? @relation("QuittePlacetOrador", fields: [signedByOradorId], references: [id])
 
   @@index([lodgeId])
   @@map("quitte_placets")

@@ -232,6 +232,7 @@ export const FERRAMENTAS: Ferramenta[] = [
             dataSolicitacao: true,
             quitacaoFinanceira: true,
             signedBySecAt: true,
+            signedByOradorAt: true,
             signedByMasterAt: true,
           },
         }),
@@ -269,6 +270,7 @@ export const FERRAMENTAS: Ferramenta[] = [
           quitacaoFinanceira: q.quitacaoFinanceira,
           assinaturas: {
             secretario: !!q.signedBySecAt,
+            orador: !!q.signedByOradorAt,
             veneravel: !!q.signedByMasterAt,
           },
         })),
@@ -628,6 +630,7 @@ export const FERRAMENTAS: Ferramenta[] = [
             dataSolicitacao: true,
             quitacaoFinanceira: true,
             signedBySecAt: true,
+            signedByOradorAt: true,
             signedByMasterAt: true,
             user: { select: { name: true } },
           },
@@ -651,6 +654,7 @@ export const FERRAMENTAS: Ferramenta[] = [
           quitacaoFinanceira: q.quitacaoFinanceira,
           assinaturasPendentes: [
             !q.signedBySecAt && "Secretário",
+            !q.signedByOradorAt && "Orador",
             !q.signedByMasterAt && "Venerável",
           ].filter(Boolean),
         })),

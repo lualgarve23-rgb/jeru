@@ -3,8 +3,8 @@ import { requireUser } from "@/lib/session";
 import { attachmentResponse } from "@/lib/download";
 import { cargosProcessoDoUsuario } from "@/lib/processos";
 
-// Download da carta de próprio punho anexada ao pedido de Quitte Placet.
-// Visível para os fiscais da Secretaria e para o próprio irmão do pedido.
+// Download da ata da sessão em que o pedido de Quitte Placet foi comunicado.
+// Visível para a gestão, o Orador (assinante) e o próprio irmão do pedido.
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -13,7 +13,7 @@ export async function GET(
   const { id } = await params;
   const placet = await prisma.quittePlacet.findUnique({
     where: { id, lodgeId: user.lodgeId },
-    select: { userId: true, cartaArquivo: true, cartaNome: true, cartaMime: true },
+    select: { userId: true, ataArquivo: true, ataNome: true, ataMime: true },
   });
   const fiscal = ["SECRETARIO", "VENERAVEL_MESTRE", "CONSELHO_CONTAS"].includes(
     user.role
@@ -23,12 +23,12 @@ export async function GET(
   if (!placet || (!fiscal && !orador && placet.userId !== user.id)) {
     return new Response("Não encontrado.", { status: 404 });
   }
-  if (!placet.cartaArquivo) {
-    return new Response("Carta não anexada.", { status: 404 });
+  if (!placet.ataArquivo) {
+    return new Response("Ata não anexada.", { status: 404 });
   }
   return attachmentResponse(
-    placet.cartaArquivo,
-    placet.cartaNome ?? "carta-quitte-placet",
-    placet.cartaMime
+    placet.ataArquivo,
+    placet.ataNome ?? "ata-sessao-quitte-placet",
+    placet.ataMime
   );
 }

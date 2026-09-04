@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { proximoCargoQuitte, cargoAssinanteQuitte } from "@/lib/quitte";
 import { requireUser } from "@/lib/session";
 import { InfoDica } from "@/components/info-dica";
 import { AJUDA } from "@/lib/ajuda";
@@ -42,7 +43,10 @@ export default async function SolicitacoesPage() {
         dataSolicitacao: true,
         quitacaoFinanceira: true,
         signedBySecAt: true,
+        signedByOradorAt: true,
         signedByMasterAt: true,
+        dataSessaoComunicacao: true,
+        ataNome: true,
         formularioEnviadoAt: true,
       },
     }),
@@ -92,7 +96,9 @@ export default async function SolicitacoesPage() {
         : {
             texto: !quitte.quitacaoFinanceira
               ? "Pendente com: Tesouraria (Nada Consta)"
-              : `Pendente com: ${quitte.signedBySecAt ? "Venerável Mestre" : "Secretário"}`,
+              : !quitte.dataSessaoComunicacao || !quitte.ataNome
+                ? "Pendente com: Secretaria (comunicação em sessão e ata)"
+                : `Pendente com: ${cargoAssinanteQuitte(proximoCargoQuitte(quitte) ?? "VENERAVEL_MESTRE")}`,
             ativo: true,
           };
 

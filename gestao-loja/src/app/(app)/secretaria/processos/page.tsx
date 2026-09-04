@@ -43,7 +43,7 @@ const govbrMsgs: Record<string, string> = {
   ordem: "Ainda não é a sua vez — siga a ordem da cadeia de assinantes.",
   "nao-assinante": "O seu cargo não está na cadeia de assinantes deste documento.",
   bloqueado:
-    "O documento ainda não está pronto para assinatura — no Quitte Placet, confira a carta, o Nada Consta e o Form. 122 em PDF; no Afastamento, registre a sessão para gerar o Form. 116.",
+    "O documento ainda não está pronto para assinatura — no Quitte Placet, confira a carta, o Nada Consta, a sessão de comunicação com a ata e o Form. 122 em PDF; no Afastamento, registre a sessão para gerar o Form. 116.",
   falhou: "A assinatura gov.br falhou — tente novamente.",
 };
 
@@ -161,13 +161,10 @@ export default async function ProcessosPage({
         </Card>
       )}
 
-      {isGestor && (
-        <>
-          <AtestadosParaAssinar lodgeId={user.lodgeId} role={user.role} />
-          <QuittePlacetsParaAssinar lodgeId={user.lodgeId} role={user.role} />
-          <AfastamentosParaAssinar lodgeId={user.lodgeId} role={user.role} />
-        </>
-      )}
+      {isGestor && <AtestadosParaAssinar lodgeId={user.lodgeId} role={user.role} />}
+      {/* Quitte Placet: além da gestão, o Orador (cargo do rito) assina */}
+      <QuittePlacetsParaAssinar lodgeId={user.lodgeId} role={user.role} cargos={meusCargos} />
+      {isGestor && <AfastamentosParaAssinar lodgeId={user.lodgeId} role={user.role} />}
 
       <h2 className="text-lg font-semibold">Documentos da Secretaria</h2>
       <div className="space-y-4">

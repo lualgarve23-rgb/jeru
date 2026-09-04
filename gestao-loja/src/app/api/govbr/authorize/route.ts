@@ -4,7 +4,11 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isGovbrConfigured, govbrAuthorizeUrl } from "@/lib/govbr";
 import { ordemAssinaturaAtestado } from "@/lib/atestado";
-import { ordemAssinaturaQuitte, bloqueioAssinaturaQuitte } from "@/lib/quitte";
+import {
+  ordemAssinaturaQuitte,
+  bloqueioAssinaturaQuitte,
+  cargoQuitteDoUsuario,
+} from "@/lib/quitte";
 import { estadoProcesso, cargosProcessoDoUsuario } from "@/lib/processos";
 import {
   ordemAssinaturaAfastamento,
@@ -96,16 +100,21 @@ export async function GET(req: NextRequest) {
     return res;
   }
 
-  // Assinatura gov.br de um Quitte Placet — Secretário primeiro, VM por último
+  // Assinatura gov.br de um Quitte Placet — Secretário, Orador (cargo do
+  // rito, qualquer nível de acesso) e VM por último
   const quitteId = req.nextUrl.searchParams.get("quitte");
   if (quitteId) {
-    if (!cargoFiscal) return NextResponse.redirect(new URL("/dashboard", baseUrl));
     const backUrl = new URL("/secretaria/processos", baseUrl);
     const back = (motivo: string) => {
       backUrl.searchParams.set("govbr", motivo);
       return NextResponse.redirect(backUrl);
     };
-    if (!["VENERAVEL_MESTRE", "SECRETARIO"].includes(role!)) {
+    const meu = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { cargoRito: true },
+    });
+    const cargoQuitte = cargoQuitteDoUsuario(role!, meu?.cargoRito);
+    if (!cargoQuitte) {
       return back("nao-assinante");
     }
     if (!isGovbrConfigured()) return back("nao-configurado");
@@ -114,7 +123,7 @@ export async function GET(req: NextRequest) {
     });
     if (!placet) return back("falhou");
     if (bloqueioAssinaturaQuitte(placet)) return back("bloqueado");
-    const ordem = ordemAssinaturaQuitte(role!, placet);
+    const ordem = ordemAssinaturaQuitte(cargoQuitte, placet);
     if (ordem.jaAssinou) return back("ja-assinou");
     if (ordem.aguardando) return back("ordem");
     const state = randomUUID();

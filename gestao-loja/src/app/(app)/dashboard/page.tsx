@@ -134,6 +134,7 @@ async function processosNaVez(lodgeId: string, cargos: string | string[]) {
 function AtestadosPendentesCard({
   atestados,
   processos = [],
+  quittes = [],
 }: {
   atestados: {
     id: string;
@@ -141,8 +142,9 @@ function AtestadosPendentesCard({
     user: { name: string; cim: string };
   }[];
   processos?: { id: string; titulo: string; createdAt: Date }[];
+  quittes?: { id: string; dataSolicitacao: Date; user: { name: string; cim: string } }[];
 }) {
-  const vazio = atestados.length === 0 && processos.length === 0;
+  const vazio = atestados.length === 0 && processos.length === 0 && quittes.length === 0;
   return (
     <Card>
       <CardHeader>
@@ -166,6 +168,20 @@ function AtestadosPendentesCard({
                   <span className="min-w-0">
                     Atestado de {a.user.name} (CIM {a.user.cim}) — solicitado em{" "}
                     {a.solicitadoAt.toLocaleDateString("pt-BR")}
+                  </span>
+                  <Badge variant="warning">Minha vez</Badge>
+                </Link>
+              </li>
+            ))}
+            {quittes.map((q) => (
+              <li key={q.id}>
+                <Link
+                  href="/secretaria/processos"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background p-3 transition-colors hover:bg-muted/50"
+                >
+                  <span className="min-w-0">
+                    Quitte Placet de {q.user.name} (CIM {q.user.cim}) — solicitado em{" "}
+                    {q.dataSolicitacao.toLocaleDateString("pt-BR")}
                   </span>
                   <Badge variant="warning">Minha vez</Badge>
                 </Link>
@@ -331,6 +347,21 @@ async function MemberDashboard({
   const meusCargos = cargosProcesso(me.currentRole, me.cargoRito);
   const processosToSign =
     meusCargos.length > 1 ? await processosNaVez(lodgeId, meusCargos) : [];
+  // Orador: Quitte Placets na vez dele (Secretário já assinou)
+  const quittesToSign = meusCargos.includes("ORADOR")
+    ? await prisma.quittePlacet.findMany({
+        where: {
+          lodgeId,
+          quitacaoFinanceira: true,
+          dataSessaoComunicacao: { not: null },
+          signedBySecId: { not: null },
+          signedByOradorId: null,
+          status: { in: ["PENDENTE", "EM_ANALISE"] },
+        },
+        select: { id: true, dataSolicitacao: true, user: { select: { name: true, cim: true } } },
+        orderBy: { dataSolicitacao: "asc" },
+      })
+    : [];
 
   const emAberto = openInvoices.reduce((s, i) => s + i.amountCents, 0);
   const vencidas = openInvoices.filter(
@@ -493,7 +524,7 @@ async function MemberDashboard({
         </CardContent>
       </Card>
       {processosToSign.length > 0 && (
-        <AtestadosPendentesCard atestados={[]} processos={processosToSign} />
+        <AtestadosPendentesCard atestados={[]} processos={processosToSign} quittes={quittesToSign} />
       )}
     </>
   );
@@ -887,12 +918,14 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
         },
         orderBy: { createdAt: "asc" },
       }),
-      // Placets na vez do VM (Secretário já assinou — o VM assina por último)
+      // Placets na vez do VM (Secretário e Orador já assinaram — o VM sela)
       prisma.quittePlacet.findMany({
         where: {
           lodgeId,
           quitacaoFinanceira: true, // trava financeira já liberada
+          dataSessaoComunicacao: { not: null },
           signedBySecId: { not: null },
+          signedByOradorId: { not: null },
           signedByMasterId: null,
           status: { in: ["PENDENTE", "EM_ANALISE"] },
         },
@@ -1030,7 +1063,8 @@ async function VmDashboard({ lodgeId }: { lodgeId: string }) {
           <CardHeader>
             <CardTitle>Quitte Placets aguardando minha assinatura</CardTitle>
             <CardDescription>
-              Quitação financeira já confirmada pela Tesouraria.
+              Quitação financeira confirmada e assinaturas do Secretário e do
+              Orador já colhidas — o Venerável Mestre assina por último.
             </CardDescription>
           </CardHeader>
           <CardContent>

@@ -3,7 +3,7 @@ import { AJUDA } from "@/lib/ajuda";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { canWriteSecretaria } from "@/lib/permissions";
-import { bloqueioAssinaturaQuitte } from "@/lib/quitte";
+import { bloqueioAssinaturaQuitte, assinaturasQuitte } from "@/lib/quitte";
 import { LinhaDoTempo } from "@/components/linha-do-tempo";
 import {
   requestQuittePlacet,
@@ -78,6 +78,10 @@ export default async function QuittePlacetsPage() {
         signedByMasterAt: true,
         signedBySecId: true,
         signedBySecAt: true,
+        signedByOradorId: true,
+        signedByOradorAt: true,
+        dataSessaoComunicacao: true,
+        ataNome: true,
         formularioNome: true,
         formularioMime: true,
         formularioEnviadoAt: true,
@@ -163,7 +167,7 @@ export default async function QuittePlacetsPage() {
               Solicite aqui o seu Quitte Placet anexando a carta escrita a
               próprio punho e assinada. O pedido segue para a análise da
               Secretaria, o Nada Consta da Tesouraria e as assinaturas gov.br
-              do Secretário e do Venerável Mestre.
+              do Secretário, do Orador e do Venerável Mestre.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -206,8 +210,7 @@ export default async function QuittePlacetsPage() {
               memberName: p.user.name,
               memberCim: p.user.cim,
               quitacaoFinanceira: p.quitacaoFinanceira,
-              assinaturas:
-                (p.signedByMasterId ? 1 : 0) + (p.signedBySecId ? 1 : 0),
+              assinaturas: assinaturasQuitte(p),
               temFormulario: Boolean(p.formularioNome),
               enviadoGSelos: Boolean(p.formularioEnviadoAt),
               dataSolicitacao: p.dataSolicitacao.toLocaleDateString("pt-BR"),
@@ -238,8 +241,10 @@ export default async function QuittePlacetsPage() {
                   const etapas = [
                     { cargo: "Carta entregue", at: null, feito: !!p.cartaNome },
                     { cargo: "Nada Consta (Tesouraria)", at: null, feito: p.quitacaoFinanceira },
+                    { cargo: "Comunicação em sessão + ata (Secretaria)", at: null, feito: !!p.dataSessaoComunicacao && !!p.ataNome },
                     { cargo: "Form. 122 (Secretaria)", at: null, feito: !!p.formularioNome },
                     { cargo: "Secretário", at: p.signedBySecAt },
+                    { cargo: "Orador", at: p.signedByOradorAt },
                     { cargo: "Venerável Mestre", at: p.signedByMasterAt },
                     { cargo: "Guarda dos Selos", at: p.formularioEnviadoAt },
                   ];
@@ -327,11 +332,13 @@ export default async function QuittePlacetsPage() {
                     </TableCell>
                     <TableCell className="text-xs">
                       <span aria-hidden="true">
-                        Sec {p.signedBySecId ? "✓" : "—"} · VM{" "}
+                        Sec {p.signedBySecId ? "✓" : "—"} · Or{" "}
+                        {p.signedByOradorId ? "✓" : "—"} · VM{" "}
                         {p.signedByMasterId ? "✓" : "—"}
                       </span>
                       <span className="sr-only">
                         Secretário {p.signedBySecId ? "assinou" : "não assinou"};
+                        Orador {p.signedByOradorId ? "assinou" : "não assinou"};
                         Venerável Mestre{" "}
                         {p.signedByMasterId ? "assinou" : "não assinou"}
                       </span>
@@ -397,11 +404,13 @@ export default async function QuittePlacetsPage() {
                   status: p.status,
                   quitacaoFinanceira: p.quitacaoFinanceira,
                   cartaNome: p.cartaNome,
+                  dataSessaoComunicacao: p.dataSessaoComunicacao,
+                  ataNome: p.ataNome,
                   formularioNome: p.formularioNome,
                   formularioMime: p.formularioMime,
                   // o PDF gov.br em si não vem à listagem; a existência de
                   // assinatura registrada implica a existência dele
-                  govbrPdf: p.signedBySecAt || p.signedByMasterAt ? Buffer.alloc(1) : null,
+                  govbrPdf: assinaturasQuitte(p) > 0 ? Buffer.alloc(1) : null,
                 });
                 return (
                 <div
