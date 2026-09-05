@@ -52,6 +52,7 @@ export async function dadosResumoMensal(
     processosAbertos,
     perguntas,
     usuariosAssistente,
+    fechamento,
   ] = await Promise.all([
     prisma.invoice.groupBy({
       by: ["status"],
@@ -96,6 +97,14 @@ export async function dadosResumoMensal(
       distinct: ["userId"],
       select: { userId: true },
     }),
+    prisma.fechamentoMes.findUnique({
+      where: { lodgeId_ano_mes: { lodgeId, ano, mes } },
+      select: {
+        reabertoAt: true,
+        cienciaConselhoAt: true,
+        fechadoPor: { select: { name: true } },
+      },
+    }),
   ]);
 
   const porStatus = (s: string) =>
@@ -131,6 +140,11 @@ export async function dadosResumoMensal(
     assistente: {
       perguntas,
       usuarios: usuariosAssistente.length,
+    },
+    balancete: {
+      fechado: !!fechamento && fechamento.reabertoAt == null,
+      fechadoPor: fechamento?.fechadoPor.name ?? null,
+      cienciaConselho: !!fechamento && fechamento.reabertoAt == null && !!fechamento.cienciaConselhoAt,
     },
   };
 }
@@ -173,6 +187,11 @@ export function htmlResumoMensal(
             `Abertos no mês: <strong>${r.processos.criados}</strong> · Concluídos no mês: <strong>${r.processos.assinados}</strong>`,
             `Aguardando assinaturas hoje: <strong>${r.processos.emAssinatura}</strong>`,
           ])}
+          ${secao("Balancete do mês", [
+            r.balancete.fechado
+              ? `Fechado por <strong>${r.balancete.fechadoPor ?? "—"}</strong> · Ciência do Conselho: <strong>${r.balancete.cienciaConselho ? "registrada" : "pendente"}</strong>`
+              : `<strong>Ainda aberto</strong> — o Tesoureiro precisa fechar o mês na Tesouraria para o quadro consultar o Balancete da Loja`,
+          ])}
           ${secao("Assistente IA", [
             `Perguntas no mês: <strong>${r.assistente.perguntas}</strong>, de <strong>${r.assistente.usuarios}</strong> irmão(s)`,
           ])}
@@ -201,6 +220,9 @@ function textoResumoMensal(
     `Frequência: ${r.frequencia.sessoes} sessões, ${r.frequencia.presencas} presenças (média ${r.frequencia.mediaPorSessao}/sessão), ${r.frequencia.visitantes} visitantes, ${r.frequencia.justificadas} ausências justificadas.`,
     `Processos: ${r.processos.criados} abertos no mês, ${r.processos.assinados} concluídos, ${r.processos.emAssinatura} aguardando assinaturas.`,
     `Assistente IA: ${r.assistente.perguntas} perguntas de ${r.assistente.usuarios} irmão(s).`,
+    r.balancete.fechado
+      ? `Balancete: fechado por ${r.balancete.fechadoPor ?? "—"}; ciência do Conselho ${r.balancete.cienciaConselho ? "registrada" : "pendente"}.`
+      : "Balancete: ainda aberto — o Tesoureiro precisa fechar o mês.",
   ].join("\n");
 }
 

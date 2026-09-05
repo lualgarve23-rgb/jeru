@@ -30,6 +30,16 @@ const CATALOGO: Sugestao[] = [
     roles: ["VENERAVEL_MESTRE", "TESOUREIRO", "CONSELHO_CONTAS"],
   },
   {
+    texto: "Há balancete fechado aguardando minha ciência?",
+    rotas: ["/tesouraria/balancete", "/dashboard"],
+    roles: ["CONSELHO_CONTAS"],
+  },
+  {
+    texto: "Que mês do balancete ainda falta fechar?",
+    rotas: ["/tesouraria/balancete"],
+    roles: ["TESOUREIRO", "VENERAVEL_MESTRE"],
+  },
+  {
     texto: "Quem está com capitações vencidas?",
     rotas: ["/tesouraria"],
     roles: ["VENERAVEL_MESTRE", "TESOUREIRO", "CONSELHO_CONTAS", "ESMOLER"],
@@ -79,7 +89,7 @@ const CATALOGO: Sugestao[] = [
 // Chips dinâmicos a partir de "Minha vez" (lib/pendencias.ts): entram na
 // frente do catálogo, sem rota (valem em qualquer tela).
 export function sugestoesDinamicas(
-  pendencias: { tipo: string; acao?: string }[]
+  pendencias: { tipo: string; acao?: string; chave?: string }[]
 ): { texto: string; rotas?: string[]; fixa?: boolean }[] {
   if (pendencias.length === 0) return [];
   const conta = (tipos: string[]) => pendencias.filter((p) => tipos.includes(p.tipo)).length;
@@ -98,6 +108,14 @@ export function sugestoesDinamicas(
   if (conta(["convite"]) > 0) chips.push("Que convites de sessão ainda não respondi?");
   if (conta(["lgpd", "candidato"]) > 0) chips.push("O que a Secretaria precisa registrar hoje?");
   if (conta(["esmoler"]) > 0) chips.push("Quais irmãos precisam do meu contato?");
+  const fechamentos = pendencias.filter((p) => p.tipo === "fechamento");
+  if (fechamentos.length > 0) {
+    chips.push(
+      fechamentos.some((p) => p.chave?.startsWith("ciencia-"))
+        ? "Há balancete fechado aguardando minha ciência?"
+        : "Que mês do balancete ainda falta fechar?"
+    );
+  }
   if (chips.length === 0) chips.push(`Tenho ${pendencias.length} item(ns) na minha vez — o que são?`);
   return chips.slice(0, 3).map((texto) => ({ texto, fixa: true }));
 }

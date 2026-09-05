@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   UserPlus,
   Wallet,
+  Lock,
   type LucideIcon,
 } from "lucide-react";
 
@@ -37,6 +38,7 @@ const ICONE: Record<TipoPendencia, LucideIcon> = {
   lgpd: ShieldCheck,
   esmoler: HeartHandshake,
   candidato: UserPlus,
+  fechamento: Lock,
 };
 
 export function MinhaVez({

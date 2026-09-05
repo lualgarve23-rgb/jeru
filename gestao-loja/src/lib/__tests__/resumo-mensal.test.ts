@@ -6,6 +6,7 @@ const resumo: ResumoMensal = {
   frequencia: { sessoes: 4, presencas: 96, mediaPorSessao: 24, visitantes: 6, justificadas: 8 },
   processos: { criados: 3, assinados: 2, emAssinatura: 1 },
   assistente: { perguntas: 42, usuarios: 12 },
+  balancete: { fechado: true, fechadoPor: "Carlos Tesoureiro", cienciaConselho: false },
 };
 
 describe("mesAnterior", () => {
@@ -26,5 +27,8 @@ describe("htmlResumoMensal", () => {
     expect(html).toContain("2.500,00");
     expect(html).toContain("média de 24 por sessão");
     expect(html).toContain("<strong>42</strong>");
+    expect(html).toContain("Balancete do mês");
+    expect(html).toContain("Carlos Tesoureiro");
+    expect(html).toContain("pendente");
   });
 });

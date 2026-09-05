@@ -56,9 +56,9 @@ export const AJUDA = {
   despesas:
     "Toda despesa precisa da aprovação do Venerável Mestre E do Tesoureiro antes de ser paga (trava de governança). Ao pagar, entra automaticamente no livro-caixa do balancete.",
   balancete:
-    "Livro-caixa do mês: receitas (capitações, tronco, eventos) e despesas, com totais por categoria. Use “Lançar receita” para entradas manuais e exporte o CSV para prestação de contas.",
+    "Livro-caixa do mês: receitas (capitações, tronco, eventos) e despesas, com totais por categoria. Use “Lançar receita” para entradas manuais e exporte o CSV para prestação de contas. Fechamento mensal: ao terminar o mês, o Tesoureiro (ou o Venerável) clica em “Fechar mês” — os totais ficam congelados, o Conselho de Contas registra a ciência e só então o quadro vê o mês no Balancete da Loja. Lançamentos manuais em mês fechado são bloqueados; para corrigir algo, use “Reabrir mês” (com motivo) e feche de novo.",
   balanceteQuadro:
-    "Balancete mensal da Loja aberto a todo o quadro, só para consulta: receitas, despesas e saldo do mês, evolução dos últimos 12 meses e totais por categoria. Por privacidade, as capitações aparecem só como total (quantos irmãos pagaram) e a beneficência só como total da categoria — nenhum nome de irmão é exibido. Dúvidas com o Tesoureiro ou o Conselho de Contas.",
+    "Balancete mensal da Loja aberto a todo o quadro, só para consulta: receitas, despesas e saldo do mês, evolução dos últimos 12 meses e totais por categoria. Só aparecem os meses já fechados pela Tesouraria: o Tesoureiro fecha o mês, o Conselho de Contas registra ciência e o quadro consulta. Por privacidade, as capitações aparecem só como total (quantos irmãos pagaram) e a beneficência só como total da categoria — nenhum nome de irmão é exibido. Dúvidas com o Tesoureiro ou o Conselho de Contas.",
   configloja:
     "Parâmetros da Loja: dados cadastrais, frequência mínima para progressão, limite de inadimplência, gateway de pagamento, Google Drive/Gmail e o cabeçalho institucional das atas.",
 } as const;

@@ -15,6 +15,7 @@ import { canWriteSecretaria, canWriteTesouraria } from "@/lib/permissions";
 import { capitacaoVencida } from "@/lib/datas-sp";
 import { linkProcessos } from "@/lib/notifications";
 import { cargoCorresponde } from "@/lib/cargos";
+import { estaFechado, fechamentoAtrasado, referenciaMes } from "@/lib/fechamento-mes";
 
 /*
  * "Minha vez" — tudo o que está parado esperando o usuário logado, num só
@@ -47,7 +48,8 @@ export type TipoPendencia =
   | "convite"
   | "lgpd"
   | "esmoler"
-  | "candidato";
+  | "candidato"
+  | "fechamento";
 
 export type Pendencia = {
   chave: string; // "<tipo>-<id>" — estável, serve de key e de destaque
@@ -203,6 +205,16 @@ export type DadosPendencias = {
     dataEscrutinio: Date | null;
     aprovado: boolean | null;
     updatedAt: Date;
+  }[];
+  // fechamentos mensais do balancete (recentes): ciência pendente do Conselho
+  // e mês anterior ainda aberto (Tesoureiro)
+  fechamentos: {
+    id: string;
+    ano: number;
+    mes: number;
+    fechadoAt: Date;
+    cienciaConselhoAt: Date | null;
+    reabertoAt: Date | null;
   }[];
 };
 
@@ -557,6 +569,39 @@ export function montarPendencias(
     }
   }
 
+  // Fechamento mensal do balancete: ciência do Conselho; Tesoureiro com o
+  // mês anterior ainda aberto depois do dia 10
+  if (user.role === "CONSELHO_CONTAS") {
+    for (const f of dados.fechamentos) {
+      if (!estaFechado(f) || f.cienciaConselhoAt) continue;
+      out.push({
+        chave: `ciencia-${f.id}`,
+        tipo: "fechamento",
+        titulo: `Balancete de ${referenciaMes(f.ano, f.mes)} fechado`,
+        contexto: "Aguardando a ciência do Conselho de Contas",
+        link: `/tesouraria/balancete?mes=${f.mes}&ano=${f.ano}#fechamento`,
+        desde: f.fechadoAt,
+        acao: "registrar",
+        prioridade: 2,
+      });
+    }
+  }
+  if (user.role === "TESOUREIRO") {
+    const atrasado = fechamentoAtrasado(dados.fechamentos, agora);
+    if (atrasado) {
+      out.push({
+        chave: `fechamento-${atrasado.ano}-${String(atrasado.mes).padStart(2, "0")}`,
+        tipo: "fechamento",
+        titulo: `Balancete de ${referenciaMes(atrasado.ano, atrasado.mes)} ainda aberto`,
+        contexto: "Feche o mês para o Conselho registrar ciência e o quadro consultar",
+        link: `/tesouraria/balancete?mes=${atrasado.mes}&ano=${atrasado.ano}#fechamento`,
+        desde: agora,
+        acao: "registrar",
+        prioridade: 2,
+      });
+    }
+  }
+
   return out.sort(
     (a, b) => a.prioridade - b.prioridade || a.desde.getTime() - b.desde.getTime()
   );
@@ -578,6 +623,7 @@ export async function coletarDados(user: UsuarioPendencias): Promise<DadosPenden
     sessoes,
     notificacoes,
     candidatos,
+    fechamentos,
   ] = await Promise.all([
     prisma.atestadoRegularidade.findMany({
       where: { lodgeId, status: "SOLICITADO" },
@@ -719,6 +765,19 @@ export async function coletarDados(user: UsuarioPendencias): Promise<DadosPenden
         updatedAt: true,
       },
     }),
+    prisma.fechamentoMes.findMany({
+      where: { lodgeId },
+      orderBy: [{ ano: "desc" }, { mes: "desc" }],
+      take: 6,
+      select: {
+        id: true,
+        ano: true,
+        mes: true,
+        fechadoAt: true,
+        cienciaConselhoAt: true,
+        reabertoAt: true,
+      },
+    }),
   ]);
   return {
     atestados,
@@ -739,6 +798,7 @@ export async function coletarDados(user: UsuarioPendencias): Promise<DadosPenden
     })),
     notificacoes,
     candidatos,
+    fechamentos,
   };
 }
 

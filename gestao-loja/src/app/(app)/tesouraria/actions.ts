@@ -4,13 +4,21 @@ import { revalidatePath } from "next/cache";
 import { aposEventoDaLoja } from "@/lib/apos-evento";
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/session";
+import { requireUser, requireRole } from "@/lib/session";
 import { canWriteTesouraria } from "@/lib/permissions";
 import { auditar } from "@/lib/audit";
 import { buildPixPayload } from "@/lib/pix";
 import { settleInvoice } from "@/lib/settle-invoice";
-import { fimDoDiaSaoPaulo, partesSaoPaulo } from "@/lib/datas-sp";
-import { notificarEvento } from "@/lib/notificar-evento";
+import { fimDoDiaSaoPaulo, intervaloMesSaoPaulo, partesSaoPaulo } from "@/lib/datas-sp";
+import { notificarEvento, usuariosDoCargo } from "@/lib/notificar-evento";
+import {
+  MSG_MES_FECHADO,
+  dataRespeitandoFechamento,
+  estaFechado,
+  fechamentoAtivoDaData,
+  mesFechavel,
+  referenciaMes,
+} from "@/lib/fechamento-mes";
 import {
   AsaasError,
   ensureCustomer,
@@ -376,6 +384,8 @@ export async function createReceita(
   if (!description) return { error: "Informe a descrição." };
   if (!amountCents || amountCents <= 0) return { error: "Valor inválido." };
   if (!date) return { error: "Data inválida." };
+  // Mês já fechado pela Tesouraria: lançamento manual bloqueado
+  if (await fechamentoAtivoDaData(user.lodgeId, date)) return { error: MSG_MES_FECHADO };
   const category = await resolveCategoria(user.lodgeId, formData, "RECEITA");
 
   const t = await prisma.transaction.create({
@@ -425,6 +435,10 @@ export async function createExpense(
   const dueDate = formData.get("dueDate")
     ? fimDoDiaSaoPaulo(String(formData.get("dueDate")))
     : null;
+  // Vencimento dentro de mês já fechado: a despesa não pode entrar nele
+  if (dueDate && (await fechamentoAtivoDaData(user.lodgeId, dueDate))) {
+    return { error: MSG_MES_FECHADO };
+  }
   const expense = await prisma.expense.create({
     data: {
       lodgeId: user.lodgeId,
@@ -528,6 +542,12 @@ export async function payExpense(expenseId: string): Promise<ActionResult> {
   if (expense.status !== "APROVADA") {
     return { error: "Pagamento bloqueado: a despesa precisa da dupla aprovação." };
   }
+  // Nunca bloqueia o pagamento; se o mês estivesse fechado, entra hoje e avisa
+  const dataPagamento = await dataRespeitandoFechamento(user.lodgeId, new Date(), {
+    descricao: expense.description,
+    amountCents: expense.amountCents,
+    chave: expense.id,
+  });
   await prisma.$transaction([
     prisma.expense.update({
       where: { id: expenseId, lodgeId: user.lodgeId },
@@ -539,7 +559,7 @@ export async function payExpense(expenseId: string): Promise<ActionResult> {
         type: "DESPESA",
         description: expense.description,
         amountCents: expense.amountCents,
-        date: new Date(),
+        date: dataPagamento,
         category: expense.category,
         expenseId: expense.id,
       },
@@ -556,4 +576,212 @@ export async function payExpense(expenseId: string): Promise<ActionResult> {
   aposEventoDaLoja(user.lodgeId);
   revalidatePath("/tesouraria/despesas");
   return { ok: "Despesa paga e lançada no livro-caixa." };
+}
+
+// ─────────────── Fechamento mensal do balancete ───────────────
+
+function lerMesAno(formData: FormData): { mes: number; ano: number } | null {
+  const mes = Number(formData.get("mes"));
+  const ano = Number(formData.get("ano"));
+  if (!Number.isInteger(mes) || mes < 1 || mes > 12) return null;
+  if (!Number.isInteger(ano) || ano < 2000 || ano > 2100) return null;
+  return { mes, ano };
+}
+
+async function totaisDoMes(lodgeId: string, ano: number, mes: number) {
+  const { inicio, fim } = intervaloMesSaoPaulo(ano, mes);
+  const grupos = await prisma.transaction.groupBy({
+    by: ["type"],
+    where: { lodgeId, date: { gte: inicio, lt: fim } },
+    _sum: { amountCents: true },
+  });
+  const soma = (tipo: string) => grupos.find((g) => g.type === tipo)?._sum.amountCents ?? 0;
+  const receitasCents = soma("RECEITA");
+  const despesasCents = soma("DESPESA");
+  return { receitasCents, despesasCents, saldoCents: receitasCents - despesasCents };
+}
+
+// Fecha o mês (Tesoureiro/VM): congela os totais e pede a ciência do Conselho
+export async function fecharMes(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireTesourariaWriter();
+  const ref = lerMesAno(formData);
+  if (!ref) return { error: "Mês/ano inválidos." };
+  const { mes, ano } = ref;
+  if (!mesFechavel(ano, mes)) {
+    return { error: "Só é possível fechar um mês já terminado." };
+  }
+  const observacao = String(formData.get("observacao") ?? "").trim().slice(0, 500) || null;
+  const existente = await prisma.fechamentoMes.findUnique({
+    where: { lodgeId_ano_mes: { lodgeId: user.lodgeId, ano, mes } },
+    select: { id: true, reabertoAt: true },
+  });
+  if (existente && estaFechado(existente)) return { error: "Este mês já está fechado." };
+
+  const totais = await totaisDoMes(user.lodgeId, ano, mes);
+  const dados = {
+    fechadoPorId: user.id,
+    fechadoAt: new Date(),
+    ...totais,
+    observacao,
+    cienciaConselhoPorId: null,
+    cienciaConselhoAt: null,
+    reabertoPorId: null,
+    reabertoAt: null,
+    motivoReabertura: null,
+  };
+  const f = existente
+    ? await prisma.fechamentoMes.update({ where: { id: existente.id }, data: dados })
+    : await prisma.fechamentoMes.create({ data: { lodgeId: user.lodgeId, ano, mes, ...dados } });
+
+  const referencia = referenciaMes(ano, mes);
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "balancete.fechar",
+    entidade: "FechamentoMes",
+    entidadeId: f.id,
+    detalhes: { referencia, ...totais, observacao: observacao ?? undefined, refechamento: !!existente },
+  });
+
+  const link = `/tesouraria/balancete?mes=${mes}&ano=${ano}`;
+  const conselho = await usuariosDoCargo(prisma, user.lodgeId, "CONSELHO_CONTAS");
+  for (const userId of conselho) {
+    await notificarEvento(prisma, {
+      lodgeId: user.lodgeId,
+      sourceKey: `evento:fechamento:${f.id}:conselho:${userId}`,
+      userId,
+      type: "FINANCIAL_APPROVAL",
+      title: `Balancete de ${referencia} fechado — registre a ciência`,
+      description: `${user.name} fechou o balancete de ${referencia}: receitas ${brl(totais.receitasCents)}, despesas ${brl(totais.despesasCents)}, saldo ${brl(totais.saldoCents)}. Confira e registre a ciência do Conselho de Contas.`,
+      link,
+    });
+  }
+  // VM fica sabendo quando o fechamento foi feito pelo Tesoureiro
+  if (user.role !== "VENERAVEL_MESTRE") {
+    for (const userId of await usuariosDoCargo(prisma, user.lodgeId, "VENERAVEL_MESTRE")) {
+      await notificarEvento(prisma, {
+        lodgeId: user.lodgeId,
+        sourceKey: `evento:fechamento:${f.id}:vm:${userId}`,
+        userId,
+        type: "FINANCIAL_APPROVAL",
+        title: `Balancete de ${referencia} fechado pelo Tesoureiro`,
+        description: `Receitas ${brl(totais.receitasCents)}, despesas ${brl(totais.despesasCents)}, saldo ${brl(totais.saldoCents)}. Aguardando a ciência do Conselho de Contas.`,
+        link,
+      });
+    }
+  }
+  aposEventoDaLoja(user.lodgeId);
+  revalidatePath("/tesouraria/balancete");
+  revalidatePath("/balancete");
+  return {
+    ok: conselho.length
+      ? `Balancete de ${referencia} fechado. O Conselho de Contas foi avisado para registrar a ciência.`
+      : `Balancete de ${referencia} fechado. Não há conselheiro ativo para registrar a ciência.`,
+  };
+}
+
+// Reabre o mês (Tesoureiro/VM, motivo obrigatório): o quadro deixa de ver o
+// mês até novo fechamento; o registro fica com reabertoAt.
+export async function reabrirMes(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireTesourariaWriter();
+  const ref = lerMesAno(formData);
+  if (!ref) return { error: "Mês/ano inválidos." };
+  const motivo = String(formData.get("motivo") ?? "").trim().slice(0, 500);
+  if (!motivo) return { error: "Informe o motivo da reabertura." };
+  const f = await prisma.fechamentoMes.findUnique({
+    where: { lodgeId_ano_mes: { lodgeId: user.lodgeId, ano: ref.ano, mes: ref.mes } },
+  });
+  if (!f || !estaFechado(f)) return { error: "Este mês não está fechado." };
+
+  await prisma.fechamentoMes.update({
+    where: { id: f.id },
+    data: { reabertoPorId: user.id, reabertoAt: new Date(), motivoReabertura: motivo },
+  });
+  const referencia = referenciaMes(ref.ano, ref.mes);
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "balancete.reabrir",
+    entidade: "FechamentoMes",
+    entidadeId: f.id,
+    detalhes: { referencia, motivo },
+  });
+  const link = `/tesouraria/balancete?mes=${ref.mes}&ano=${ref.ano}`;
+  for (const userId of await usuariosDoCargo(prisma, user.lodgeId, "CONSELHO_CONTAS")) {
+    await notificarEvento(prisma, {
+      lodgeId: user.lodgeId,
+      sourceKey: `evento:fechamento:${f.id}:reaberto:${userId}`,
+      userId,
+      type: "FINANCIAL_APPROVAL",
+      title: `Balancete de ${referencia} reaberto`,
+      description: `${user.name} reabriu o balancete de ${referencia}. Motivo: ${motivo}. O quadro deixa de ver o mês até novo fechamento.`,
+      link,
+    });
+  }
+  aposEventoDaLoja(user.lodgeId);
+  revalidatePath("/tesouraria/balancete");
+  revalidatePath("/balancete");
+  return { ok: `Balancete de ${referencia} reaberto. Feche novamente quando os ajustes terminarem.` };
+}
+
+// Ciência do Conselho de Contas sobre o mês fechado (só CONSELHO_CONTAS)
+export async function registrarCienciaBalancete(
+  mes: number,
+  ano: number
+): Promise<ActionResult> {
+  const user = await requireRole("CONSELHO_CONTAS");
+  const f = await prisma.fechamentoMes.findUnique({
+    where: { lodgeId_ano_mes: { lodgeId: user.lodgeId, ano, mes } },
+  });
+  if (!f || !estaFechado(f)) return { error: "Este mês não está fechado." };
+  if (f.cienciaConselhoAt) return { error: "A ciência já foi registrada." };
+
+  await prisma.fechamentoMes.update({
+    where: { id: f.id },
+    data: { cienciaConselhoPorId: user.id, cienciaConselhoAt: new Date() },
+  });
+  const referencia = referenciaMes(ano, mes);
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "balancete.ciencia-conselho",
+    entidade: "FechamentoMes",
+    entidadeId: f.id,
+    detalhes: { referencia },
+  });
+  const link = `/tesouraria/balancete?mes=${mes}&ano=${ano}`;
+  const [tesoureiros, vms] = await Promise.all([
+    usuariosDoCargo(prisma, user.lodgeId, "TESOUREIRO"),
+    usuariosDoCargo(prisma, user.lodgeId, "VENERAVEL_MESTRE"),
+  ]);
+  for (const userId of [...new Set([...tesoureiros, ...vms])]) {
+    await notificarEvento(prisma, {
+      lodgeId: user.lodgeId,
+      sourceKey: `evento:fechamento:${f.id}:ciencia:${userId}`,
+      userId,
+      type: "FINANCIAL_APPROVAL",
+      title: `Conselho registrou ciência do balancete ${referencia}`,
+      description: `${user.name} (Conselho de Contas) registrou ciência do fechamento de ${referencia}.`,
+      link,
+    });
+  }
+  // Notificações de "registre a ciência" dos conselheiros deixam de fazer sentido
+  await prisma.notification.updateMany({
+    where: { lodgeId: user.lodgeId, sourceKey: { startsWith: `evento:fechamento:${f.id}:conselho:` } },
+    data: { isRead: true },
+  });
+  aposEventoDaLoja(user.lodgeId);
+  revalidatePath("/tesouraria/balancete");
+  revalidatePath("/balancete");
+  return { ok: `Ciência do Conselho registrada para ${referencia}.` };
+}
+
+function brl(cents: number) {
+  return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }

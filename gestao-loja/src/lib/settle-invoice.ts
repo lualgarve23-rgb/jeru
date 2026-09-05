@@ -5,6 +5,7 @@ import { logInfo, logError } from "@/lib/log";
 import { notificarEvento, usuariosDoCargo } from "@/lib/notificar-evento";
 import { diaSaoPauloIso, inicioDoDiaSaoPaulo } from "@/lib/datas-sp";
 import { recalcularQuitacaoQuitte } from "@/lib/quitte";
+import { dataRespeitandoFechamento } from "@/lib/fechamento-mes";
 
 export type PaidMethod = "PIX" | "MANUAL" | "CARTAO" | "BOLETO";
 
@@ -43,6 +44,13 @@ export async function settleInvoice(
   if (invoice.status === "PAGA") return { settled: false }; // idempotente
 
   const paidAt = new Date();
+  // Mês do pagamento já fechado pela Tesouraria? A baixa nunca é bloqueada:
+  // a receita entra com a data de hoje e o Tesoureiro é avisado.
+  const dataLancamento = await dataRespeitandoFechamento(invoice.lodgeId, paidAt, {
+    descricao: `${invoice.user.name} — ${invoice.description}`,
+    amountCents: invoice.amountCents,
+    chave: invoice.id,
+  });
   const settled = await prisma.$transaction(async (tx) => {
     const r = await tx.invoice.updateMany({
       where: { id: invoiceId, status: { not: "PAGA" } },
@@ -55,7 +63,7 @@ export async function settleInvoice(
         type: "RECEITA",
         description: invoice.description,
         amountCents: invoice.amountCents,
-        date: paidAt,
+        date: dataLancamento,
         category: "Capitação",
         invoiceId: invoice.id,
       },

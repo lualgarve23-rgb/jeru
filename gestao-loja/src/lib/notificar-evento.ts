@@ -49,7 +49,7 @@ export async function notificarEvento(
 }
 
 // Ids dos ocupantes ativos de um cargo na loja (Tesoureiro, Esmoler...)
-export async function usuariosDoCargo(db: Db, lodgeId: string, role: "TESOUREIRO" | "ESMOLER" | "SECRETARIO" | "VENERAVEL_MESTRE") {
+export async function usuariosDoCargo(db: Db, lodgeId: string, role: "TESOUREIRO" | "ESMOLER" | "SECRETARIO" | "VENERAVEL_MESTRE" | "CONSELHO_CONTAS") {
   const rows = await db.user.findMany({
     where: { lodgeId, currentRole: role, status: { in: ["ATIVO", "IRREGULAR"] } },
     select: { id: true },

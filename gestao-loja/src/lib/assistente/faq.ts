@@ -39,7 +39,12 @@ export const FAQ: Record<string, { titulo: string; resposta: string }> = {
   "balancete-loja": {
     titulo: "Balancete da Loja (todo o quadro)",
     resposta:
-      "Todo irmão consulta o balancete mensal em /balancete: receitas, despesas, saldo, últimos 12 meses e totais por categoria, só leitura. Capitações aparecem só como total (quantos irmãos pagaram) e beneficência só como total — nenhum nome é exibido. Tesoureiro, Venerável e Conselho de Contas usam o Balancete completo em /tesouraria/balancete. Dúvidas com o Tesoureiro ou o Conselho de Contas.",
+      "Todo irmão consulta o balancete mensal em /balancete: receitas, despesas, saldo, últimos 12 meses e totais por categoria, só leitura. Só aparecem os meses já FECHADOS pela Tesouraria (ciclo: o Tesoureiro fecha o mês → o Conselho de Contas registra ciência → o quadro consulta); mês ainda aberto não é exibido. Capitações aparecem só como total (quantos irmãos pagaram) e beneficência só como total — nenhum nome é exibido. Tesoureiro, Venerável e Conselho de Contas usam o Balancete completo em /tesouraria/balancete. Dúvidas com o Tesoureiro ou o Conselho de Contas.",
+  },
+  "fechamento-balancete": {
+    titulo: "Fechamento mensal do balancete",
+    resposta:
+      "Em /tesouraria/balancete o Tesoureiro (ou o Venerável) fecha um mês já terminado com o botão “Fechar mês” (observação opcional): os totais ficam congelados, o Conselho de Contas é avisado e registra ciência com “Registrar ciência”, e o quadro passa a ver o mês em /balancete. Lançamentos manuais com data em mês fechado são bloqueados (“Mês fechado — reabra na Tesouraria”); pagamentos automáticos entram com a data de hoje e o Tesoureiro é avisado. “Reabrir mês” (motivo obrigatório) esconde o mês do quadro até novo fechamento. Depois do dia 10, o mês anterior ainda aberto aparece na “Minha vez” do Tesoureiro; a ciência pendente, na do Conselho.",
   },
   benemerencia: {
     titulo: "Bolsa de Benemerência",

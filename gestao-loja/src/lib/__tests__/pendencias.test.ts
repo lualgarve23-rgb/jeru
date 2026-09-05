@@ -175,6 +175,16 @@ function dados(): DadosPendencias {
         updatedAt: ontem,
       },
     ],
+    fechamentos: [
+      {
+        id: "f1",
+        ano: 2026,
+        mes: 7,
+        fechadoAt: ontem,
+        cienciaConselhoAt: null,
+        reabertoAt: null,
+      },
+    ],
   };
 }
 
@@ -194,7 +204,7 @@ const tipos = (ps: { tipo: TipoPendencia }[]) => ps.map((p) => p.tipo);
 describe("pendências — cada tipo gera link direto (nunca genérico)", () => {
   const GENERICOS = ["/secretaria/processos", "/dashboard", "/dashboard/notificacoes", "/secretaria/atas", "/tesouraria/despesas", "/tesouraria/mensalidades"];
 
-  it("todos os 11 tipos aparecem em algum perfil e apontam para o item", () => {
+  it("todos os 12 tipos aparecem em algum perfil e apontam para o item", () => {
     const todos = [
       ...montarPendencias(u("VENERAVEL_MESTRE"), dados(), agora),
       ...montarPendencias(u("SECRETARIO"), dados(), agora),
@@ -202,11 +212,12 @@ describe("pendências — cada tipo gera link direto (nunca genérico)", () => {
       ...montarPendencias(u("MEMBER", { id: "obreiro", cargoRito: "1º Vigilante", degree: "APRENDIZ" }), dados(), agora),
       ...montarPendencias(u("ESMOLER", { id: "esmoler" }), dados(), agora),
       ...montarPendencias(u("MEMBER", { cargoRito: "Orador" }), dados(), agora),
+      ...montarPendencias(u("CONSELHO_CONTAS"), dados(), agora),
     ];
     const vistos = new Set(tipos(todos));
     for (const t of [
       "atestado", "quitte", "processo", "afastamento", "ata", "despesa",
-      "capitacao", "convite", "lgpd", "esmoler", "candidato",
+      "capitacao", "convite", "lgpd", "esmoler", "candidato", "fechamento",
     ] satisfies TipoPendencia[]) {
       expect(vistos, `tipo ${t} não gerado`).toContain(t);
     }
@@ -376,5 +387,43 @@ describe("pendências — isolamento por loja (estático)", () => {
     expect(todos.length).toBe(finds.length);
     // links: só via linkProcessos (destaque) ou rota com id
     expect(src).not.toMatch(/link:\s*"\/secretaria\/processos"/);
+  });
+});
+
+describe("fechamento mensal do balancete", () => {
+  it("Conselho vê a ciência pendente; ciência registrada ou mês reaberto somem", () => {
+    const c = montarPendencias(u("CONSELHO_CONTAS"), dados(), agora);
+    const f = c.find((p) => p.tipo === "fechamento");
+    expect(f?.chave).toBe("ciencia-f1");
+    expect(f?.acao).toBe("registrar");
+    expect(f?.link).toBe("/tesouraria/balancete?mes=7&ano=2026#fechamento");
+
+    const d = dados();
+    d.fechamentos[0].cienciaConselhoAt = agora;
+    expect(montarPendencias(u("CONSELHO_CONTAS"), d, agora).some((p) => p.tipo === "fechamento")).toBe(false);
+    const r = dados();
+    r.fechamentos[0].reabertoAt = agora;
+    expect(montarPendencias(u("CONSELHO_CONTAS"), r, agora).some((p) => p.tipo === "fechamento")).toBe(false);
+    // ninguém mais recebe a ciência
+    expect(montarPendencias(u("TESOUREIRO"), dados(), agora).some((p) => p.chave === "ciencia-f1")).toBe(false);
+    expect(montarPendencias(u("VENERAVEL_MESTRE"), dados(), agora).some((p) => p.chave === "ciencia-f1")).toBe(false);
+  });
+
+  it("Tesoureiro: mês anterior aberto só vira pendência depois do dia 10", () => {
+    // 04/09: Agosto aberto, mas ainda dentro do prazo
+    expect(montarPendencias(u("TESOUREIRO"), dados(), agora).some((p) => p.tipo === "fechamento")).toBe(false);
+    const dia11 = new Date("2026-09-11T15:00:00Z");
+    const t = montarPendencias(u("TESOUREIRO"), dados(), dia11).find((p) => p.tipo === "fechamento");
+    expect(t?.chave).toBe("fechamento-2026-08");
+    expect(t?.link).toBe("/tesouraria/balancete?mes=8&ano=2026#fechamento");
+    // Agosto fechado: nada pendente
+    const d = dados();
+    d.fechamentos.push({ id: "f2", ano: 2026, mes: 8, fechadoAt: ontem, cienciaConselhoAt: null, reabertoAt: null });
+    expect(montarPendencias(u("TESOUREIRO"), d, dia11).some((p) => p.tipo === "fechamento")).toBe(false);
+    // Agosto reaberto: volta a pendência
+    d.fechamentos[1].reabertoAt = agora;
+    expect(montarPendencias(u("TESOUREIRO"), d, dia11).some((p) => p.chave === "fechamento-2026-08")).toBe(true);
+    // VM não recebe esta pendência
+    expect(montarPendencias(u("VENERAVEL_MESTRE"), dados(), dia11).some((p) => p.tipo === "fechamento")).toBe(false);
   });
 });

@@ -9,6 +9,7 @@ const {
   syncInadimplencia,
   notificarEvento,
   usuariosDoCargo,
+  fechamentoFindUnique,
 } = vi.hoisted(() => ({
   findUniqueOrThrow: vi.fn(),
   invoiceUpdateMany: vi.fn(),
@@ -18,6 +19,7 @@ const {
   syncInadimplencia: vi.fn(),
   notificarEvento: vi.fn(),
   usuariosDoCargo: vi.fn(),
+  fechamentoFindUnique: vi.fn(),
 }));
 
 const tx = {
@@ -32,6 +34,7 @@ vi.mock("@/lib/prisma", () => ({
       findMany: invoiceFindMany,
     },
     $transaction: transaction,
+    fechamentoMes: { findUnique: fechamentoFindUnique },
   },
 }));
 
@@ -69,6 +72,7 @@ beforeEach(() => {
   usuariosDoCargo.mockResolvedValue(["tes-1"]);
   syncInadimplencia.mockResolvedValue(undefined);
   notificarEvento.mockResolvedValue(undefined);
+  fechamentoFindUnique.mockResolvedValue(null);
 });
 
 describe("settleInvoice — isolamento por lodgeId", () => {
@@ -172,5 +176,33 @@ describe("settleInvoice — isolamento por lodgeId", () => {
     expect(doDia).toBeDefined();
     expect(doDia.userId).toBe("tes-1");
     expect(doDia.title).toMatch(/^2 pagamento/);
+  });
+
+  it("mês do pagamento já fechado: NÃO bloqueia, lança com a data de hoje e avisa o Tesoureiro", async () => {
+    findUniqueOrThrow.mockResolvedValue(pendingInvoice());
+    fechamentoFindUnique.mockResolvedValue({ id: "f1", ano: 2026, mes: 9, reabertoAt: null });
+    const antes = Date.now();
+    const r = await settleInvoice(INVOICE_ID, "PIX", { lodgeId: LOJA_A });
+    expect(r).toEqual({ settled: true });
+    expect(transactionCreate).toHaveBeenCalledTimes(1);
+    const data = transactionCreate.mock.calls[0][0].data;
+    expect(data.date.getTime()).toBeGreaterThanOrEqual(antes);
+    const aviso = notificarEvento.mock.calls
+      .map((c) => c[1])
+      .find((n) => String(n.sourceKey).startsWith("evento:fechamento:f1:pagamento:"));
+    expect(aviso).toBeDefined();
+    expect(aviso.userId).toBe("tes-1");
+    expect(aviso.title).toMatch(/mês já fechado/);
+    expect(aviso.description).toMatch(/não incluem este valor/);
+  });
+
+  it("mês reaberto não gera aviso de fechamento", async () => {
+    findUniqueOrThrow.mockResolvedValue(pendingInvoice());
+    fechamentoFindUnique.mockResolvedValue({ id: "f1", ano: 2026, mes: 9, reabertoAt: new Date() });
+    await settleInvoice(INVOICE_ID, "PIX", { lodgeId: LOJA_A });
+    const aviso = notificarEvento.mock.calls
+      .map((c) => c[1])
+      .find((n) => String(n.sourceKey).startsWith("evento:fechamento:"));
+    expect(aviso).toBeUndefined();
   });
 });

@@ -4,7 +4,20 @@ import { requireRole } from "@/lib/session";
 import { InfoDica } from "@/components/info-dica";
 import { AJUDA } from "@/lib/ajuda";
 import { canWriteTesouraria } from "@/lib/permissions";
-import { createReceita, deleteCategoria } from "../actions";
+import {
+  createReceita,
+  deleteCategoria,
+  fecharMes,
+  reabrirMes,
+  registrarCienciaBalancete,
+} from "../actions";
+import {
+  buscarFechamento,
+  carimboFechamento,
+  estaFechado,
+  mesFechavel,
+  totaisDivergem,
+} from "@/lib/fechamento-mes";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { CategoriaSelect } from "@/components/categoria-select";
 import { Input } from "@/components/ui/input";
@@ -52,7 +65,7 @@ export default async function BalancetePage({
   const { inicio: start, fim: end } = intervaloMesSaoPaulo(year, month);
 
   const isWriter = canWriteTesouraria(user.role);
-  const [transactions, categorias] = await Promise.all([
+  const [transactions, categorias, fechamento] = await Promise.all([
     prisma.transaction.findMany({
       where: { lodgeId: user.lodgeId, date: { gte: start, lt: end } },
       orderBy: { date: "asc" },
@@ -61,6 +74,7 @@ export default async function BalancetePage({
       where: { lodgeId: user.lodgeId },
       orderBy: [{ tipo: "asc" }, { nome: "asc" }],
     }),
+    buscarFechamento(user.lodgeId, year, month),
   ]);
 
   const receitas = transactions
@@ -89,6 +103,16 @@ export default async function BalancetePage({
   const consolidado = [...porCategoria.values()].sort(
     (a, b) => a.tipo.localeCompare(b.tipo) || b.total - a.total
   );
+
+  // Fechamento mensal: carimbo, botões e divergência entre totais gravados e atuais
+  const carimbo = carimboFechamento(fechamento);
+  const fechado = estaFechado(fechamento);
+  const fechavel = mesFechavel(year, month);
+  const divergente =
+    fechado && fechamento
+      ? totaisDivergem(fechamento, { receitasCents: receitas, despesasCents: despesas })
+      : false;
+  const referencia = `${String(month).padStart(2, "0")}/${year}`;
 
   return (
     <div className="space-y-6">
@@ -131,6 +155,86 @@ export default async function BalancetePage({
           Exportar CSV
         </a>
       </form>
+
+      <Card id="fechamento">
+        <CardHeader>
+          <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+            Fechamento do mês
+            <Badge
+              variant={
+                carimbo.status === "fechado"
+                  ? fechamento?.cienciaConselhoAt
+                    ? "success"
+                    : "warning"
+                  : "outline"
+              }
+            >
+              {carimbo.status === "fechado"
+                ? fechamento?.cienciaConselhoAt
+                  ? "Fechado · ciência registrada"
+                  : "Fechado · aguardando ciência"
+                : carimbo.status === "reaberto"
+                  ? "Reaberto"
+                  : "Aberto"}
+            </Badge>
+          </CardTitle>
+          <CardDescription>{carimbo.texto}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          {fechado && fechamento && (
+            <p className="text-muted-foreground">
+              Totais gravados no fechamento: receitas {brl(fechamento.receitasCents)} ·
+              despesas {brl(fechamento.despesasCents)} · saldo {brl(fechamento.saldoCents)}
+              {fechamento.observacao ? ` — “${fechamento.observacao}”` : ""}
+            </p>
+          )}
+          {divergente && (
+            <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+              Há lançamentos posteriores ao fechamento: os totais atuais do mês diferem dos
+              gravados. Reabra e feche novamente para atualizar o que o quadro vê.
+            </p>
+          )}
+          {isWriter && !fechado && fechavel && (
+            <ActionForm action={fecharMes} submitLabel={`Fechar ${referencia}`}>
+              <input type="hidden" name="mes" value={month} />
+              <input type="hidden" name="ano" value={year} />
+              <div className="space-y-1">
+                <Label htmlFor="observacao">Observação (opcional)</Label>
+                <Input id="observacao" name="observacao" maxLength={500} placeholder="Ex.: conferido com o extrato bancário" />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Ao fechar, os totais do mês ficam congelados, o Conselho de Contas é avisado para
+                registrar a ciência e o quadro passa a ver este mês no Balancete da Loja. Lançamentos
+                manuais com data neste mês ficam bloqueados até uma reabertura.
+              </p>
+            </ActionForm>
+          )}
+          {isWriter && !fechado && !fechavel && (
+            <p className="text-muted-foreground">
+              O mês só pode ser fechado depois de terminar.
+            </p>
+          )}
+          {isWriter && fechado && (
+            <ActionForm action={reabrirMes} submitLabel={`Reabrir ${referencia}`}>
+              <input type="hidden" name="mes" value={month} />
+              <input type="hidden" name="ano" value={year} />
+              <div className="space-y-1">
+                <Label htmlFor="motivo">Motivo da reabertura (obrigatório)</Label>
+                <Input id="motivo" name="motivo" required maxLength={500} />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Reabrir esconde o mês do quadro e avisa o Conselho; feche de novo ao terminar os ajustes.
+              </p>
+            </ActionForm>
+          )}
+          {user.role === "CONSELHO_CONTAS" && fechado && !fechamento?.cienciaConselhoAt && (
+            <ActionButton
+              action={registrarCienciaBalancete.bind(null, month, year)}
+              label={`Registrar ciência do balancete ${referencia}`}
+            />
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
         <Card>

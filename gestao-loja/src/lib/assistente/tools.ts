@@ -22,6 +22,14 @@ import { notificationWhere } from "@/lib/notifications";
 import { buscarFaq, FAQ_CHAVES } from "@/lib/assistente/faq";
 import { pendenciasDoUsuario, haQuantoTempo } from "@/lib/pendencias";
 import { balanceteDoQuadro } from "@/lib/balancete-quadro";
+import {
+  aplicarFechamentosAoGrafico,
+  carimboFechamento,
+  listarFechamentos,
+  mesesFechados,
+  referenciaMes,
+  totaisDivergem,
+} from "@/lib/fechamento-mes";
 import { partesSaoPaulo } from "@/lib/datas-sp";
 
 export type AssistenteUser = {
@@ -536,7 +544,7 @@ export const FERRAMENTAS: Ferramenta[] = [
   {
     nome: "balancete_loja",
     descricao:
-      "Balancete mensal da Loja aberto a todo o quadro (só leitura): receitas, despesas e saldo do mês, totais por categoria, capitações recebidas (quantidade e total, sem nomes) e a série dos últimos 12 meses. Sem mês/ano informado usa o mês corrente. Quem lê a Tesouraria recebe também os lançamentos do mês (nunca as baixas de capitação nem a beneficência linha a linha).",
+      "Balancete mensal da Loja aberto a todo o quadro (só leitura): receitas, despesas e saldo do mês, totais por categoria, capitações recebidas (quantidade e total, sem nomes) e a série dos últimos 12 meses. Para o quadro em geral só existem os meses FECHADOS pela Tesouraria (sem mês/ano informado usa o último mês fechado); mês ainda aberto responde que não foi fechado. Venerável, Tesoureiro e Conselho de Contas consultam qualquer mês (padrão: mês corrente) e recebem também o status do fechamento/ciência do Conselho e os lançamentos do mês (nunca as baixas de capitação nem a beneficência linha a linha).",
     inputSchema: {
       type: "object",
       properties: {
@@ -550,11 +558,45 @@ export const FERRAMENTAS: Ferramenta[] = [
       const hoje = partesSaoPaulo(new Date());
       const m = Number(input.mes);
       const a = Number(input.ano);
-      const mes = m >= 1 && m <= 12 ? m : hoje.mes;
-      const ano = a >= 2000 && a <= hoje.ano + 1 ? a : hoje.ano;
+      const fechados = mesesFechados(await listarFechamentos(user.lodgeId));
+      const leTes = leTesouraria(user);
+      let mes = m >= 1 && m <= 12 ? m : hoje.mes;
+      let ano = a >= 2000 && a <= hoje.ano + 1 ? a : hoje.ano;
+      if (!leTes) {
+        // Quadro: só meses fechados (e não reabertos)
+        if (fechados.length === 0) {
+          return {
+            fechado: false,
+            mensagem: "A Tesouraria ainda não fechou nenhum mês; o Balancete da Loja fica disponível ao quadro depois do fechamento mensal e da ciência do Conselho de Contas.",
+          };
+        }
+        if (!(m >= 1 && m <= 12) && !(a >= 2000)) {
+          mes = fechados[0].mes;
+          ano = fechados[0].ano;
+        }
+        if (!fechados.some((f) => f.mes === mes && f.ano === ano)) {
+          return {
+            referencia: referenciaMes(ano, mes),
+            fechado: false,
+            mensagem: `O balancete de ${referenciaMes(ano, mes)} ainda não foi fechado pela Tesouraria. Meses disponíveis: ${fechados.map((f) => referenciaMes(f.ano, f.mes)).join(", ")}.`,
+          };
+        }
+      }
+      const fechamento = fechados.find((f) => f.mes === mes && f.ano === ano) ?? null;
+      const registro = leTes
+        ? await import("@/lib/fechamento-mes").then((mod) => mod.buscarFechamento(user.lodgeId, ano, mes))
+        : fechamento;
       const b = await balanceteDoQuadro(user.lodgeId, mes, ano);
+      const carimbo = carimboFechamento(registro);
+      const ultimos12 = leTes ? b.ultimos12 : aplicarFechamentosAoGrafico(b.ultimos12, fechados);
       return {
-        referencia: `${String(mes).padStart(2, "0")}/${ano}`,
+        referencia: referenciaMes(ano, mes),
+        fechamento: {
+          status: carimbo.status,
+          descricao: carimbo.texto,
+          cienciaConselho: !!registro?.cienciaConselhoAt,
+          lancamentosPosteriores: fechamento ? totaisDivergem(fechamento, b) : undefined,
+        },
         receitas: centavos(b.receitasCents),
         despesas: centavos(b.despesasCents),
         saldo: centavos(b.saldoCents),
@@ -567,11 +609,15 @@ export const FERRAMENTAS: Ferramenta[] = [
           tipo: c.tipo,
           total: centavos(c.totalCents),
         })),
-        ultimos12Meses: b.ultimos12.map((u) => ({
+        ultimos12Meses: ultimos12.map((u) => ({
           mes: `${String(u.mes).padStart(2, "0")}/${u.ano}`,
-          receitas: centavos(u.receitasCents),
-          despesas: centavos(u.despesasCents),
-          saldo: centavos(u.receitasCents - u.despesasCents),
+          ...("aberto" in u && u.aberto
+            ? { situacao: "ainda não fechado" }
+            : {
+                receitas: centavos(u.receitasCents),
+                despesas: centavos(u.despesasCents),
+                saldo: centavos(u.receitasCents - u.despesasCents),
+              }),
         })),
         // lançamentos individuais só para quem lê a Tesouraria (VM, Tesoureiro,
         // Conselho); nunca as capitações nem a beneficência linha a linha
