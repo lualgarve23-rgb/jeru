@@ -21,6 +21,8 @@ import { downloadFromLodgeDrive } from "@/lib/google-drive";
 import { notificationWhere } from "@/lib/notifications";
 import { buscarFaq, FAQ_CHAVES } from "@/lib/assistente/faq";
 import { pendenciasDoUsuario, haQuantoTempo } from "@/lib/pendencias";
+import { balanceteDoQuadro } from "@/lib/balancete-quadro";
+import { partesSaoPaulo } from "@/lib/datas-sp";
 
 export type AssistenteUser = {
   id: string;
@@ -528,6 +530,62 @@ export const FERRAMENTAS: Ferramenta[] = [
           quantidade: a._count._all,
           total: centavos(a._sum.amountCents ?? 0),
         })),
+      };
+    },
+  },
+  {
+    nome: "balancete_loja",
+    descricao:
+      "Balancete mensal da Loja aberto a todo o quadro (só leitura): receitas, despesas e saldo do mês, totais por categoria, capitações recebidas (quantidade e total, sem nomes) e a série dos últimos 12 meses. Sem mês/ano informado usa o mês corrente. Quem lê a Tesouraria recebe também os lançamentos do mês (nunca as baixas de capitação nem a beneficência linha a linha).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        mes: { type: "number", description: "Mês (1-12); padrão: mês corrente" },
+        ano: { type: "number", description: "Ano; padrão: ano corrente" },
+      },
+      additionalProperties: false,
+    },
+    disponivel: paraTodos,
+    executar: async (user, input) => {
+      const hoje = partesSaoPaulo(new Date());
+      const m = Number(input.mes);
+      const a = Number(input.ano);
+      const mes = m >= 1 && m <= 12 ? m : hoje.mes;
+      const ano = a >= 2000 && a <= hoje.ano + 1 ? a : hoje.ano;
+      const b = await balanceteDoQuadro(user.lodgeId, mes, ano);
+      return {
+        referencia: `${String(mes).padStart(2, "0")}/${ano}`,
+        receitas: centavos(b.receitasCents),
+        despesas: centavos(b.despesasCents),
+        saldo: centavos(b.saldoCents),
+        capitacoesRecebidas: {
+          irmaos: b.capitacoes.quantidade,
+          total: centavos(b.capitacoes.totalCents),
+        },
+        porCategoria: b.porCategoria.map((c) => ({
+          categoria: c.nome,
+          tipo: c.tipo,
+          total: centavos(c.totalCents),
+        })),
+        ultimos12Meses: b.ultimos12.map((u) => ({
+          mes: `${String(u.mes).padStart(2, "0")}/${u.ano}`,
+          receitas: centavos(u.receitasCents),
+          despesas: centavos(u.despesasCents),
+          saldo: centavos(u.receitasCents - u.despesasCents),
+        })),
+        // lançamentos individuais só para quem lê a Tesouraria (VM, Tesoureiro,
+        // Conselho); nunca as capitações nem a beneficência linha a linha
+        lancamentos: leTesouraria(user)
+          ? b.lancamentos.map((l) => ({
+              data: dataBr(l.data),
+              descricao: l.descricao,
+              categoria: l.categoria,
+              tipo: l.tipo,
+              valor: centavos(l.valorCents),
+            }))
+          : undefined,
+        observacao:
+          "Balancete consolidado pela Tesouraria; dúvidas com o Tesoureiro ou o Conselho de Contas.",
       };
     },
   },

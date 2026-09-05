@@ -46,8 +46,25 @@ describe("assistente — ferramentas", () => {
         "info_benemerencia",
         "ajuda_app",
         "minha_fila",
+        "balancete_loja",
       ])
     );
+  });
+
+  it("balancete_loja vai a TODOS os perfis; lançamentos só para quem lê a Tesouraria", () => {
+    for (const role of ["MEMBER", "ESMOLER", "TESOUREIRO", "SECRETARIO", "CONSELHO_CONTAS", "VENERAVEL_MESTRE"]) {
+      expect(nomes(role)).toContain("balancete_loja");
+    }
+    expect(nomes("SUPER_ADMIN")).not.toContain("balancete_loja");
+    const src = readFileSync(
+      path.join(path.resolve(__dirname, "../../.."), "lib/assistente/tools.ts"),
+      "utf8"
+    );
+    const ini = src.indexOf('nome: "balancete_loja"');
+    const fim = src.indexOf('nome: "inadimplencia_loja"');
+    const bloco = src.slice(ini, fim);
+    expect(bloco).toMatch(/lancamentos:\s*leTesouraria\(user\)/);
+    expect(bloco).toMatch(/balanceteDoQuadro\(user\.lodgeId/);
   });
 
   it("minha_fila vai a TODOS os perfis (inclui Orador/Vigilante por cargoRito)", () => {
@@ -285,8 +302,9 @@ describe("assistente — sugestões e FAQ", () => {
   });
 
   it("buscarFaq cai nos textos de ajuda das telas quando não há FAQ/guia", () => {
-    const r = buscarFaq("balancete");
-    expect(r && "resposta" in r && r.resposta).toMatch(/Livro-caixa/);
+    const r = buscarFaq("despesas");
+    expect(r && "resposta" in r && r.resposta).toMatch(/aprovação do Venerável/);
+    expect(buscarFaq("balancete")?.titulo).toMatch(/Balancete da Loja/);
     expect(buscarFaq("progressoes")?.titulo).toBeTruthy();
   });
 });

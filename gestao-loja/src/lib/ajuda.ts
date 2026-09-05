@@ -57,6 +57,8 @@ export const AJUDA = {
     "Toda despesa precisa da aprovação do Venerável Mestre E do Tesoureiro antes de ser paga (trava de governança). Ao pagar, entra automaticamente no livro-caixa do balancete.",
   balancete:
     "Livro-caixa do mês: receitas (capitações, tronco, eventos) e despesas, com totais por categoria. Use “Lançar receita” para entradas manuais e exporte o CSV para prestação de contas.",
+  balanceteQuadro:
+    "Balancete mensal da Loja aberto a todo o quadro, só para consulta: receitas, despesas e saldo do mês, evolução dos últimos 12 meses e totais por categoria. Por privacidade, as capitações aparecem só como total (quantos irmãos pagaram) e a beneficência só como total da categoria — nenhum nome de irmão é exibido. Dúvidas com o Tesoureiro ou o Conselho de Contas.",
   configloja:
     "Parâmetros da Loja: dados cadastrais, frequência mínima para progressão, limite de inadimplência, gateway de pagamento, Google Drive/Gmail e o cabeçalho institucional das atas.",
 } as const;

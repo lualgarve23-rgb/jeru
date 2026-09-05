@@ -36,6 +36,11 @@ export const FAQ: Record<string, { titulo: string; resposta: string }> = {
     resposta:
       "A Declaração de Beneficiários fica em /dashboard/mutua: baixe o formulário pré-preenchido, assine e anexe para enviar à Secretaria. Filiados entregam na loja-mãe.",
   },
+  "balancete-loja": {
+    titulo: "Balancete da Loja (todo o quadro)",
+    resposta:
+      "Todo irmão consulta o balancete mensal em /balancete: receitas, despesas, saldo, últimos 12 meses e totais por categoria, só leitura. Capitações aparecem só como total (quantos irmãos pagaram) e beneficência só como total — nenhum nome é exibido. Tesoureiro, Venerável e Conselho de Contas usam o Balancete completo em /tesouraria/balancete. Dúvidas com o Tesoureiro ou o Conselho de Contas.",
+  },
   benemerencia: {
     titulo: "Bolsa de Benemerência",
     resposta:

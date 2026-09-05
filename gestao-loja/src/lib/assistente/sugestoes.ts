@@ -21,6 +21,7 @@ const CATALOGO: Sugestao[] = [
   { texto: "Como peço afastamento da loja (Form. 116)?", rotas: ["/solicitacoes", "/solicitacoes/afastamento"] },
   { texto: "Tenho notificações não lidas?", rotas: ["/dashboard/notificacoes"] },
   { texto: "Como faço uma doação à Bolsa de Benemerência?", rotas: ["/dashboard/benemerencia"] },
+  { texto: "Como fechou o balancete do mês passado?", rotas: ["/balancete", "/tesouraria/balancete"] },
   { texto: "Como assino um documento pelo gov.br?", rotas: ["/secretaria/processos", "/secretaria/quitte-placets"] },
   // Por nível de acesso — mesmas listas de leitura de permissions.ts
   {

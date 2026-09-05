@@ -23,6 +23,9 @@ function navFor(role: string, cargoRito: string | null, unread: number): NavItem
   const fiscal = ["SECRETARIO", "VENERAVEL_MESTRE", "CONSELHO_CONTAS"];
   const tesouraria = ["TESOUREIRO", "VENERAVEL_MESTRE", "CONSELHO_CONTAS"];
   const gestaoLoja = ["VENERAVEL_MESTRE", "SECRETARIO"];
+  // Balancete da Loja (só leitura, sem nomes): para todo o quadro. Quem já
+  // tem o Balancete completo na Tesouraria não recebe o item duplicado.
+  const quadroSemTesouraria = ["MEMBER", "SECRETARIO", "ESMOLER"];
   // Instruções: VM/Secretário por acesso; Vigilantes pelo cargo do rito
   const ehInstrutor =
     grausInstrucaoPermitidos(role, cargoRito).length > 0;
@@ -37,6 +40,7 @@ function navFor(role: string, cargoRito: string | null, unread: number): NavItem
     { href: "/dashboard/biblioteca", label: "Biblioteca Digital", icon: "biblioteca" },
     { href: "/dashboard/mutua", label: "Mútua (CABM)", icon: "mutua" },
     { href: "/dashboard/benemerencia", label: "Bolsa de Benemerência", icon: "benemerencia" },
+    { href: "/balancete", label: "Balancete da Loja", icon: "balancete", roles: quadroSemTesouraria },
     { href: "/secretaria/membros", label: "Membros", icon: "membros", section: "Secretaria" },
     { href: "/secretaria/cargos", label: "Cargos do Rito", icon: "cargos", section: "Secretaria", roles: fiscal },
     { href: "/secretaria/sessoes", label: "Sessões e Presenças", icon: "sessoes", section: "Secretaria" },
