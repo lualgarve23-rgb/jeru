@@ -73,7 +73,9 @@ export default async function AdmissoesPage() {
       souPadrinho: p.padrinhoId === user.id,
     }));
 
-  // Kanban: demais irmãos veem só nome/status (sem e-mail/foto/PII)
+  // Kanban: todos os irmãos veem nome, etapa e foto do candidato (decisão do
+  // VM em 05/09/2026); e-mail/telefone/anexos continuam só para a Secretaria
+  // e o padrinho.
   const kanbanProcessos = processos.map((p) => {
     const podeVerPii = isWriter || p.padrinhoId === user.id;
     return {
@@ -82,7 +84,7 @@ export default async function AdmissoesPage() {
       status: p.status,
       certidoesValidas: p.certidoesValidas,
       email: podeVerPii ? p.email : null,
-      fotoUrl: podeVerPii ? mediaSrc(p.fotoUrl) : null,
+      fotoUrl: mediaSrc(p.fotoUrl),
     };
   });
 
