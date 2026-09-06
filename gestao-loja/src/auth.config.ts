@@ -39,6 +39,7 @@ export const authConfig = {
         pathname === "/esqueci-senha" || // recuperação de senha (2FA por e-mail)
         pathname.startsWith("/api/auth") ||
         pathname.startsWith("/checkin/") || // check-in de visitantes via QR
+        pathname.startsWith("/certificado/") || // Certificado de Visita por link assinado (WhatsApp)
         pathname.startsWith("/convite/") || // RSVP público do convite de sessão
         pathname.startsWith("/candidato/") || // formulários de indicação do candidato (token)
         pathname.startsWith("/verificar/") || // verificação pública da carteirinha (QR)

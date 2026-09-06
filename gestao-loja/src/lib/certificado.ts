@@ -5,6 +5,7 @@ import { promisify } from "util";
 import path from "path";
 import JSZip from "jszip";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { sendLodgeEmail, isGmailConfigured } from "@/lib/gmail";
 import { sessionTypeLabels } from "@/lib/labels";
@@ -241,38 +242,48 @@ export async function templateDaLoja(
 
 // Gera e envia o Certificado de Visita em PDF para o e-mail do visitante.
 // Lança erro se o Gmail não estiver configurado ou o envio falhar.
-export async function enviarCertificadoVisita(attendanceId: string) {
+// Gera o PDF do Certificado de Visita de uma presença de visitante (usado no
+// e-mail e no link público do WhatsApp). O e-mail é opcional aqui.
+export async function gerarCertificadoDaPresenca(attendanceId: string) {
   const att = await prisma.attendance.findUniqueOrThrow({
     where: { id: attendanceId },
     include: { session: true, lodge: true },
   });
-  if (!att.visitorName || !att.visitorEmail) {
-    throw new Error("Presença sem nome ou e-mail de visitante.");
-  }
-  if (!(await isGmailConfigured(att.lodgeId))) {
-    throw new Error("Gmail da loja não configurado.");
-  }
-
+  if (!att.visitorName) throw new Error("Presença sem nome de visitante.");
   const veneravel = await prisma.user.findFirst({
     where: { lodgeId: att.lodgeId, currentRole: "VENERAVEL_MESTRE" },
     select: { name: true },
   });
-
   const dataSessao = att.session.date.toLocaleDateString("pt-BR");
   const tipo = sessionTypeLabels[att.session.type] ?? att.session.type;
   const pdf = await gerarCertificadoVisitaPdf(
     {
       nome: att.visitorName,
       sessao: `${tipo} realizada em ${dataSessao}`,
-      email: att.visitorEmail,
+      email: att.visitorEmail ?? "",
       veneravel: veneravel?.name,
     },
     await templateDaLoja(att.lodgeId)
   );
+  return { att, pdf, tipo, dataSessao };
+}
+
+export async function enviarCertificadoVisita(attendanceId: string) {
+  const att0 = await prisma.attendance.findUniqueOrThrow({
+    where: { id: attendanceId },
+    select: { visitorName: true, visitorEmail: true, lodgeId: true },
+  });
+  if (!att0.visitorName || !att0.visitorEmail) {
+    throw new Error("Presença sem nome ou e-mail de visitante.");
+  }
+  if (!(await isGmailConfigured(att0.lodgeId))) {
+    throw new Error("Gmail da loja não configurado.");
+  }
+  const { att, pdf, tipo, dataSessao } = await gerarCertificadoDaPresenca(attendanceId);
 
   await sendLodgeEmail({
     lodgeId: att.lodgeId,
-    to: att.visitorEmail,
+    to: att0.visitorEmail,
     subject: `Certificado de Visita — ${att.lodge.name}`,
     text:
       `Prezado Ir∴ ${att.visitorName},\n\n` +
@@ -281,4 +292,66 @@ export async function enviarCertificadoVisita(attendanceId: string) {
       `Segue em anexo o seu Certificado de Visita.\n\nTFA,\n${att.lodge.name}`,
     attachments: [{ filename: "certificado-de-visita.pdf", content: pdf }],
   });
+}
+
+// ── Link público assinado do certificado (envio pelo WhatsApp) ──
+// O token é o id da presença + HMAC (AUTH_SECRET): não expira, não dá para
+// enumerar e só serve para baixar este PDF.
+function segredoCertificado() {
+  const s = process.env.AUTH_SECRET;
+  if (!s) throw new Error("AUTH_SECRET ausente para o link do certificado.");
+  return s;
+}
+
+function assinarCertificado(attendanceId: string) {
+  return createHmac("sha256", segredoCertificado())
+    .update(`certificado.${attendanceId}`)
+    .digest("base64url");
+}
+
+export function tokenCertificado(attendanceId: string) {
+  return `${attendanceId}.${assinarCertificado(attendanceId)}`;
+}
+
+export function attendanceDoTokenCertificado(token: string): string | null {
+  const i = token.lastIndexOf(".");
+  if (i <= 0) return null;
+  const id = token.slice(0, i);
+  const assinatura = token.slice(i + 1);
+  if (!/^[A-Za-z0-9]+$/.test(id)) return null;
+  const esperada = assinarCertificado(id);
+  const a = Buffer.from(assinatura);
+  const b = Buffer.from(esperada);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  return id;
+}
+
+export function urlCertificado(attendanceId: string) {
+  const baseUrl = process.env.APP_URL ?? "http://localhost:3100";
+  return `${baseUrl}/certificado/${tokenCertificado(attendanceId)}`;
+}
+
+// Telefone para o wa.me: só dígitos; sem DDI (10–11 dígitos) assume Brasil (55)
+export function telefoneWhatsApp(telefone: string | null | undefined): string | null {
+  const d = String(telefone ?? "").replace(/\D/g, "");
+  if (d.length < 10) return null;
+  return d.length <= 11 ? `55${d}` : d;
+}
+
+// Mensagem pronta para o Secretário/VM enviar ao visitante pelo WhatsApp
+export function mensagemWhatsAppCertificado(p: {
+  nome: string;
+  loja: string;
+  tipo: string;
+  dataSessao: string;
+  attendanceId: string;
+}) {
+  return (
+    `Prezado Ir∴ ${p.nome}, agradecemos a sua visita à ${p.loja} na Sessão ${p.tipo} de ${p.dataSessao}. ` +
+    `Seu Certificado de Visita em PDF: ${urlCertificado(p.attendanceId)}\n\nTFA, ${p.loja}`
+  );
+}
+
+export function linkWhatsAppCertificado(telefone: string, mensagem: string) {
+  return `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
 }

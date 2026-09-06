@@ -41,6 +41,8 @@ export const AJUDA = {
     "Caminho do irmão para o próximo grau (Elevação = Companheiro, Exaltação = Mestre). O sistema confere interstício (tempo mínimo no grau), instruções e frequência antes de liberar as etapas.",
   instrucoes:
     "Instruções de grau ministradas pelos Vigilantes: Aprendizes com o 2º Vigilante e Companheiros com o 1º. Registre cada instrução dada; a meta é configurada pela Loja.",
+  visitantes:
+    "Base dos irmãos de outras Oficinas que visitaram a Loja. Quem faz o check-in pelo QR Code (ou confirma pelo convite) entra sozinho aqui, e as visitas seguintes do mesmo irmão ficam na mesma ficha — pelo CIM, pelo e-mail ou pelo nome com a loja de origem. Complete telefone, grau, cargo e observações, mescle fichas duplicadas e exporte a lista em CSV. Na ficha, o Certificado de Visita de cada sessão pode ser reenviado por e-mail ou pelo WhatsApp do visitante. Visível só para o Secretário e o Venerável Mestre.",
   atestado:
     "O Atestado de Regularidade declara que o irmão é membro efetivo e está em dia com os metais e demais deveres maçônicos. Qualquer irmão ATIVO pode solicitar; o documento segue para as assinaturas do Tesoureiro, do Secretário e do Venerável Mestre (nesta ordem), sempre pelo gov.br (assinatura digital ICP — direto pela conta ou pelo portal assinador.iti.br). O solicitante acompanha aqui com quem a assinatura está pendente; os cargos assinam na aba Processos; ao final o PDF fica disponível para download.",
   solicitacoes:

@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { CARGOS_PADRAO } from "@/lib/cargos";
 import { deleteLodgeData } from "@/lib/lodge-delete";
+import { vincularVisitante } from "@/lib/visitantes";
 
 // Loja de DEMONSTRAÇÃO (nº 9999) com dados fictícios, para os usuários
 // conhecerem o sistema sem tocar em dados reais. Recriável a qualquer momento
@@ -126,16 +127,28 @@ export async function recreateDemoLodge(): Promise<{ logins: string }> {
         },
       });
     }
-    // Um visitante em algumas sessões
+    // Um visitante em algumas sessões (com ficha na base de Visitantes)
     if (i % 3 === 0) {
+      const dadosVisitante = {
+        visitorName: "José Ribamar Visitante",
+        visitorCim: "demo-visit",
+        visitorLodge: "Estrela do Norte nº 8888",
+        visitorPotencia: "GOB",
+        visitorTelefone: "11999990000",
+      };
+      const visitanteId = await vincularVisitante(lodge.id, {
+        nome: dadosVisitante.visitorName,
+        cim: dadosVisitante.visitorCim,
+        telefone: dadosVisitante.visitorTelefone,
+        lojaOrigem: dadosVisitante.visitorLodge,
+        potencia: dadosVisitante.visitorPotencia,
+      });
       await prisma.attendance.create({
         data: {
           lodgeId: lodge.id,
           sessionId: sessao.id,
-          visitorName: "José Ribamar Visitante",
-          visitorCim: "demo-visit",
-          visitorLodge: "Estrela do Norte nº 8888",
-          visitorPotencia: "GOB",
+          ...dadosVisitante,
+          visitanteId,
           checkedInAt: sessao.date,
         },
       });

@@ -16,6 +16,7 @@ import {
 } from "../../actions";
 import { CopyButton } from "@/components/copy-button";
 import { WhatsAppShareButton } from "@/components/whatsapp-share-button";
+import { WhatsAppCertificadoButton } from "@/components/whatsapp-certificado-button";
 import { arteDoConvite, pautaTexto } from "@/lib/convite";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Label } from "@/components/ui/label";
@@ -52,7 +53,10 @@ export default async function SessaoPage({
   const session = await prisma.lodgeSession.findUnique({
     where: { id, lodgeId: user.lodgeId },
     include: {
-      attendances: { include: { user: true }, orderBy: { checkedInAt: "asc" } },
+      attendances: {
+        include: { user: true, visitante: { select: { id: true, telefone: true, email: true } } },
+        orderBy: { checkedInAt: "asc" },
+      },
       ata: true,
       lodge: { select: { name: true, conviteTemplateHtml: true, conviteFrase: true } },
     },
@@ -597,7 +601,17 @@ export default async function SessaoPage({
             <ul className="space-y-1 text-sm">
               {visitantes.map((a) => (
                 <li key={a.id}>
-                  {a.visitorName} — visitante
+                  {a.visitante && isWriter ? (
+                    <Link
+                      href={`/secretaria/visitantes/${a.visitante.id}`}
+                      className="font-medium underline-offset-2 hover:underline"
+                    >
+                      {a.visitorName}
+                    </Link>
+                  ) : (
+                    a.visitorName
+                  )}
+                  {" — visitante"}
                   {a.visitorLodge ? ` · ${a.visitorLodge}` : ""}
                   {a.visitorPotencia ? ` / ${a.visitorPotencia}` : ""}
                   {a.viaQrCode ? " · via QR" : ""}
@@ -605,13 +619,23 @@ export default async function SessaoPage({
                     {" "}
                     às {a.checkedInAt.toLocaleTimeString("pt-BR")}
                   </span>
-                  {a.visitorEmail && isWriter && (
-                    <span className="ml-2 inline-flex align-middle">
-                      <ActionButton
-                        action={reenviarCertificadoVisita.bind(null, a.id)}
-                        label="Enviar Certificado de Visita"
-                        variant="outline"
+                  {isWriter && (
+                    <span className="ml-2 inline-flex flex-wrap gap-2 align-middle">
+                      <WhatsAppCertificadoButton
+                        telefone={a.visitorTelefone ?? a.visitante?.telefone}
+                        nome={a.visitorName ?? ""}
+                        loja={session.lodge.name}
+                        tipo={sessionTypeLabels[session.type] ?? session.type}
+                        dataSessao={session.date.toLocaleDateString("pt-BR")}
+                        attendanceId={a.id}
                       />
+                      {(a.visitorEmail || a.visitante?.email) && (
+                        <ActionButton
+                          action={reenviarCertificadoVisita.bind(null, a.id)}
+                          label="Enviar por e-mail"
+                          variant="outline"
+                        />
+                      )}
                     </span>
                   )}
                 </li>

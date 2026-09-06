@@ -10,3 +10,4 @@ export * from "./_actions/processos";
 export * from "./_actions/progressao";
 export * from "./_actions/familiares";
 export * from "./_actions/quitte-form122";
+export * from "./_actions/visitantes";

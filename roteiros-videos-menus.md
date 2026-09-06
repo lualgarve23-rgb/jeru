@@ -6,7 +6,7 @@ Documento de produção para gravar **um vídeo por menu**, separado por cargo, 
 
 - **Voz (ElevenLabs):** voz masculina adulta em português do Brasil, tom acolhedor e institucional, ritmo calmo (velocidade ~0,95). Público de faixa etária variada — pausas claras entre frases.
 - **Pronúncias:** "gov.br" = "góv ponto bê érre"; "NoPrumo" = "No-Prumo" (junto); "CIM" = "cim" (uma sílaba); "Ir∴" ler como "Irmão"; "QR Code" = "quê-érre côde"; "Pix", "Asaas", "Drive" e "Gmail" como se falam usualmente.
-- **Captura:** gravar em `https://teste.noprumo.ia.br` (staging) com a **Loja de Testes nº 7777** (senha `teste123`: `teste-01` VM, `teste-02` Secretário, `teste-03` Tesoureiro, `teste-04` Esmoler, `teste-05` Conselho) ou a **demo 9999** (contas demo-vm, demo-sec, demo-tes…). Resolução 1920×1080, cursor visível, sem dados reais.
+- **Captura:** gravar em `https://teste.noprumo.ia.br` (staging) com a **Loja de Testes nº 7777** (senha `teste123`: `teste-01` VM, `teste-02` Secretário, `teste-03` Tesoureiro, `teste-04` Esmoler, `teste-05` Conselho, `teste-06` 1º Vigilante, `teste-10` Orador, `teste-12` Obreiro) ou a **demo 9999** (contas demo-vm, demo-sec, demo-tes…). Resolução 1920×1080, cursor visível, sem dados reais.
 - **Estrutura padrão de cada vídeo:** 3 s de tela do menu parado → ação narrada → encerramento no resultado final. Sem música alta por cima da narração.
 - **Nomenclatura dos arquivos:** `cargo-menu.mp4` (ex.: `obreiro-carteirinha.mp4`, `secretario-atas.mp4`).
 
@@ -14,7 +14,7 @@ Documento de produção para gravar **um vídeo por menu**, separado por cargo, 
 
 # PARTE 1 — OBREIRO (todo irmão do quadro)
 
-O Obreiro comum vê: Dashboard, Notificações, Carteirinha Digital, Biblioteca Digital, Mútua (CABM), Bolsa de Benemerência, Membros, Sessões e Presenças, Atas, Candidatos, Atestado de Regularidade, Quitte Placets, Meu perfil, Privacidade (LGPD), Alterar senha e Tour.
+O Obreiro comum vê: Dashboard (com a faixa "Minha vez" e o sino), Notificações, Carteirinha Digital, Biblioteca Digital, Mútua (CABM), Bolsa de Benemerência, Membros, Sessões e Presenças, Atas, Candidatos, Solicitações (Minhas solicitações, Atestado de Regularidade, Quitte Placet, Afastamento — Form. 116), Meu perfil, Privacidade (LGPD), Alterar senha, Tour e o Assistente da Loja.
 
 ## 1.1 — Login e primeiro acesso (`obreiro-login.mp4`)
 
@@ -27,27 +27,29 @@ O Obreiro comum vê: Dashboard, Notificações, Carteirinha Digital, Biblioteca 
 
 > Bem-vindo ao NoPrumo, o sistema de gestão da sua Loja. Para entrar, acesse o endereço da plataforma e informe o seu CIM — o número do seu Cadastro de Identificação Maçônica — e a sua senha. No primeiro acesso, a senha provisória é o seu CPF, e o sistema pedirá que você crie uma senha nova e pessoal. Se você é filiado a mais de uma Loja, o sistema pergunta em qual delas deseja entrar. E se esquecer a senha, use o botão "Esqueci minha senha": você recebe um código de confirmação no seu e-mail e cadastra uma senha nova na hora. Simples, rápido e seguro.
 
-## 1.2 — Dashboard do Obreiro (`obreiro-dashboard.mp4`)
+## 1.2 — Dashboard do Obreiro: "Minha vez" e o sino (`obreiro-dashboard.mp4`)
 
 ![Tela: obreiro-dashboard](roteiros-prints/obreiro-dashboard.png)
 
-- **Objetivo:** visão geral pessoal do irmão.
-- **Duração:** ~60 s.
-- **Na tela:** dashboard após login: saudação, situação (ativo/regular), grau, frequência anual, próximas sessões, mensalidades em aberto com link de pagamento, aniversários.
+![Tela: obreiro-minha-vez](roteiros-prints/obreiro-minha-vez.png)
+
+- **Objetivo:** visão geral pessoal do irmão, começando pelo que está esperando por ele. Este vídeo também serve de introdução à faixa "Minha vez" e ao sino do cabeçalho, comuns a todos os cargos.
+- **Duração:** ~75 s.
+- **Na tela:** dashboard após login: faixa azul "Olá, [nome] — Você tem N itens na sua vez" (ou "Nada pendente com você") com a lista de pendências, cada uma com contexto, "há X dias" e o botão de ação (Pagar, Responder, Acompanhar…) → clicar num item e mostrar que abre direto no lugar certo → voltar → sino no canto superior direito com a contagem → abrir o menu do sino: "Minha vez · N item(ns)" e "Últimas notificações" → cartões: mensalidades em aberto, situação, grau, "Frequência no ano" (presenças em sessões do seu grau) → card "Minhas solicitações" com a etiqueta "Pendente com: Tesouraria (Nada Consta)" / "Pendente com: Secretário" → aniversários.
 - **Narração:**
 
-> Este é o seu painel de entrada. Aqui você vê, de relance, tudo o que importa na sua vida maçônica: a sua situação na Loja, o seu grau, a sua frequência nas sessões do ano e as próximas sessões agendadas. Se houver alguma mensalidade em aberto, ela aparece aqui, com o botão para pagar por cartão, boleto ou Pix, sem precisar procurar ninguém. O painel também lembra os aniversários dos irmãos e dos familiares, para que ninguém passe em branco. Cada cartão é clicável e leva você direto à tarefa. É o seu ponto de partida todos os dias.
+> Este é o seu painel de entrada — e ele começa pelo que importa agora. A faixa "Minha vez", no topo, reúne tudo o que está esperando por você: uma mensalidade a pagar, um convite de sessão sem resposta, um pedido seu para acompanhar. Cada item diz há quantos dias está ali e traz o botão da ação: um clique, e você já está na tela certa. Se não houver nada, a faixa diz simplesmente "Nada pendente com você". No canto superior, o sino mostra a mesma contagem e as últimas notificações — cada aviso abre o item exato, e é marcado como lido na hora. Logo abaixo, o resumo da sua vida maçônica: a situação na Loja, o grau, a frequência do ano — calculada sobre as sessões do seu grau — e as mensalidades em aberto, com o botão para pagar por cartão, boleto ou Pix. E o card "Minhas solicitações" diz, para cada pedido seu, com quem ele está pendente neste momento: com o Tesoureiro, com a Secretaria, com o Venerável. Você nunca precisa perguntar onde parou.
 
 ## 1.3 — Notificações (`obreiro-notificacoes.mp4`)
 
 ![Tela: obreiro-notificacoes](roteiros-prints/obreiro-notificacoes.png)
 
-- **Objetivo:** central de avisos.
-- **Duração:** ~40 s.
-- **Na tela:** sino com contador na barra lateral → página de Notificações → aviso dirigido ao irmão (ex.: frequência baixa) e aniversários → marcar como lida.
+- **Objetivo:** central de avisos e avisos de evento por e-mail.
+- **Duração:** ~50 s.
+- **Na tela:** sino no cabeçalho (contagem "Minha vez" + últimas notificações) → clicar num aviso: abre o item exato (ex.: card destacado em Processos ou a solicitação) já marcado como lido → página de Notificações agrupada por tipo (aniversário, cadastro incompleto, financeiro, solicitações) → botão "Marcar lida" → mostrar (mock) o e-mail recebido: "Capitação emitida", "Pagamento recebido", "Sua solicitação avançou: Pendente com o Secretário" e o e-mail final com o PDF anexo.
 - **Narração:**
 
-> O sino de notificações é a central de avisos do sistema. Para você, Obreiro, chegam aqui os avisos que dizem respeito à sua caminhada — por exemplo, um alerta se a sua frequência estiver abaixo do mínimo da Loja, além dos aniversários dos irmãos e familiares. O número vermelho mostra quantos avisos ainda não foram lidos. E o melhor: quando a pendência é resolvida, o aviso desaparece sozinho. Nada de bagunça — só o que precisa da sua atenção.
+> O sino de notificações é a central de avisos do sistema. Para você, Obreiro, chegam aqui os avisos que dizem respeito à sua caminhada: uma capitação emitida, um pagamento confirmado, uma mudança na sua situação, o aniversário de um irmão — e cada etapa das suas solicitações, do atestado ao afastamento. Cada aviso é um atalho: clicou, o sistema abre o item exato, já destacado na tela, e marca o aviso como lido. Os mesmos avisos chegam ao seu e-mail, e, quando um pedido seu é concluído, o documento assinado vai anexado. O número no sino mostra quantos itens ainda aguardam você — e, quando a pendência é resolvida, o aviso desaparece sozinho. Nada de bagunça: só o que precisa da sua atenção.
 
 ## 1.4 — Carteirinha Digital (`obreiro-carteirinha.mp4`)
 
@@ -108,12 +110,12 @@ O Obreiro comum vê: Dashboard, Notificações, Carteirinha Digital, Biblioteca 
 
 ![Tela: obreiro-atestado](roteiros-prints/obreiro-atestado.png)
 
-- **Objetivo:** solicitar o atestado e acompanhar, na linha do tempo, com quem a assinatura está pendente.
-- **Duração:** ~55 s.
-- **Na tela:** menu Atestado de Regularidade → botão "Solicitar Atestado de Regularidade" → linha do tempo Tesoureiro → Secretário → Venerável Mestre com a etiqueta "Pendente com: Tesoureiro" → atestado concluído ("Documento pronto") → botões Ver PDF / Baixar PDF.
+- **Objetivo:** solicitar o atestado e acompanhar, na linha do tempo, com quem a assinatura está pendente — e entender por que um irmão em atraso não consegue pedir.
+- **Duração:** ~60 s.
+- **Na tela:** menu Atestado de Regularidade → botão "Solicitar Atestado de Regularidade" → linha do tempo Tesoureiro → Secretário → Venerável Mestre com a etiqueta "Pendente com: Tesoureiro" → o mesmo pedido no card "Minhas solicitações" do dashboard e na faixa "Minha vez" → (mock) o e-mail "O Tesoureiro assinou o seu atestado" a cada etapa → atestado concluído ("Documento pronto") → botões Ver PDF / Baixar PDF e o e-mail final com o PDF anexo. Mostrar também (conta com capitação vencida) o aviso de que o pedido fica travado enquanto houver capitação vencida.
 - **Narração:**
 
-> Precisa comprovar que está regular com a Loja? O Atestado de Regularidade declara que você é membro efetivo e está em dia com os metais e demais deveres maçônicos. Qualquer irmão ativo pode solicitar: um clique, e o pedido segue automaticamente para as três assinaturas digitais do gov.br — primeiro o Tesoureiro, que confirma a regularidade financeira; depois o Secretário; e, por fim, o Venerável Mestre. Você não precisa entender o fluxo interno: a linha do tempo mostra exatamente com quem o documento está pendente. E, quando o Venerável conclui, aparece "Documento pronto" — é só baixar o PDF assinado.
+> Precisa comprovar que está regular com a Loja? O Atestado de Regularidade declara que você é membro efetivo e está em dia com os metais e demais deveres maçônicos. Qualquer irmão ativo pode solicitar: um clique, e o pedido segue automaticamente para as três assinaturas digitais do gov.br — primeiro o Tesoureiro, que confere a Tesouraria; depois o Secretário; e, por fim, o Venerável Mestre. Uma regra clara: se houver capitação vencida, o pedido fica travado até a quitação — e só o Tesoureiro pode liberá-lo, com justificativa registrada. A partir da solicitação, você só acompanha: a linha do tempo mostra com quem o documento está pendente, e a cada assinatura você recebe um aviso no sistema e no e-mail. Quando o Venerável conclui, aparece "Documento pronto" — o PDF assinado fica disponível aqui e chega anexado ao seu e-mail.
 
 ## 1.10 — Meu perfil, Privacidade e senha (`obreiro-conta.mp4`)
 
@@ -133,11 +135,11 @@ O Obreiro comum vê: Dashboard, Notificações, Carteirinha Digital, Biblioteca 
 ![Tela: obreiro-quitte](roteiros-prints/obreiro-quitte.png)
 
 - **Objetivo:** o irmão pede o próprio Quitte Placet e acompanha com quem está pendente.
-- **Duração:** ~50 s.
-- **Na tela:** menu Quitte Placets → card "Meu Quitte Placet" → motivo + anexar a carta de próprio punho (foto ou PDF) → Solicitar → card "Andamento" com a linha do tempo: Carta entregue → Nada Consta → Form. 122 → Secretário → Venerável Mestre → Guarda dos Selos → etiqueta "Pendente com: …" → ao final, "Enviado à Guarda dos Selos" e botão Baixar documento.
+- **Duração:** ~60 s.
+- **Na tela:** menu Quitte Placet → card "Meu Quitte Placet" → motivo + anexar a carta de próprio punho (foto ou PDF) → Solicitar → card "Andamento" com a linha do tempo: Carta entregue → Nada Consta (Tesouraria) → Sessão de comunicação e Form. 122 (Secretaria) → Secretário → Orador → Venerável Mestre → Guarda dos Selos → etiqueta "Pendente com: Tesouraria (Nada Consta)" → o mesmo item em "Minhas solicitações" no dashboard → ao final, "Enviado à Guarda dos Selos", botão Baixar documento e a situação do irmão como Ex-membro. Mostrar também um pedido negado com o parecer exibido ao irmão.
 - **Narração:**
 
-> O Quitte Placet é o documento de desligamento ou transferência — e o pedido é do próprio irmão. No menu Quitte Placets, escreva o motivo e anexe a carta escrita a próprio punho e assinada: sem ela, o pedido não é registrado. A partir daí, você só acompanha. A linha do tempo mostra cada etapa — a carta, o Nada Consta da Tesouraria, o formulário oficial, a assinatura do Secretário, a do Venerável Mestre e o envio à Guarda dos Selos — e diz, a cada momento, com quem o pedido está pendente. Concluído, o documento assinado fica disponível para download. Transparência do início ao fim.
+> O Quitte Placet é o documento de desligamento ou transferência — e o pedido é do próprio irmão. No menu Quitte Placet, escreva o motivo e anexe a carta escrita a próprio punho e assinada: sem ela, o pedido não é registrado. A partir daí, você só acompanha. A linha do tempo mostra cada etapa — a carta; o Nada Consta da Tesouraria, que considera apenas as capitações vencidas e é atualizado assim que você paga; a sessão em que o pedido é comunicado à Loja e o formulário oficial; e as três assinaturas do gov.br: o Secretário, o Orador e o Venerável Mestre — e diz, a cada momento, com quem o pedido está pendente. Se a Loja negar, você vê o parecer aqui mesmo. Concluído e enviado à Guarda dos Selos, o documento assinado fica disponível para download, e a sua situação na Loja é atualizada automaticamente. Transparência do início ao fim.
 
 ## 1.12 — Mútua (CABM): Declaração de Beneficiários (`obreiro-mutua.mp4`)
 
@@ -161,19 +163,41 @@ O Obreiro comum vê: Dashboard, Notificações, Carteirinha Digital, Biblioteca 
 
 > A Bolsa de Benemerência é a mão estendida da Loja — e contribuir ficou simples assim. Na seção Bolsa de Benemerência, você encontra o QR Code Pix da Loja: aponte a câmera do aplicativo do seu banco, escolha o valor que o coração mandar e confirme. Prefere o Copia e Cola? Um toque no botão e o código está na área de transferência. Contribua com fraternidade: sua ajuda transforma vidas e fortalece os laços da nossa ordem.
 
+## 1.14 — Assistente da Loja (`obreiro-assistente.mp4`)
+
+![Tela: obreiro-assistente](roteiros-prints/obreiro-assistente.png)
+
+- **Objetivo:** mostrar o assistente conversacional, agora proativo: ele sabe o que está na vez do irmão.
+- **Duração:** ~55 s.
+- **Na tela:** botão do assistente no canto inferior direito → painel lateral abre → chips de sugestão no topo, com os dinâmicos primeiro ("Quais capitações minhas estão vencidas?", "Que convites de sessão ainda não respondi?") → clicar num chip (preenche sem enviar) → perguntar "O que está na minha vez?" → resposta com a lista e links clicáveis que abrem cada item → uma pergunta comum ("Qual é a minha frequência este ano?") → histórico de conversas (relógio) e "Nova conversa". Numa conta de Secretário, mostrar a pergunta "Como está a situação financeira do irmão [nome]?" para um irmão com processo em andamento.
+- **Narração:**
+
+> No canto da tela mora o Assistente da Loja — e ele já sabe por onde você deve começar. Ao abrir, as primeiras sugestões são as suas pendências: uma capitação vencida, um convite sem resposta, um documento para assinar. Toque numa sugestão, complete se quiser, e envie. Pergunte "O que está na minha vez?" e a resposta vem com links: um clique leva ao item. O assistente responde pelo que você tem direito de ver — a sua frequência, as suas capitações, as atas, a biblioteca — e, para quem tem cargo, vai além: o Secretário pode perguntar a situação financeira de um irmão que tem processo em andamento, antes de dar o próximo passo. As conversas ficam guardadas, e você retoma quando quiser. É a Loja respondendo, com educação e com dados.
+
+## 1.15 — Balancete da Loja (`obreiro-balancete.mp4`)
+
+![Tela: obreiro-balancete](roteiros-prints/obreiro-balancete.png)
+
+- **Objetivo:** mostrar que todo irmão consulta o balancete mensal da Loja, só leitura e sem nomes.
+- **Duração:** ~40 s.
+- **Na tela:** menu Balancete da Loja → seletor "Mês fechado" (só os meses já fechados pela Tesouraria) → badge "Fechado · ciência do Conselho" com o carimbo "Fechado por X em data · Ciência do Conselho por Y em data" → cards Receitas, Despesas e Saldo do mês (totais gravados no fechamento) → gráfico dos últimos 12 meses, com os meses ainda abertos vazios e marcados "aberto" → tabela "Consolidado por categoria" → tabela "Lançamentos do mês" com a linha única "Capitações recebidas — N irmãos" e a beneficência só no consolidado → rodapé "Balancete fechado pela Tesouraria e submetido à ciência do Conselho". Mostrar também a mensagem "A Tesouraria ainda não fechou nenhum mês" (loja nova). No assistente, o chip "Como fechou o balancete do mês passado?".
+- **Narração:**
+
+> Transparência é fraternidade. Na seção Balancete da Loja, qualquer irmão do quadro consulta as contas do mês: quanto entrou, quanto saiu e o saldo. Só aparecem os meses já fechados: o Tesoureiro fecha o mês, o Conselho de Contas registra a ciência — e o carimbo no topo mostra quem fechou e quem conferiu. O gráfico mostra os últimos doze meses, com os ainda abertos em branco; a tabela, os totais por categoria. Repare no cuidado: as capitações aparecem numa linha só — quantos irmãos pagaram e o total — e a beneficência entra apenas como valor da categoria. Nenhum nome, nenhuma situação individual. É o balancete fechado pela Tesouraria e conferido pelo Conselho, aberto para consulta; dúvidas, com o Tesoureiro ou o Conselho de Contas.
+
 # PARTE 2 — SECRETÁRIO
 
-O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da Loja, Documentos (Drive), Processos, Progressões, Visitas a Oficinas, Quitte Placets, Configurações da Loja e Auditoria. Na Mútua, enxerga as entregas de todo o quadro.
+O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da Loja, Documentos (Drive), Processos, Progressões, Visitas a Oficinas, Visitantes, Quitte Placets, Configurações da Loja e Auditoria. O Esmoler e o Venerável veem ainda o Acompanhamento fraterno. Na Mútua, enxerga as entregas de todo o quadro.
 
 ## 2.1 — Dashboard do Secretário (`secretario-dashboard.mp4`)
 
 ![Tela: secretario-dashboard](roteiros-prints/secretario-dashboard.png)
 
-- **Duração:** ~50 s.
-- **Na tela:** cartões: membros ativos por grau, irregulares, atas pendentes, pranchas no ano → card de atas aguardando lavratura/assinatura → card "Atestados aguardando minha assinatura" → próximas sessões.
+- **Duração:** ~60 s.
+- **Na tela:** faixa "Minha vez" no topo: assinaturas na vez do Secretário (atestado, Quitte, processo, Form. 116, ata), registros da Secretaria (sessão de comunicação do Quitte, Form. 122, candidato parado, prazo LGPD) com o botão Assinar / Registrar → sino no cabeçalho → cartões: membros ativos por grau, irregulares, atas pendentes, pranchas no ano → atas aguardando lavratura/assinatura → próximas sessões.
 - **Narração:**
 
-> O painel do Secretário é a mesa de trabalho da Loja. Nos cartões do topo: o total de membros ativos, com o resumo por grau; os irmãos em situação irregular; as atas pendentes; e as pranchas expedidas no ano. Logo abaixo, as atas que aguardam lavratura ou assinatura, os atestados de regularidade na sua vez de assinar e as próximas sessões agendadas. Um olhar, e você já sabe por onde começar o dia.
+> O painel do Secretário é a mesa de trabalho da Loja — e a faixa "Minha vez" é a pilha que está sobre ela. Ali aparecem, em ordem de urgência, as assinaturas que aguardam o Secretário e os registros que só a Secretaria faz: a sessão em que um Quitte Placet foi comunicado, o formulário oficial a anexar, um candidato parado numa etapa, um pedido de exclusão de dados com prazo correndo. Cada item diz há quantos dias espera e abre direto no card certo. Nos cartões: o total de membros ativos, com o resumo por grau; os irmãos em situação irregular; as atas pendentes; e as pranchas expedidas no ano. Logo abaixo, as atas que aguardam lavratura ou assinatura e as próximas sessões. Um olhar, e você já sabe por onde começar o dia.
 
 ## 2.2 — Membros: o quadro de Obreiros (`secretario-membros.mp4`)
 
@@ -275,6 +299,16 @@ O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da L
 
 > Quando um irmão da Loja visita outra Oficina, a visita é registrada aqui — data, Loja visitada e certificado. É a contrapartida do check-in de visitantes: a vida maçônica do quadro, dentro e fora do Templo, documentada.
 
+## 2.11b — Visitantes (`secretario-visitantes.mp4`)
+
+![Tela: secretario-visitantes](roteiros-prints/secretario-visitantes.png)
+
+- **Duração:** ~45 s.
+- **Na tela:** menu Visitantes (só Secretário e VM) → lista com busca e contagem de visitas → ficha de um visitante (dados vindos do check-in, telefone, grau, cargo, observações) → histórico de visitas com "Enviar por WhatsApp" e "Enviar por e-mail" → mesclar duplicado → Exportar CSV. Mostrar rapidamente o check-in pelo QR com o campo Telefone/WhatsApp.
+- **Narração:**
+
+> Todo irmão de outra Oficina que faz o check-in pelo QR Code entra automaticamente na base de Visitantes: nome, CIM, e-mail, telefone, Loja e Potência de origem. Se ele voltar, a nova visita cai na mesma ficha — o sistema reconhece pelo CIM, pelo e-mail ou pelo nome com a Loja de origem. A Secretaria completa o que faltar, mescla fichas duplicadas e exporta a lista. E o Certificado de Visita, que já vai por e-mail no check-in, pode ser reenviado pela ficha — por e-mail ou direto no WhatsApp do visitante, com um link seguro para o PDF. Só o Secretário e o Venerável Mestre veem esta base.
+
 ## 2.12 — Atestado de Regularidade (assinatura do Secretário) (`secretario-atestado.mp4`)
 
 ![Tela: secretario-atestado](roteiros-prints/secretario-atestado.png)
@@ -289,11 +323,11 @@ O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da L
 
 ![Tela: secretario-quitte](roteiros-prints/secretario-quitte.png)
 
-- **Duração:** ~60 s.
-- **Na tela:** aviso no topo "a assinatura é feita na aba Processos" → pedido chegando do irmão (com a carta) ou "Nova solicitação" em nome dele → quadro de etapas → trava do Nada Consta (Reconsultar Tesouraria) → card Form. 122: baixar modelo preenchido → anexar em PDF → "Pronto para assinatura" → (corte para Processos: assinatura do Secretário e depois do VM) → status Aprovado → "Enviar à Guarda dos Selos".
+- **Duração:** ~75 s.
+- **Na tela:** aviso no topo "a assinatura gov.br do Form. 122 é feita na aba Processos" → pedido chegando do irmão (com a carta) ou "Nova solicitação" em nome dele → quadro de etapas (Novo → Em análise; Aprovado e Negado não saem do arraste) → card do pedido com a linha "Nada Consta (Tesouraria) → Form. 122 (Secretaria) → Secretário → Orador → Venerável Mestre" e "Pendente com: …" → painel "Tesouraria" (situação, capitações em aberto com as vencidas em vermelho, últimas pagas) e "Reconsultar Tesouraria" → card "Formulário oficial (Form. 122)": botão "Gerar Form. 122 automaticamente" (preenche Loja, sessão de comunicação, obreiro e data) ou anexar em PDF/Word → botão "Negar" com o parecer obrigatório → (corte para Processos: Secretário → Orador → VM) → status Aprovado → "Enviar à Guarda dos Selos" → o irmão passa a Ex-membro.
 - **Narração:**
 
-> O Quitte Placet é o documento de desligamento ou transferência de um irmão — e exige rigor. O pedido nasce com o próprio irmão, que anexa a carta escrita a próprio punho; a Secretaria também pode abrir em nome dele. Daqui em diante, a página é a sua mesa de triagem. Primeira trava: o Nada Consta da Tesouraria — sem a quitação financeira confirmada, nada segue. Depois, o formulário oficial, o Form. 122, que sai já preenchido: confira e anexe em PDF. Com a carta, o Nada Consta e o formulário no lugar, o documento fica pronto para as assinaturas — que acontecem na seção Processos: o Secretário primeiro, o Venerável Mestre por último. Aprovado, um clique o expede à Guarda dos Selos pelo e-mail da Loja. E o irmão acompanhou cada etapa pela linha do tempo, sem precisar perguntar.
+> O Quitte Placet é o documento de desligamento ou transferência de um irmão — e exige rigor. O pedido nasce com o próprio irmão, que anexa a carta escrita a próprio punho; a Secretaria também pode abrir em nome dele. Daqui em diante, a página é a sua mesa de triagem. Primeira trava: o Nada Consta da Tesouraria. O painel Tesouraria mostra, no próprio card, a situação do irmão e as capitações em aberto — só as vencidas travam, e o resultado é recalculado assim que ele paga; se houver pendência, é o Tesoureiro quem confirma o Nada Consta, na seção Processos. Depois, o formulário oficial: um clique em "Gerar Form. 122 automaticamente" e ele sai preenchido com a Loja, a sessão de comunicação e os dados do obreiro — ou anexe o seu próprio. Com a carta, o Nada Consta e o formulário no lugar, o documento vai às três assinaturas do gov.br, na seção Processos: o Secretário, o Orador e, por último, o Venerável Mestre. Se a Loja negar, o parecer é obrigatório — e o irmão o lê na página dele. Aprovado, um clique o expede à Guarda dos Selos pelo e-mail da Loja, e a situação do irmão muda para ex-membro automaticamente. Ele acompanhou cada etapa pela linha do tempo, sem precisar perguntar.
 
 ## 2.14 — Configurações da Loja e Auditoria (`secretario-config.mp4`)
 
@@ -311,12 +345,12 @@ O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da L
 
 ![Tela: secretario-processos](roteiros-prints/secretario-processos.png)
 
-- **Objetivo:** mostrar que toda assinatura gov.br de qualquer cargo acontece num só lugar.
-- **Duração:** ~75 s.
-- **Na tela:** menu Processos → cards "Atestados de Regularidade" e "Quitte Placets" na vez do cargo → "Documentos da Secretaria": card "Novo processo" (PDF ou Word + cadeia de assinantes em 4 caixas: 1º, 2º, 3º e 4º assinante, com as opções Secretário, Tesoureiro, Orador, 1º Vigilante e 2º Vigilante; o VM entra sozinho no fim) → processo vindo de uma prancha (badge "vez do Secretário") → "Assinar com gov.br" / bloco portal ITI → após a última assinatura, "Assinado por toda a cadeia" → bloco de envio com Guarda dos Selos em destaque + cópia a irmãos do quadro → "Enviado a … em …" → "Baixar documento (com assinaturas)".
+- **Objetivo:** mostrar que toda assinatura gov.br de qualquer cargo acontece num só lugar — e que cada card já traz o contexto para decidir.
+- **Duração:** ~90 s.
+- **Na tela:** chegar pelo aviso do sino → menu Processos abre com o card do item destacado → cards "Atestados de Regularidade" (Tesoureiro → Secretário → VM) e "Quitte Placets" (Secretário → Orador → VM) na vez do cargo, cada um com o painel "Tesouraria" (situação, capitações em aberto, últimas pagas) → atestado travado por capitação vencida, com a nota "Só o Tesoureiro registra o override" → "Documentos da Secretaria": card "Novo processo" (PDF ou Word + cadeia de assinantes em 4 caixas: Secretário, Tesoureiro, Orador, 1º Vigilante e 2º Vigilante; o VM entra sozinho no fim) → processo vindo de uma prancha (badge "vez do Secretário") → "Assinar com gov.br" / bloco portal ITI (o sistema valida o certificado e o CPF) → após a última assinatura, "Assinado por toda a cadeia" → bloco de envio com Guarda dos Selos em destaque + cópia a irmãos do quadro → "Enviado a … em …" → "Baixar documento (com assinaturas)".
 - **Narração:**
 
-> Processos é a mesa de assinaturas da Loja. Tudo o que precisa de assinatura digital do gov.br chega aqui, separado por tipo: os Atestados de Regularidade dos irmãos, os Quitte Placets e os documentos oficiais da Secretaria — anexos de pranchas, formulários do GOB preenchidos, ofícios. Cada documento traz a sua cadeia de assinantes, em ordem: ao abrir o processo, você define até quatro assinantes — Secretário, Tesoureiro, Orador, Primeiro ou Segundo Vigilante —, e o Venerável Mestre assina sempre por último, selando o documento. Os cargos do rito entram pelo cadastro do membro: quem está nomeado Orador ou Vigilante passa a ver o menu Processos e assina na sua vez. Quando chega a vez de alguém, o sistema avisa; você assina com a sua conta gov.br ou pelo portal oficial, e as assinaturas ficam embutidas no próprio PDF. Concluída a cadeia, o sistema pergunta para quem enviar — a Guarda dos Selos em destaque, com a opção de copiar irmãos do quadro. E, se o documento veio de uma prancha, a versão assinada volta para ela automaticamente, liberando o candidato ou a progressão no quadro. Um só lugar, uma só ordem, nenhuma assinatura perdida.
+> Processos é a mesa de assinaturas da Loja. Tudo o que precisa de assinatura digital do gov.br chega aqui, separado por tipo: os Atestados de Regularidade, os Quitte Placets, os pedidos de afastamento e os documentos oficiais da Secretaria — anexos de pranchas, formulários do GOB preenchidos, ofícios. Quando o aviso chega pelo sino ou pelo e-mail, o clique abre esta página já no card certo, destacado. E o card traz o que você precisa para assinar com consciência: o painel Tesouraria mostra a situação do irmão, as capitações em aberto e as últimas pagas — se houver capitação vencida, o atestado fica travado, e só o Tesoureiro pode liberá-lo, com justificativa. Cada documento traz a sua cadeia de assinantes, em ordem: ao abrir um processo, você define até quatro — Secretário, Tesoureiro, Orador, Primeiro ou Segundo Vigilante —, e o Venerável Mestre assina sempre por último. Quem está na vez recebe o e-mail na hora. Assina-se com a conta gov.br ou pelo portal oficial — e, nesse caso, o sistema confere o certificado e o CPF de quem assinou. Concluída a cadeia, o sistema pergunta para quem enviar — a Guarda dos Selos em destaque —, e, se o documento veio de uma prancha, a versão assinada volta para ela automaticamente. Um só lugar, uma só ordem, nenhuma assinatura perdida.
 
 ## 2.16 — Mútua: entregas do quadro (`secretario-mutua.mp4`)
 
@@ -337,11 +371,11 @@ O Tesoureiro vê os menus comuns e mais: Mensalidades, Despesas e Balancete.
 
 ![Tela: tesoureiro-dashboard](roteiros-prints/tesoureiro-dashboard.png)
 
-- **Duração:** ~50 s.
-- **Na tela:** receitas, despesas e saldo do mês → inadimplência → mensalidades vencidas → despesas aguardando aprovação → card "Atestados aguardando minha assinatura".
+- **Duração:** ~55 s.
+- **Na tela:** faixa "Minha vez": atestados na vez do Tesoureiro, Nada Consta de Quitte a confirmar, despesas a aprovar, com os botões Assinar / Registrar / Aprovar → sino → receitas, despesas e saldo do mês → inadimplência → mensalidades vencidas → despesas aguardando aprovação → (mock) o e-mail "resumo diário da Tesouraria" e o aviso de pagamento com valor divergente.
 - **Narração:**
 
-> O painel do Tesoureiro mostra a saúde financeira da Loja em números claros: receitas, despesas e saldo do mês, e o total da inadimplência, com a lista das mensalidades vencidas. Logo abaixo, as despesas que aguardam aprovação e — novidade — os Atestados de Regularidade que aguardam a sua assinatura: como guardião das finanças, o Tesoureiro é o primeiro a assinar, confirmando que o irmão está em dia com os metais. Tudo o que depende de você, em uma só tela.
+> O painel do Tesoureiro começa pela sua vez: os Atestados de Regularidade que aguardam a sua assinatura, os Quitte Placets em que a Tesouraria precisa confirmar o Nada Consta e as despesas que dependem da sua aprovação — cada um com o botão da ação e há quantos dias espera. Depois, a saúde financeira da Loja em números claros: receitas, despesas e saldo do mês, e o total da inadimplência, com a lista das mensalidades vencidas. Os avisos chegam também por e-mail, na hora em que é a sua vez, e um resumo diário reúne os pagamentos do dia — inclusive quando o valor pago não bate com a cobrança. Tudo o que depende de você, em uma só tela.
 
 ## 3.2 — Mensalidades (capitações) (`tesoureiro-mensalidades.mp4`)
 
@@ -367,21 +401,21 @@ O Tesoureiro vê os menus comuns e mais: Mensalidades, Despesas e Balancete.
 
 ![Tela: tesoureiro-balancete](roteiros-prints/tesoureiro-balancete.png)
 
-- **Duração:** ~45 s.
-- **Na tela:** livro-caixa do mês → receitas por categoria (capitações, tronco, eventos) → despesas → lançar receita manual → exportar CSV.
+- **Duração:** ~60 s.
+- **Na tela:** livro-caixa do mês → card "Fechamento do mês" com badge "Aberto" → receitas por categoria (capitações, tronco, eventos) → despesas → lançar receita manual → exportar CSV → voltar ao mês anterior (já terminado) → "Fechar mês" com observação opcional → badge "Fechado · aguardando ciência" e carimbo "Fechado por X em data" → tentar lançar receita com data dentro do mês fechado: erro "Mês fechado — reabra na Tesouraria" → mostrar "Reabrir mês" (motivo obrigatório) sem executar → na faixa "Minha vez", o item "Balancete de MM/AAAA ainda aberto" (aparece depois do dia 10).
 - **Narração:**
 
-> O Balancete é o livro-caixa da Loja, mês a mês: de um lado, as receitas — capitações, tronco de beneficência, eventos e doações; do outro, as despesas pagas, com totais por categoria. Entradas avulsas você registra em "Lançar receita". E, na hora da prestação de contas, exporte tudo em CSV para levar à Loja ou ao Conselho de Contas. Transparência que se demonstra em números.
+> O Balancete é o livro-caixa da Loja, mês a mês: de um lado, as receitas — capitações, tronco de beneficência, eventos e doações; do outro, as despesas pagas, com totais por categoria. Entradas avulsas você registra em "Lançar receita". E, na hora da prestação de contas, exporte tudo em CSV. Terminou o mês? Clique em "Fechar mês": os totais ficam congelados, o Conselho de Contas é avisado para registrar a ciência e o quadro passa a ver o mês no Balancete da Loja. A partir daí, nenhum lançamento manual entra naquele mês — se precisar corrigir algo, use "Reabrir mês", informe o motivo e feche de novo. Pagamentos automáticos que chegarem depois entram na data de hoje, e você é avisado. Depois do dia dez, o mês anterior ainda aberto aparece na sua "Minha vez". Transparência que se demonstra em números — e se fecha com assinatura.
 
-## 3.5 — Atestado de Regularidade (assinatura do Tesoureiro) (`tesoureiro-atestado.mp4`)
+## 3.5 — Atestado de Regularidade e Nada Consta (assinatura do Tesoureiro) (`tesoureiro-atestado.mp4`)
 
 ![Tela: tesoureiro-atestado](roteiros-prints/tesoureiro-atestado.png)
 
-- **Duração:** ~50 s.
-- **Na tela:** notificação e card no dashboard "Atestados aguardando minha assinatura" → "Assinar na aba Processos →" → card "Atestados de Regularidade" com o irmão na sua vez → "Assinar com gov.br" OU bloco portal assinador.iti.br (baixar PDF, assinar, subir) → badges Tesoureiro ✓ → segue ao Secretário.
+- **Duração:** ~70 s.
+- **Na tela:** e-mail/sino "aguarda assinatura do Tesoureiro" → clique abre Processos com o card destacado → painel "Tesouraria" no card: situação, capitações em aberto (vencidas em vermelho), últimas pagas → caso regular: "Assinar com gov.br" OU bloco portal assinador.iti.br → badge Tesoureiro ✓, segue ao Secretário → caso com capitação vencida: card travado, formulário "Registrar override financeiro (liberar assinaturas)" com a justificativa (fica na auditoria e visível no card) → card "Quitte Placets": badge "Capitações vencidas" e botão "Confirmar Nada Consta" (confirmação com aviso ao Secretário).
 - **Narração:**
 
-> Quando um irmão solicita o Atestado de Regularidade, você é o primeiro da fila — afinal, é o Tesoureiro quem atesta que o irmão está em dia com os metais. O sistema avisa no seu painel e na central de notificações, e o atalho leva direto à seção Processos, onde ficam todas as assinaturas dos cargos. Lá, você assina com a sua conta gov.br — ou baixa o documento, assina no portal oficial e sobe o arquivo assinado. A sua assinatura abre o caminho: em seguida, o atestado passa ao Secretário e, por fim, ao Venerável Mestre. E o irmão vê, na linha do tempo dele, que a etapa do Tesoureiro já foi cumprida.
+> Quando um irmão solicita o Atestado de Regularidade, você é o primeiro da fila — afinal, é o Tesoureiro quem atesta que o irmão está em dia com os metais. O aviso chega no painel, no sino e no e-mail, e o clique abre a seção Processos já no card do irmão. Ali, o painel Tesouraria mostra o que você precisa: a situação dele, as capitações em aberto e as últimas pagas. Se estiver tudo em dia, assine com a sua conta gov.br ou pelo portal oficial, e o atestado segue ao Secretário e, por fim, ao Venerável Mestre. Se houver capitação vencida, o sistema trava as assinaturas — e só o Tesoureiro pode liberar, registrando uma justificativa que fica na auditoria e à vista de todos no card. O mesmo cuidado vale para o Quitte Placet: o Nada Consta considera apenas as capitações vencidas, é recalculado quando o irmão paga, e, se ainda houver pendência, é você quem decide com o botão "Confirmar Nada Consta". O irmão vê, na linha do tempo dele, que a etapa do Tesoureiro foi cumprida — e recebe o aviso na hora.
 
 ---
 
@@ -389,25 +423,27 @@ O Tesoureiro vê os menus comuns e mais: Mensalidades, Despesas e Balancete.
 
 O VM tem visão total: menus da Secretaria, da Tesouraria e da gestão da Loja.
 
-## 4.1 — Dashboard do Venerável (`veneravel-dashboard.mp4`)
+## 4.1 — Dashboard do Venerável: "Minha vez" e Fila da Loja (`veneravel-dashboard.mp4`)
 
 ![Tela: veneravel-dashboard](roteiros-prints/veneravel-dashboard.png)
 
-- **Duração:** ~60 s.
-- **Na tela:** membros ativos, saldo do mês, atas para assinar, despesas para aprovar → alerta vermelho de comunicações em atraso → cards: atas aguardando minha assinatura (assinar inline), Quitte Placets, despesas, atestados na minha vez.
+![Tela: veneravel-fila](roteiros-prints/veneravel-fila.png)
+
+- **Duração:** ~80 s.
+- **Na tela:** faixa "Minha vez" ("Resumo da Loja e fila de processos"): assinaturas e aprovações na vez do VM → cartões: membros ativos, saldo do mês, atas para assinar, despesas para aprovar → semáforos: Inadimplência (irregulares e % do quadro), Frequência média no ano (irmãos abaixo do mínimo), Processos parados há +7 dias, Prazos LGPD (15 dias) → card "Fila da Loja": etiquetas de gargalo por cargo ("Tesoureiro (nome): 1 item · até 3 dias") e a lista "Parado com …" com "há N dia(s)" → "Abrir a caixa de assinaturas" → card "Despesas aguardando minha aprovação": botão "Aprovar agora" → diálogo com senha → "Aprovar despesa" → alerta vermelho de comunicações em atraso → cards de atas na minha vez (assinar inline).
 - **Narração:**
 
-> O painel do Venerável Mestre é o posto de comando da Loja. No topo, os números essenciais: membros ativos, saldo do mês, atas aguardando a sua assinatura e despesas aguardando a sua aprovação. Se algum prazo regulamentar estiver estourado — como a comunicação de quinze dias após uma cerimônia — um alerta vermelho salta à vista. E o melhor: as pendências se resolvem dali mesmo. Atas, Quitte Placets e atestados na sua vez podem ser assinados sem sair do painel, com a confirmação por senha. Malhete na mão, decisões na tela.
+> O painel do Venerável Mestre é o posto de comando da Loja. No topo, a sua vez: as assinaturas e aprovações que só o Venerável faz, cada uma com o botão da ação. Nos cartões, os números essenciais: membros ativos, saldo do mês, atas aguardando a sua assinatura e despesas aguardando a sua aprovação. Abaixo, quatro semáforos dizem como a Loja está: a inadimplência, a frequência média do ano, os processos parados há mais de sete dias e os prazos da Lei de Proteção de Dados. E a Fila da Loja mostra o que ninguém mais vê inteiro: todos os processos em andamento, com quem cada um está parado e há quantos dias — com o gargalo por cargo em destaque. É a visão para cobrar sem microgerenciar. As despesas se aprovam dali mesmo: um clique, a senha, e a dupla aprovação está registrada. Se algum prazo regulamentar estourar, um alerta vermelho salta à vista. Malhete na mão, decisões na tela.
 
 ## 4.2 — Assinaturas do Venerável (`veneravel-assinaturas.mp4`)
 
 ![Tela: veneravel-assinaturas](roteiros-prints/veneravel-assinaturas.png)
 
-- **Duração:** ~70 s.
-- **Na tela:** atas: assinar inline (senha) ou gov.br → menu Processos: cards Atestados (VM último: Tesoureiro ✓, Secretário ✓, "Assinar com gov.br"), Quitte Placets (Secretário ✓ → VM) e Documentos da Secretaria (prancha na vez do VM) → após assinar, bloco de envio à Guarda dos Selos.
+- **Duração:** ~75 s.
+- **Na tela:** atas: assinar inline (senha) ou gov.br → e-mail/sino "aguarda assinatura do Venerável Mestre" → menu Processos abre no card destacado → cards Atestados (VM último: Tesoureiro ✓, Secretário ✓; painel Tesouraria à vista; "Assinar com gov.br"), Quitte Placets (Secretário ✓ → Orador ✓ → VM; Nada Consta confirmado) e Documentos da Secretaria (prancha na vez do VM) → após assinar, bloco de envio à Guarda dos Selos → (Quitte) ao enviar, o irmão vira Ex-membro; (afastamento) o irmão vira Licenciado com data de retorno.
 - **Narração:**
 
-> Boa parte do dia a dia do Venerável são as assinaturas — e o sistema as organiza todas. Nas atas, o Venerável assina primeiro, e o Secretário sela em seguida. Todo o resto está numa única seção: Processos. Nos Atestados de Regularidade, a sua é a assinatura final, depois do Tesoureiro e do Secretário — é ela que entrega o documento pronto ao irmão. Nos Quitte Placets, você sela depois do Secretário, sempre após o Nada Consta da Tesouraria. E nas pranchas e formulários oficiais — que podem trazer na cadeia o Secretário, o Tesoureiro, o Orador e os Vigilantes —, o Venerável assina sempre por último, fechando a cadeia — e é aí que o sistema oferece o envio à Guarda dos Selos. Tudo com a assinatura digital do gov.br, de validade jurídica plena: direto pela sua conta ou pelo portal oficial. A autoridade do cargo, com a praticidade da tecnologia.
+> Boa parte do dia a dia do Venerável são as assinaturas — e o sistema as organiza todas. Nas atas, o Venerável assina primeiro, e o Secretário sela em seguida. Todo o resto está numa única seção: Processos — e o aviso, no sino ou no e-mail, leva direto ao card da vez. Nos Atestados de Regularidade, a sua é a assinatura final, depois do Tesoureiro e do Secretário; o painel Tesouraria mostra no próprio card que o irmão está em dia. Nos Quitte Placets, você sela depois do Secretário e do Orador, sempre após o Nada Consta da Tesouraria — e, ao expedir à Guarda dos Selos, a situação do irmão muda automaticamente. No pedido de afastamento, a sua assinatura fecha o Formulário 116 e o irmão passa a licenciado, com a data prevista de retorno. E nas pranchas e formulários oficiais, o Venerável assina sempre por último, fechando a cadeia — e é aí que o sistema oferece o envio à Guarda dos Selos. Tudo com a assinatura digital do gov.br, direto pela sua conta ou pelo portal oficial. A autoridade do cargo, com a praticidade da tecnologia.
 
 ## 4.3 — Governança e travas do sistema (`veneravel-governanca.mp4`)
 
@@ -423,11 +459,11 @@ O VM tem visão total: menus da Secretaria, da Tesouraria e da gestão da Loja.
 
 ![Tela: veneravel-financeiro](roteiros-prints/veneravel-financeiro.png)
 
-- **Duração:** ~40 s.
-- **Na tela:** menus da Tesouraria em modo VM: mensalidades, despesas (aprovar), balancete.
+- **Duração:** ~45 s.
+- **Na tela:** semáforo de inadimplência no dashboard → menus da Tesouraria em modo VM: mensalidades, despesas (aprovar — também pelo card do dashboard com senha), balancete → menu "Acompanhamento fraterno" (o VM vê a mesma página do Esmoler).
 - **Narração:**
 
-> O Venerável acompanha as finanças lado a lado com o Tesoureiro: as mensalidades e a inadimplência, as despesas — que dependem também da sua aprovação — e o balancete completo, mês a mês. Nada acontece no caixa da Loja fora do seu campo de visão.
+> O Venerável acompanha as finanças lado a lado com o Tesoureiro: o semáforo de inadimplência já no painel, as mensalidades e os irmãos em atraso, as despesas — que dependem também da sua aprovação, e podem ser aprovadas dali mesmo, com a senha — e o balancete completo, mês a mês. E, porque número é gente, o Venerável tem acesso ao Acompanhamento fraterno do Esmoler: quem está perto do limite, quem anda faltando, quem está licenciado. Nada acontece no caixa da Loja fora do seu campo de visão.
 
 ## 4.5 — Configurações e auditoria (visão do VM) (`veneravel-config.mp4`)
 
@@ -459,10 +495,19 @@ O VM tem visão total: menus da Secretaria, da Tesouraria e da gestão da Loja.
 ![Tela: conselho-fiscalizacao](roteiros-prints/conselho-fiscalizacao.png)
 
 - **Duração:** ~60 s.
-- **Na tela:** dashboard somente leitura: resultado do ano, despesas recentes, inadimplência → navegar por mensalidades, despesas, balancete → exportar CSV → tudo sem botões de edição.
+- **Na tela:** faixa "Minha vez" do conselheiro (normalmente "Nada pendente com você" — o Conselho não assina) → dashboard somente leitura: resultado do ano, despesas recentes, inadimplência → navegar por mensalidades, despesas, balancete → Processos: painel Tesouraria dos cards apenas para conferência → exportar CSV → tudo sem botões de edição → (mock) o e-mail de resumo (digest) que o Conselho recebe.
 - **Narração:**
 
-> Ao Conselho de Contas cabe fiscalizar — e o sistema dá ao Conselho exatamente o que ele precisa: acesso completo, em modo somente leitura. O painel mostra o resultado financeiro do ano, as despesas recentes e a inadimplência. Dali, o conselheiro navega pelas mensalidades, pelas despesas — verificando as duplas aprovações — e pelo balancete de cada mês, com exportação em CSV para o parecer. Ver tudo, sem poder alterar nada: é a independência que a fiscalização exige.
+> Ao Conselho de Contas cabe fiscalizar — e o sistema dá ao Conselho exatamente o que ele precisa: acesso completo, em modo somente leitura. A faixa do topo costuma dizer "nada pendente": o conselheiro não assina nem aprova; ele confere. O painel mostra o resultado financeiro do ano, as despesas recentes e a inadimplência. Dali, o conselheiro navega pelas mensalidades, pelas despesas — verificando as duplas aprovações — e pelo balancete de cada mês, com exportação em CSV para o parecer. Na seção Processos, ele vê o painel Tesouraria de cada atestado e Quitte Placet, sem poder assinar. E os avisos chegam num resumo periódico por e-mail, sem a urgência de quem tem a vez. Ver tudo, sem poder alterar nada: é a independência que a fiscalização exige.
+
+## 5.2 — Ciência do balancete (`conselho-ciencia-balancete.mp4`)
+
+- **Objetivo:** mostrar o único registro que o Conselho faz no sistema: a ciência do balancete mensal fechado pela Tesouraria.
+- **Duração:** ~45 s.
+- **Na tela:** sino/"Minha vez" do conselheiro com o item "Balancete de MM/AAAA fechado — aguardando a ciência do Conselho de Contas" → clicar leva ao Balancete da Tesouraria do mês, card "Fechamento do mês" com badge "Fechado · aguardando ciência" e carimbo "Fechado por X em data" → conferir consolidado por categoria e lançamentos (se houver, o aviso "há lançamentos posteriores ao fechamento") → botão "Registrar ciência do balancete MM/AAAA" → badge muda para "Fechado · ciência registrada" e o carimbo ganha "Ciência do Conselho por Y em data" → o Tesoureiro e o Venerável recebem o aviso → abrir o Balancete da Loja (/balancete) e mostrar o mesmo carimbo visível a todo o quadro. No assistente, o chip "Há balancete fechado aguardando minha ciência?".
+- **Narração:**
+
+> O Conselho não lança nem assina — mas há um registro que só ele faz. Quando o Tesoureiro fecha o mês, o conselheiro recebe o aviso: "Balancete fechado — registre a ciência". Ele abre o balancete daquele mês, confere os totais congelados, o consolidado por categoria e cada lançamento. Se algo entrou depois do fechamento, o sistema avisa. Conferido, basta clicar em "Registrar ciência": o carimbo passa a mostrar quem fechou e quem conferiu, o Tesoureiro e o Venerável são avisados, e é esse carimbo que todo o quadro vê no Balancete da Loja. Fechar é da Tesouraria; dar ciência é do Conselho; consultar é de todos.
 
 ---
 
@@ -473,10 +518,21 @@ O VM tem visão total: menus da Secretaria, da Tesouraria e da gestão da Loja.
 ![Tela: esmoler-alertas](roteiros-prints/esmoler-alertas.png)
 
 - **Duração:** ~50 s.
-- **Na tela:** notificações dirigidas ao Esmoler: irmão próximo do limite de inadimplência → irmão com frequência baixa → contato preventivo.
+- **Na tela:** faixa "Minha vez" do Esmoler com os alertas dirigidos a ele → sino → página de Notificações: irmão próximo do limite de inadimplência → irmão com frequência baixa → irmão que passou a licenciado → clicar no aviso: abre o irmão no Acompanhamento fraterno → o e-mail correspondente.
 - **Narração:**
 
-> O Esmoler é os olhos e o coração da Loja voltados ao bem-estar dos irmãos — e o sistema trabalha ao seu lado. Quando um irmão acumula mensalidades vencidas e se aproxima do limite que o tornaria irregular, o Esmoler recebe um aviso reservado: talvez seja hora de um contato fraterno, antes que o problema cresça. O mesmo vale para a frequência: se um irmão começa a faltar além do normal, o alerta chega — porque atrás de uma ausência pode haver uma dificuldade. Tecnologia a serviço da fraternidade: é para isso que esses alertas existem.
+> O Esmoler é os olhos e o coração da Loja voltados ao bem-estar dos irmãos — e o sistema trabalha ao seu lado. Quando um irmão acumula mensalidades vencidas e se aproxima do limite que o tornaria irregular, o Esmoler recebe um aviso reservado: talvez seja hora de um contato fraterno, antes que o problema cresça. O mesmo vale para a frequência: se um irmão começa a faltar além do normal, o alerta chega — porque atrás de uma ausência pode haver uma dificuldade. E, quando um irmão se afasta da Loja, o Esmoler é avisado, com a data prevista de retorno. Esses alertas aparecem na sua vez, no sino e no e-mail, e cada um abre direto o irmão na página de Acompanhamento fraterno. Tecnologia a serviço da fraternidade: é para isso que esses alertas existem.
+
+## 6.2 — Acompanhamento fraterno (`esmoler-acompanhamento.mp4`)
+
+![Tela: esmoler-acompanhamento](roteiros-prints/esmoler-acompanhamento.png)
+
+- **Objetivo:** a página de trabalho do Esmoler (e do Venerável): quem precisa de um contato esta semana, com telefone à mão e registro do que foi feito.
+- **Duração:** ~60 s.
+- **Na tela:** menu "Acompanhamento fraterno" → cabeçalho "N irmão(s) a acompanhar" → cards por irmão com grau e situação, telefone e link WhatsApp, e a etiqueta do motivo: "4 capitações vencidas · R$ … — irregular", "perto do limite", "Frequência 20% (2/10) — mínimo 50%", "Licenciado — retorno previsto em …", "Aniversário em …" → botão "Registrar contato": campo de nota → salvar → "Último contato: … por …" → card "Contatos recentes" com o histórico → quando não há ninguém: "Ninguém precisa de atenção especial nesta semana."
+- **Narração:**
+
+> A página de Acompanhamento fraterno é a lista de quem merece um contato nesta semana — montada pelo próprio sistema. Aparecem aqui os irmãos com capitações em atraso ou perto do limite de irregularidade, os que estão com a frequência abaixo do mínimo da Loja, os licenciados, com a data prevista de retorno, e os aniversariantes dos próximos dias. Cada card traz o motivo, o grau e o telefone, com o atalho para o WhatsApp: é ligar ou escrever. Feito o contato, registre-o: uma nota curta, e a Loja passa a saber que aquele irmão foi ouvido — pelo Esmoler ou pelo Venerável, que vê a mesma página. Os contatos recentes ficam no histórico, e o irmão que se regulariza sai da lista sozinho. Nenhum irmão esquecido: essa é a medida do zelo de uma Loja.
 
 ---
 
@@ -498,12 +554,12 @@ O VM tem visão total: menus da Secretaria, da Tesouraria e da gestão da Loja.
 
 ![Tela: vigilantes-processos](roteiros-prints/vigilantes-processos.png)
 
-- **Objetivo:** mostrar que o Orador, o 1º e o 2º Vigilante também assinam, com o gov.br, os documentos em que a Secretaria os incluiu na cadeia.
-- **Duração:** ~45 s.
-- **Na tela:** dashboard do Obreiro com cargo de Orador/Vigilante → notificação "… aguarda assinatura do Orador" e card "Assinaturas aguardando minha vez" → menu Processos (aparece para quem tem o cargo do rito) → lista só com os documentos em que o cargo figura na cadeia → badges da ordem (1º Secretário ✓, 2º Orador …, 3º Venerável Mestre) → "Assinar com gov.br" OU bloco portal assinador.iti.br (baixar PDF, assinar, subir) → badge "vez do Venerável Mestre".
+- **Objetivo:** mostrar que o Orador, o 1º e o 2º Vigilante também assinam, com o gov.br, os documentos em que estão na cadeia — e que o Orador é assinante fixo do Quitte Placet.
+- **Duração:** ~55 s.
+- **Na tela:** dashboard do Obreiro com cargo de Orador/Vigilante → faixa "Minha vez" com o item "… aguarda a assinatura do Orador" e o botão Assinar → o e-mail imediato recebido na hora em que chega a vez → menu Processos (aparece para quem tem o cargo do rito) abre com o card destacado → Quitte Placet na vez do Orador (Secretário ✓ → Orador → VM) e documento da Secretaria com a cadeia (1º Secretário ✓, 2º Orador …, 3º Venerável Mestre) → "Assinar com gov.br" OU bloco portal assinador.iti.br (baixar PDF, assinar, subir) → badge "vez do Venerável Mestre". Se o cargo estiver vago, mostrar o aviso à Secretaria.
 - **Narração:**
 
-> Alguns documentos da Loja pedem também a assinatura do Orador ou dos Vigilantes — e o sistema os inclui na cadeia com a mesma assinatura digital do gov.br. Quando a Secretaria abre um processo e coloca o seu cargo na ordem, você é avisado no painel e na central de notificações assim que chega a sua vez. O menu Processos aparece para você e mostra só os documentos em que o seu cargo está na cadeia, com a ordem de assinaturas à vista. Assine com a sua conta gov.br ou pelo portal oficial, e o documento segue para o próximo da fila — até o Venerável Mestre, que assina sempre por último. O cargo do rito, com a validade jurídica do gov.br.
+> Alguns documentos da Loja pedem também a assinatura do Orador ou dos Vigilantes — e o sistema os inclui na cadeia com a mesma assinatura digital do gov.br. O Orador, em especial, assina todo Quitte Placet, entre o Secretário e o Venerável Mestre; os Vigilantes entram quando a Secretaria os coloca na ordem de um processo. Quando chega a sua vez, o item aparece na faixa "Minha vez" do seu painel, no sino e no seu e-mail — na hora, não no fim do dia. O menu Processos aparece para você e abre direto no documento, com a ordem de assinaturas à vista. Assine com a sua conta gov.br ou pelo portal oficial, e o documento segue para o próximo da fila — até o Venerável Mestre, que assina sempre por último. O cargo do rito, com a validade jurídica do gov.br.
 
 ---
 
@@ -521,50 +577,55 @@ O VM tem visão total: menus da Secretaria, da Tesouraria e da gestão da Loja.
 
 ## Checklist de produção
 
-| # | Arquivo | Cargo | Status |
-|---|---------|-------|--------|
-| 1.1 | obreiro-login.mp4 | Obreiro | ☐ |
-| 1.2 | obreiro-dashboard.mp4 | Obreiro | ☐ |
-| 1.3 | obreiro-notificacoes.mp4 | Obreiro | ☐ |
-| 1.4 | obreiro-carteirinha.mp4 | Obreiro | ☐ |
-| 1.5 | obreiro-biblioteca.mp4 | Obreiro | ☐ |
-| 1.6 | obreiro-sessoes.mp4 | Obreiro | ☐ |
-| 1.7 | obreiro-atas.mp4 | Obreiro | ☐ |
-| 1.8 | obreiro-candidatos.mp4 | Obreiro | ☐ |
-| 1.9 | obreiro-atestado.mp4 | Obreiro | ☐ |
-| 1.10 | obreiro-conta.mp4 | Obreiro | ☐ |
-| 1.11 | obreiro-quitte.mp4 | Obreiro | ☐ |
-| 1.12 | obreiro-mutua.mp4 | Obreiro | ☐ |
-| 1.13 | obreiro-benemerencia.mp4 | Obreiro | ☐ |
-| 2.1 | secretario-dashboard.mp4 | Secretário | ☐ |
-| 2.2 | secretario-membros.mp4 | Secretário | ☐ |
-| 2.3 | secretario-cargos.mp4 | Secretário | ☐ |
-| 2.4 | secretario-sessoes.mp4 | Secretário | ☐ |
-| 2.5 | secretario-atas.mp4 | Secretário | ☐ |
-| 2.6 | secretario-pranchas.mp4 | Secretário | ☐ |
-| 2.7 | secretario-emails.mp4 | Secretário | ☐ |
-| 2.8 | secretario-documentos.mp4 | Secretário | ☐ |
-| 2.9 | secretario-admissoes.mp4 | Secretário | ☐ |
-| 2.10 | secretario-progressoes.mp4 | Secretário | ☐ |
-| 2.11 | secretario-visitas.mp4 | Secretário | ☐ |
-| 2.12 | secretario-atestado.mp4 | Secretário | ☐ |
-| 2.13 | secretario-quitte.mp4 | Secretário | ☐ |
-| 2.14 | secretario-config.mp4 | Secretário | ☐ |
-| 2.15 | secretario-processos.mp4 | Secretário | ☐ |
-| 2.16 | secretario-mutua.mp4 | Secretário | ☐ |
-| 3.1 | tesoureiro-dashboard.mp4 | Tesoureiro | ☐ |
-| 3.2 | tesoureiro-mensalidades.mp4 | Tesoureiro | ☐ |
-| 3.3 | tesoureiro-despesas.mp4 | Tesoureiro | ☐ |
-| 3.4 | tesoureiro-balancete.mp4 | Tesoureiro | ☐ |
-| 3.5 | tesoureiro-atestado.mp4 | Tesoureiro | ☐ |
-| 4.1 | veneravel-dashboard.mp4 | Venerável | ☐ |
-| 4.2 | veneravel-assinaturas.mp4 | Venerável | ☐ |
-| 4.3 | veneravel-governanca.mp4 | Venerável | ☐ |
-| 4.4 | veneravel-financeiro.mp4 | Venerável | ☐ |
-| 4.5 | veneravel-config.mp4 | Venerável | ☐ |
-| 4.6 | veneravel-benemerencia.mp4 | Venerável | ☐ |
-| 5.1 | conselho-fiscalizacao.mp4 | Conselho | ☐ |
-| 6.1 | esmoler-alertas.mp4 | Esmoler | ☐ |
-| 7.1 | vigilantes-instrucoes.mp4 | Vigilantes | ☐ |
-| 7.2 | vigilantes-processos.mp4 | Orador / Vigilantes | ☐ |
-| 8.1 | admin-plataforma.mp4 | Admin | ☐ |
+Legenda: **REGRAVAR** = vídeo já existente cuja tela mudou no lote de 04/09/2026 (staging a252396); **NOVO** = vídeo acrescentado nesta revisão. Os demais seguem válidos.
+
+| # | Arquivo | Cargo | Status | Observação |
+|---|---------|-------|--------|------------|
+| 1.1 | obreiro-login.mp4 | Obreiro | ☐ | |
+| 1.2 | obreiro-dashboard.mp4 | Obreiro | ☐ | REGRAVAR — faixa "Minha vez", sino no cabeçalho, card "Minhas solicitações" (Pendente com), frequência por grau |
+| 1.3 | obreiro-notificacoes.mp4 | Obreiro | ☐ | REGRAVAR — sino no desktop, aviso abre o item exato e marca lido, avisos de evento por e-mail |
+| 1.4 | obreiro-carteirinha.mp4 | Obreiro | ☐ | |
+| 1.5 | obreiro-biblioteca.mp4 | Obreiro | ☐ | |
+| 1.6 | obreiro-sessoes.mp4 | Obreiro | ☐ | |
+| 1.7 | obreiro-atas.mp4 | Obreiro | ☐ | |
+| 1.8 | obreiro-candidatos.mp4 | Obreiro | ☐ | |
+| 1.9 | obreiro-atestado.mp4 | Obreiro | ☐ | REGRAVAR — trava por capitação vencida, aviso a cada assinatura, PDF por e-mail |
+| 1.10 | obreiro-conta.mp4 | Obreiro | ☐ | |
+| 1.11 | obreiro-quitte.mp4 | Obreiro | ☐ | REGRAVAR — três assinaturas (Orador), Nada Consta só vencidas, parecer da negativa, Ex-membro automático |
+| 1.12 | obreiro-mutua.mp4 | Obreiro | ☐ | |
+| 1.13 | obreiro-benemerencia.mp4 | Obreiro | ☐ | |
+| 1.14 | obreiro-assistente.mp4 | Obreiro | ☐ | NOVO — chips dinâmicos, "o que está na minha vez?" com links, situação financeira (Secretário) |
+| 1.15 | obreiro-balancete.mp4 | Obreiro | ☐ | NOVO — balancete só leitura para todo o quadro: capitações só como total, beneficência só por categoria, sem nomes |
+| 2.1 | secretario-dashboard.mp4 | Secretário | ☐ | REGRAVAR — faixa "Minha vez" com assinaturas e registros da Secretaria |
+| 2.2 | secretario-membros.mp4 | Secretário | ☐ | |
+| 2.3 | secretario-cargos.mp4 | Secretário | ☐ | |
+| 2.4 | secretario-sessoes.mp4 | Secretário | ☐ | |
+| 2.5 | secretario-atas.mp4 | Secretário | ☐ | |
+| 2.6 | secretario-pranchas.mp4 | Secretário | ☐ | |
+| 2.7 | secretario-emails.mp4 | Secretário | ☐ | |
+| 2.8 | secretario-documentos.mp4 | Secretário | ☐ | |
+| 2.9 | secretario-admissoes.mp4 | Secretário | ☐ | |
+| 2.10 | secretario-progressoes.mp4 | Secretário | ☐ | |
+| 2.11 | secretario-visitas.mp4 | Secretário | ☐ | |
+| 2.12 | secretario-atestado.mp4 | Secretário | ☐ | |
+| 2.13 | secretario-quitte.mp4 | Secretário | ☐ | REGRAVAR — painel Tesouraria, Nada Consta real, "Gerar Form. 122 automaticamente", Orador na cadeia, Negar com parecer |
+| 2.14 | secretario-config.mp4 | Secretário | ☐ | |
+| 2.15 | secretario-processos.mp4 | Secretário | ☐ | REGRAVAR — card destacado via sino, painel Tesouraria, trava/override, validação do PDF do portal ITI |
+| 2.16 | secretario-mutua.mp4 | Secretário | ☐ | |
+| 3.1 | tesoureiro-dashboard.mp4 | Tesoureiro | ☐ | REGRAVAR — faixa "Minha vez" (atestados, Nada Consta, despesas), resumo diário por e-mail |
+| 3.2 | tesoureiro-mensalidades.mp4 | Tesoureiro | ☐ | |
+| 3.3 | tesoureiro-despesas.mp4 | Tesoureiro | ☐ | |
+| 3.4 | tesoureiro-balancete.mp4 | Tesoureiro | ☐ | |
+| 3.5 | tesoureiro-atestado.mp4 | Tesoureiro | ☐ | REGRAVAR — painel Tesouraria, override justificado, "Confirmar Nada Consta" |
+| 4.1 | veneravel-dashboard.mp4 | Venerável | ☐ | REGRAVAR — "Minha vez", semáforos, Fila da Loja, aprovação inline de despesas com senha |
+| 4.2 | veneravel-assinaturas.mp4 | Venerável | ☐ | REGRAVAR — Orador no Quitte, painel Tesouraria, Ex-membro/Licenciado automáticos |
+| 4.3 | veneravel-governanca.mp4 | Venerável | ☐ | |
+| 4.4 | veneravel-financeiro.mp4 | Venerável | ☐ | REGRAVAR — semáforo de inadimplência, aprovação pelo dashboard, Acompanhamento fraterno |
+| 4.5 | veneravel-config.mp4 | Venerável | ☐ | |
+| 4.6 | veneravel-benemerencia.mp4 | Venerável | ☐ | |
+| 5.1 | conselho-fiscalizacao.mp4 | Conselho | ☐ | REGRAVAR — faixa "Minha vez", painel Tesouraria só leitura, digest por e-mail |
+| 6.1 | esmoler-alertas.mp4 | Esmoler | ☐ | REGRAVAR — alertas na "Minha vez", aviso de licenciado, deep link para o Acompanhamento fraterno |
+| 6.2 | esmoler-acompanhamento.mp4 | Esmoler / Venerável | ☐ | NOVO — página Acompanhamento fraterno com "Registrar contato" |
+| 7.1 | vigilantes-instrucoes.mp4 | Vigilantes | ☐ | |
+| 7.2 | vigilantes-processos.mp4 | Orador / Vigilantes | ☐ | REGRAVAR — "Minha vez", e-mail imediato, Orador assinante fixo do Quitte |
+| 8.1 | admin-plataforma.mp4 | Admin | ☐ | |

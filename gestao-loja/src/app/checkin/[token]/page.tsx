@@ -65,9 +65,21 @@ export default async function CheckinPage({
                   placeholder="para receber o Certificado de Visita em PDF"
                 />
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="visitorCim">CIM</Label>
-                <Input id="visitorCim" name="visitorCim" />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="visitorCim">CIM</Label>
+                  <Input id="visitorCim" name="visitorCim" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="visitorTelefone">Telefone / WhatsApp</Label>
+                  <Input
+                    id="visitorTelefone"
+                    name="visitorTelefone"
+                    type="tel"
+                    inputMode="tel"
+                    placeholder="(11) 99999-9999"
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">

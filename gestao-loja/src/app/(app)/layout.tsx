@@ -55,6 +55,8 @@ function navFor(role: string, cargoRito: string | null, unread: number): NavItem
       ? [{ href: "/dashboard/instrucoes", label: "Instruções", icon: "instrucoes" as const, section: "Secretaria" }]
       : []),
     { href: "/secretaria/visitas", label: "Visitas a Oficinas", icon: "visitas", section: "Secretaria", roles: fiscal },
+    // Base de Visitantes (irmãos de outras Oficinas): só Secretário e VM
+    { href: "/secretaria/visitantes", label: "Visitantes", icon: "visitantes", section: "Secretaria", roles: gestaoLoja },
     // Esmoler (Hospitaleiro): irmãos a acompanhar e registro de contatos
     { href: "/esmoler", label: "Acompanhamento fraterno", icon: "esmoler", section: "Secretaria", roles: ["ESMOLER", "VENERAVEL_MESTRE"] },
     // Solicitações à Secretaria — abertas a todos os irmãos do quadro

@@ -8,6 +8,7 @@ type Regra = { prefixo: string; porMinuto: number; porMinutoPost: number };
 // escrita (POST — check-in, RSVP, envio de formulário) mais apertada.
 export const REGRAS_PUBLICAS: Regra[] = [
   { prefixo: "/checkin/", porMinuto: 30, porMinutoPost: 15 },
+  { prefixo: "/certificado/", porMinuto: 20, porMinutoPost: 5 },
   { prefixo: "/convite/", porMinuto: 20, porMinutoPost: 10 },
   { prefixo: "/candidato/", porMinuto: 20, porMinutoPost: 10 },
   { prefixo: "/verificar/", porMinuto: 20, porMinutoPost: 10 },

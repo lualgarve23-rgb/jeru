@@ -47,6 +47,7 @@ export async function deleteLodgeData(db: Db, lodgeId: string) {
   await db.donation.deleteMany({ where });
   await db.charityEvent.deleteMany({ where });
   await db.attendance.deleteMany({ where });
+  await db.visitante.deleteMany({ where });
   await db.ata.deleteMany({ where });
   await db.lodgeSession.deleteMany({ where });
   await db.prancha.deleteMany({ where });

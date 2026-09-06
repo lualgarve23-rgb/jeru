@@ -22,6 +22,7 @@ import { notificationWhere } from "@/lib/notifications";
 import { buscarFaq, FAQ_CHAVES } from "@/lib/assistente/faq";
 import { pendenciasDoUsuario, haQuantoTempo } from "@/lib/pendencias";
 import { balanceteDoQuadro } from "@/lib/balancete-quadro";
+import { listarVisitantes } from "@/lib/visitantes";
 import {
   aplicarFechamentosAoGrafico,
   carimboFechamento,
@@ -76,6 +77,12 @@ function leTesouraria(user: AssistenteUser) {
 
 function leSecretaria(user: AssistenteUser) {
   return canReadSecretariaAdmin(user.role);
+}
+
+// Base de Visitantes: só quem edita a Secretaria (VM e Secretário) — o
+// Conselho de Contas não vê contatos de visitantes
+function escreveSecretaria(user: AssistenteUser) {
+  return canWriteSecretaria(user.role);
 }
 
 function acompanhaBemEstar(user: AssistenteUser) {
@@ -690,6 +697,47 @@ export const FERRAMENTAS: Ferramenta[] = [
         total: membros.length,
         porSituacao: conta((m) => m.status),
         porGrau: conta((m) => m.degree),
+      };
+    },
+  },
+  {
+    nome: "visitantes_loja",
+    descricao:
+      "Base de Visitantes da Loja (irmãos de outras Oficinas que visitaram): nome, CIM, loja e potência de origem, contatos (telefone/e-mail), grau, cargo, quantidade de visitas e datas da primeira e da última. Aceita uma busca por nome, CIM, e-mail, loja ou potência. Também responde quem mais visita a Loja e quem visitou recentemente. Disponível só para Venerável e Secretário; fichas em /secretaria/visitantes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        busca: {
+          type: "string",
+          description: "Trecho do nome, CIM, e-mail, loja ou potência (opcional)",
+        },
+      },
+      additionalProperties: false,
+    },
+    disponivel: escreveSecretaria,
+    executar: async (user, input) => {
+      const busca = typeof input.busca === "string" ? input.busca : null;
+      const lista = await listarVisitantes(user.lodgeId, busca);
+      const data = (d: Date | null) => (d ? d.toLocaleDateString("pt-BR") : null);
+      return {
+        total: lista.length,
+        totalVisitas: lista.reduce((s, v) => s + v.totalVisitas, 0),
+        visitantes: lista.slice(0, 100).map((v) => ({
+          nome: v.nome,
+          cim: v.cim,
+          lojaOrigem: v.lojaOrigem,
+          potencia: v.potencia,
+          oriente: v.oriente,
+          grau: v.grau,
+          cargo: v.cargo,
+          telefone: v.telefone,
+          email: v.email,
+          visitas: v.totalVisitas,
+          primeiraVisita: data(v.primeiraVisita),
+          ultimaVisita: data(v.ultimaVisita),
+          observacoes: v.observacoes,
+          link: `/secretaria/visitantes/${v.id}`,
+        })),
       };
     },
   },

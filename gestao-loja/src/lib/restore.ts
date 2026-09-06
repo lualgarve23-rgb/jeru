@@ -113,6 +113,7 @@ export async function restaurarBackupLoja(zipBuffer: Buffer): Promise<{
     cargosRito,
     sessoes,
     presencas,
+    visitantes,
     instrucoes,
     visitasExternas,
     atas,
@@ -149,6 +150,7 @@ export async function restaurarBackupLoja(zipBuffer: Buffer): Promise<{
     lerJson(zip, "cargos-rito.json"),
     lerJson(zip, "sessoes.json"),
     lerJson(zip, "presencas.json"),
+    lerJson(zip, "visitantes.json"),
     lerJson(zip, "instrucoes.json"),
     lerJson(zip, "visitas-externas.json"),
     lerJson(zip, "atas.json"),
@@ -336,6 +338,8 @@ export async function restaurarBackupLoja(zipBuffer: Buffer): Promise<{
           }),
         });
       }
+      // Visitantes antes das presenças (FK attendances.visitanteId)
+      await tx.visitante.createMany({ data: cast(visitantes) });
       await tx.attendance.createMany({ data: cast(presencas) });
       await tx.instrucao.createMany({ data: cast(instrucoes) });
       await tx.visitaExterna.createMany({ data: cast(visitasExternas) });

@@ -103,6 +103,7 @@ model Lodge {
   roleHistory       RoleHistory[]
   sessions          LodgeSession[]
   attendances       Attendance[]
+  visitantes        Visitante[]
   instrucoes        Instrucao[]
   visitasExternas   VisitaExterna[]
   atas              Ata[]
@@ -431,6 +432,10 @@ model Attendance {
   visitorCim      String?
   visitorLodge    String? // loja de origem
   visitorPotencia String? // potência de origem
+  visitorTelefone String? // telefone/WhatsApp (check-in por QR)
+  // Cadastro consolidado do visitante (base de Visitantes da Secretaria):
+  // vinculado no check-in/RSVP por CIM, e-mail ou nome + loja de origem
+  visitanteId     String?
   checkedInAt     DateTime @default(now())
   viaQrCode       Boolean  @default(false)
   // RSVP pré-sessão (link de convite): checkedIn=false até o check-in do dia.
@@ -446,10 +451,40 @@ model Attendance {
   lodge   Lodge        @relation(fields: [lodgeId], references: [id])
   session LodgeSession @relation(fields: [sessionId], references: [id])
   user    User?        @relation(fields: [userId], references: [id])
+  visitante Visitante? @relation(fields: [visitanteId], references: [id], onDelete: SetNull)
 
   @@unique([sessionId, userId])
   @@index([lodgeId])
+  @@index([visitanteId])
   @@map("attendances")
+}
+
+// Base de Visitantes: irmãos de outras Oficinas que visitaram a Loja. Um
+// registro por pessoa, alimentado automaticamente pelo check-in (QR) e pelo
+// RSVP do convite, e completado pela Secretaria (telefone, grau, cargo,
+// observações). Visível só ao Secretário e ao Venerável Mestre.
+model Visitante {
+  id          String   @id @default(cuid())
+  lodgeId     String
+  nome        String
+  cim         String?
+  email       String?
+  telefone    String?
+  lojaOrigem  String?
+  potencia    String?
+  oriente     String?
+  grau        String? // texto livre (Aprendiz, Companheiro, Mestre, Mestre Instalado…)
+  cargo       String? // cargo na Loja de origem, se informado
+  observacoes String? // anotações da Secretaria (nunca vão ao visitante)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lodge     Lodge        @relation(fields: [lodgeId], references: [id])
+  presencas Attendance[]
+
+  @@index([lodgeId])
+  @@index([lodgeId, cim])
+  @@map("visitantes")
 }
 
 // Instruções de grau ministradas pelos Vigilantes (check-in dos instruídos):

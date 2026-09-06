@@ -109,6 +109,7 @@ export async function gerarBackupLoja(lodgeId: string): Promise<{
     cargosRito,
     sessoes,
     presencas,
+    visitantes,
     instrucoes,
     visitasExternas,
     atas,
@@ -152,6 +153,7 @@ export async function gerarBackupLoja(lodgeId: string): Promise<{
       },
       orderBy: { checkedInAt: "asc" },
     }),
+    prisma.visitante.findMany(porLoja),
     prisma.instrucao.findMany(porLoja),
     prisma.visitaExterna.findMany(porLoja),
     prisma.ata.findMany({ ...porLoja, orderBy: { number: "asc" } }),
@@ -216,6 +218,7 @@ export async function gerarBackupLoja(lodgeId: string): Promise<{
     "presencas.json",
     toJson(presencas.map(({ user: _u, session: _s, ...resto }) => resto))
   );
+  dados.file("visitantes.json", toJson(visitantes));
   dados.file("instrucoes.json", toJson(instrucoes));
   dados.file("visitas-externas.json", toJson(visitasExternas));
   dados.file("atas.json", toJson(atas, ["govbrPdf"]));

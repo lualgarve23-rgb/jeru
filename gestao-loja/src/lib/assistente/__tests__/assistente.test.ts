@@ -76,6 +76,14 @@ describe("assistente — ferramentas", () => {
     expect(orador.map((f) => f.nome)).toContain("minha_fila");
   });
 
+  it("visitantes_loja só para Venerável e Secretário (Conselho não vê contatos)", () => {
+    expect(nomes("VENERAVEL_MESTRE")).toContain("visitantes_loja");
+    expect(nomes("SECRETARIO")).toContain("visitantes_loja");
+    for (const role of ["MEMBER", "ESMOLER", "TESOUREIRO", "CONSELHO_CONTAS", "SUPER_ADMIN"]) {
+      expect(nomes(role)).not.toContain("visitantes_loja");
+    }
+  });
+
   it("situacao_financeira_irmao é exclusiva do Secretário", () => {
     expect(nomes("SECRETARIO")).toContain("situacao_financeira_irmao");
     for (const role of ["MEMBER", "ESMOLER", "TESOUREIRO", "CONSELHO_CONTAS", "VENERAVEL_MESTRE", "SUPER_ADMIN"]) {

@@ -22,6 +22,7 @@ import {
   usuarioReconhecido,
 } from "@/lib/reconhecimento";
 import { enviarCertificadoVisita } from "@/lib/certificado";
+import { normalizarTelefone, vincularVisitante } from "@/lib/visitantes";
 import { enfileirar, jobEmAndamento } from "@/lib/fila";
 import { type ActionResult, requireSecretariaWriter } from "./_shared";
 
@@ -214,15 +215,29 @@ export async function qrCheckinVisitor(
   if (!visitorName) return { error: "Informe o nome." };
   const visitorEmail =
     String(formData.get("visitorEmail") ?? "").trim().toLowerCase() || null;
+  const dados = {
+    visitorName,
+    visitorEmail,
+    visitorCim: String(formData.get("visitorCim") ?? "").trim() || null,
+    visitorLodge: String(formData.get("visitorLodge") ?? "").trim() || null,
+    visitorPotencia: String(formData.get("visitorPotencia") ?? "").trim() || null,
+    visitorTelefone: normalizarTelefone(formData.get("visitorTelefone")),
+  };
+  // Base de Visitantes: encontra/cria o cadastro da pessoa e vincula a presença
+  const visitanteId = await vincularVisitante(session.lodgeId, {
+    nome: dados.visitorName,
+    cim: dados.visitorCim,
+    email: dados.visitorEmail,
+    telefone: dados.visitorTelefone,
+    lojaOrigem: dados.visitorLodge,
+    potencia: dados.visitorPotencia,
+  });
   const attendance = await prisma.attendance.create({
     data: {
       lodgeId: session.lodgeId,
       sessionId: session.id,
-      visitorName,
-      visitorEmail,
-      visitorCim: (formData.get("visitorCim") as string) || null,
-      visitorLodge: (formData.get("visitorLodge") as string) || null,
-      visitorPotencia: (formData.get("visitorPotencia") as string) || null,
+      ...dados,
+      visitanteId,
       viaQrCode: true,
     },
   });
@@ -401,16 +416,27 @@ export async function rsvpPublico(
       data: { rsvpAt: new Date(), agapeConfirmed: agape },
     });
   } else {
+    const visitorEmail =
+      String(formData.get("email") ?? "").trim().toLowerCase() || null;
+    const visitorLodge = String(formData.get("lojaOrigem") ?? "").trim() || null;
+    const visitorPotencia = String(formData.get("potencia") ?? "").trim() || null;
+    const visitanteId = await vincularVisitante(session.lodgeId, {
+      nome,
+      cim: cim || null,
+      email: visitorEmail,
+      lojaOrigem: visitorLodge,
+      potencia: visitorPotencia,
+    });
     await prisma.attendance.create({
       data: {
         lodgeId: session.lodgeId,
         sessionId: session.id,
         visitorName: nome,
-        visitorEmail:
-          String(formData.get("email") ?? "").trim().toLowerCase() || null,
+        visitorEmail,
         visitorCim: cim || null,
-        visitorLodge: (formData.get("lojaOrigem") as string)?.trim() || null,
-        visitorPotencia: (formData.get("potencia") as string)?.trim() || null,
+        visitorLodge,
+        visitorPotencia,
+        visitanteId,
         checkedIn: false,
         rsvpAt: new Date(),
         agapeConfirmed: agape,
