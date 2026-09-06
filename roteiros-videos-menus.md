@@ -304,10 +304,10 @@ O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da L
 ![Tela: secretario-visitantes](roteiros-prints/secretario-visitantes.png)
 
 - **Duração:** ~45 s.
-- **Na tela:** menu Visitantes (só Secretário e VM) → lista com busca e contagem de visitas → ficha de um visitante (dados vindos do check-in, telefone, grau, cargo, observações) → histórico de visitas com "Enviar por WhatsApp" e "Enviar por e-mail" → mesclar duplicado → Exportar CSV. Mostrar rapidamente o check-in pelo QR com o campo Telefone/WhatsApp.
+- **Na tela:** menu Visitantes (só Secretário e VM) → lista com busca e contagem de visitas → ficha de um visitante (dados vindos do check-in, telefone, grau, cargo, observações) → histórico de visitas com "Enviar por WhatsApp" e "Enviar por e-mail" → mesclar duplicado → Exportar CSV → página da sessão: card "Convidar visitantes cadastrados" (e-mail em massa + WhatsApp por visitante). Mostrar rapidamente o check-in pelo QR com o campo Telefone/WhatsApp.
 - **Narração:**
 
-> Todo irmão de outra Oficina que faz o check-in pelo QR Code entra automaticamente na base de Visitantes: nome, CIM, e-mail, telefone, Loja e Potência de origem. Se ele voltar, a nova visita cai na mesma ficha — o sistema reconhece pelo CIM, pelo e-mail ou pelo nome com a Loja de origem. A Secretaria completa o que faltar, mescla fichas duplicadas e exporta a lista. E o Certificado de Visita, que já vai por e-mail no check-in, pode ser reenviado pela ficha — por e-mail ou direto no WhatsApp do visitante, com um link seguro para o PDF. Só o Secretário e o Venerável Mestre veem esta base.
+> Todo irmão de outra Oficina que faz o check-in pelo QR Code entra automaticamente na base de Visitantes: nome, CIM, e-mail, telefone, Loja e Potência de origem. Se ele voltar, a nova visita cai na mesma ficha — o sistema reconhece pelo CIM, pelo e-mail ou pelo nome com a Loja de origem. A Secretaria completa o que faltar, mescla fichas duplicadas e exporta a lista. Na página da sessão, um clique convida por e-mail todos os visitantes cadastrados — e o WhatsApp de cada um abre com o convite pronto. E o Certificado de Visita, que já vai por e-mail no check-in, pode ser reenviado pela ficha — por e-mail ou direto no WhatsApp do visitante, com um link seguro para o PDF. Só o Secretário e o Venerável Mestre veem esta base.
 
 ## 2.12 — Atestado de Regularidade (assinatura do Secretário) (`secretario-atestado.mp4`)
 

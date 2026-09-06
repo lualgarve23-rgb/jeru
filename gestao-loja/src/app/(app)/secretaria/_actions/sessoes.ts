@@ -7,6 +7,7 @@ import {
   Degree,
   SessionType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { auditar } from "@/lib/audit";
 import { requireUser } from "@/lib/session";
 import {
   ataFechadaParaPresencas,
@@ -24,6 +25,7 @@ import {
 import { enviarCertificadoVisita } from "@/lib/certificado";
 import { normalizarTelefone, vincularVisitante } from "@/lib/visitantes";
 import { enfileirar, jobEmAndamento } from "@/lib/fila";
+import { emailsDosVisitantes } from "@/lib/envios";
 import { type ActionResult, requireSecretariaWriter } from "./_shared";
 
 // ───────────────────── Sessões e Presenças ─────────────────────
@@ -420,10 +422,12 @@ export async function rsvpPublico(
       String(formData.get("email") ?? "").trim().toLowerCase() || null;
     const visitorLodge = String(formData.get("lojaOrigem") ?? "").trim() || null;
     const visitorPotencia = String(formData.get("potencia") ?? "").trim() || null;
+    const visitorTelefone = normalizarTelefone(formData.get("telefone"));
     const visitanteId = await vincularVisitante(session.lodgeId, {
       nome,
       cim: cim || null,
       email: visitorEmail,
+      telefone: visitorTelefone,
       lojaOrigem: visitorLodge,
       potencia: visitorPotencia,
     });
@@ -436,6 +440,7 @@ export async function rsvpPublico(
         visitorCim: cim || null,
         visitorLodge,
         visitorPotencia,
+        visitorTelefone,
         visitanteId,
         checkedIn: false,
         rsvpAt: new Date(),
@@ -576,6 +581,40 @@ export async function dispararConvitesEmail(
   }
   await enfileirar("sessao.convites", payload);
   return { ok: `Convite a caminho de ${emails.length} membro(s) — envio em instantes.` };
+}
+
+// Convite da sessão por e-mail aos irmãos visitantes já cadastrados na base
+// de Visitantes (os que têm e-mail). Mesmo link de RSVP do convite.
+export async function dispararConvitesVisitantesEmail(
+  sessionId: string
+): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const session = await prisma.lodgeSession.findUnique({
+    where: { id: sessionId, lodgeId: user.lodgeId },
+    select: { id: true },
+  });
+  if (!session) return { error: "Sessão não encontrada." };
+  const emails = await emailsDosVisitantes(user.lodgeId);
+  if (emails.length === 0) {
+    return { error: "Nenhum visitante cadastrado com e-mail." };
+  }
+  if (!(await getGmailAuth(user.lodgeId))) {
+    return { error: "Gmail da loja não configurado." };
+  }
+  const payload = { lodgeId: user.lodgeId, sessionId: session.id };
+  if (await jobEmAndamento("sessao.convites-visitantes", payload)) {
+    return { ok: "O convite aos visitantes já está na fila de envio — aguarde alguns instantes." };
+  }
+  await enfileirar("sessao.convites-visitantes", payload);
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "sessao.convites-visitantes",
+    entidade: "LodgeSession",
+    entidadeId: session.id,
+    detalhes: { destinatarios: emails.length },
+  });
+  return { ok: `Convite a caminho de ${emails.length} visitante(s) — envio em instantes.` };
 }
 
 // Reenvio manual do Certificado de Visita pela Secretaria

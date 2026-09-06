@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { logInfo, logError, alertaCritico } from "@/lib/log";
 import {
   enviarConvitesSessao,
+  enviarConvitesSessaoVisitantes,
   enviarMinutaAtaValidacao,
   enviarAtaAssinadaAosMembros,
   enviarDocumentoConcluidoAoSolicitante,
@@ -19,6 +20,8 @@ type Payload = Record<string, string>;
 
 const handlers: Record<string, (p: Payload) => Promise<void>> = {
   "sessao.convites": (p) => enviarConvitesSessao(p.lodgeId, p.sessionId),
+  "sessao.convites-visitantes": (p) =>
+    enviarConvitesSessaoVisitantes(p.lodgeId, p.sessionId),
   "ata.minuta-validacao": (p) => enviarMinutaAtaValidacao(p.lodgeId, p.ataId),
   "ata.enviar-membros": (p) =>
     enviarAtaAssinadaAosMembros(p.lodgeId, p.ataId, p.solicitanteId),

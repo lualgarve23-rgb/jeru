@@ -17,6 +17,7 @@ import {
 import { CopyButton } from "@/components/copy-button";
 import { WhatsAppShareButton } from "@/components/whatsapp-share-button";
 import { WhatsAppCertificadoButton } from "@/components/whatsapp-certificado-button";
+import { ConvitesVisitantesCard } from "./convites-visitantes";
 import { arteDoConvite, pautaTexto } from "@/lib/convite";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Label } from "@/components/ui/label";
@@ -255,6 +256,15 @@ export default async function SessaoPage({
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {isWriter && conviteTexto && (
+        <ConvitesVisitantesCard
+          lodgeId={user.lodgeId}
+          sessionId={session.id}
+          conviteTexto={conviteTexto}
+          isEvento={isEvento}
+        />
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">

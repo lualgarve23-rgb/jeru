@@ -26,12 +26,38 @@ async function remetenteDa(lodgeId: string): Promise<string> {
 
 // Convite de sessão a todo o quadro (BCC preserva os endereços)
 export async function enviarConvitesSessao(lodgeId: string, sessionId: string) {
+  const emails = await emailsDoQuadro(lodgeId);
+  if (!emails.length) return;
+  await enviarConviteSessaoPara(lodgeId, sessionId, emails, false);
+}
+
+// E-mails dos visitantes cadastrados (base de Visitantes) com e-mail válido
+export async function emailsDosVisitantes(lodgeId: string): Promise<string[]> {
+  const visitantes = await prisma.visitante.findMany({
+    where: { lodgeId, email: { contains: "@" } },
+    select: { email: true },
+  });
+  return [...new Set(visitantes.map((v) => v.email!.toLowerCase()))];
+}
+
+// Convite de sessão aos irmãos visitantes já cadastrados (mesmo convite e
+// mesmo link de RSVP; o texto muda a saudação)
+export async function enviarConvitesSessaoVisitantes(lodgeId: string, sessionId: string) {
+  const emails = await emailsDosVisitantes(lodgeId);
+  if (!emails.length) return;
+  await enviarConviteSessaoPara(lodgeId, sessionId, emails, true);
+}
+
+async function enviarConviteSessaoPara(
+  lodgeId: string,
+  sessionId: string,
+  emails: string[],
+  visitantes: boolean
+) {
   const session = await prisma.lodgeSession.findUniqueOrThrow({
     where: { id: sessionId, lodgeId },
     include: { lodge: true },
   });
-  const emails = await emailsDoQuadro(lodgeId);
-  if (!emails.length) return;
 
   const baseUrl = process.env.APP_URL ?? "http://localhost:3100";
   const inviteUrl = `${baseUrl}/convite/${session.inviteToken}`;
@@ -59,6 +85,9 @@ export async function enviarConvitesSessao(lodgeId: string, sessionId: string) {
         ? `Convite — Evento de ${dataFmt} · ${session.lodge.name}`
         : `Convite — Sessão de ${dataFmt} · ${session.lodge.name}`,
     text: [
+      visitantes
+        ? `Prezado Irmão visitante, a ${session.lodge.name} tem a honra de convidá-lo.`
+        : null,
       session.type === "EVENTO"
         ? `Convite para o evento de ${dataFmt}.`
         : `Convite para a sessão de ${dataFmt}.`,

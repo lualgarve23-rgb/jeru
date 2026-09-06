@@ -69,7 +69,7 @@ export const FAQ: Record<string, { titulo: string; resposta: string }> = {
   visitantes: {
     titulo: "Visitantes (irmãos de outras Oficinas)",
     resposta:
-      "A base de Visitantes fica em /secretaria/visitantes, só para o Secretário e o Venerável Mestre. Quem faz o check-in pelo QR Code da sessão (ou confirma pelo convite) entra automaticamente: nome, CIM, e-mail, telefone, loja e potência de origem; visitas repetidas do mesmo irmão ficam na mesma ficha (por CIM, e-mail ou nome + loja). A Secretaria completa grau, cargo e observações, mescla duplicidades e exporta CSV. O Certificado de Visita vai por e-mail no check-in e pode ser reenviado pela ficha ou pela página da sessão — por e-mail ou pelo WhatsApp do visitante (link seguro do PDF).",
+      "A base de Visitantes fica em /secretaria/visitantes, só para o Secretário e o Venerável Mestre. Quem faz o check-in pelo QR Code da sessão (ou confirma pelo convite) entra automaticamente: nome, CIM, e-mail, telefone, loja e potência de origem; visitas repetidas do mesmo irmão ficam na mesma ficha (por CIM, e-mail ou nome + loja). A Secretaria completa grau, cargo e observações, mescla duplicidades e exporta CSV. Na página da sessão (/secretaria/sessoes), o card “Convidar visitantes cadastrados” envia o convite da sessão por e-mail a todos os visitantes com e-mail (fila) e traz o botão de WhatsApp individual com o convite e o link de confirmação. O Certificado de Visita vai por e-mail no check-in e pode ser reenviado pela ficha ou pela página da sessão — por e-mail ou pelo WhatsApp do visitante (link seguro do PDF).",
   },
   sessoes: {
     titulo: "Sessões e presença",

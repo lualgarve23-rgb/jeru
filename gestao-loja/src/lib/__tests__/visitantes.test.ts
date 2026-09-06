@@ -148,6 +148,16 @@ describe("Visitantes — acesso só de Secretário e VM", () => {
     }
   });
 
+  it("convite da sessão aos visitantes: handler na fila, action da Secretaria e card na sessão", () => {
+    expect(ler("lib/fila.ts")).toContain('"sessao.convites-visitantes"');
+    expect(ler("lib/envios.ts")).toContain("export async function enviarConvitesSessaoVisitantes");
+    const acao = ler("app/(app)/secretaria/_actions/sessoes.ts");
+    const ini = acao.indexOf("export async function dispararConvitesVisitantesEmail");
+    expect(acao.slice(ini, ini + 400)).toContain("requireSecretariaWriter()");
+    expect(ler("app/(app)/secretaria/sessoes/[id]/page.tsx")).toContain("<ConvitesVisitantesCard");
+    expect(ler("app/convite/[token]/page.tsx")).toContain('name="telefone"');
+  });
+
   it("check-in por QR e RSVP público vinculam a presença à base de Visitantes", () => {
     const src = ler("app/(app)/secretaria/_actions/sessoes.ts");
     expect(src.split("vincularVisitante(").length - 1).toBeGreaterThanOrEqual(2);

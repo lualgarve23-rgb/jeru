@@ -92,9 +92,15 @@ function FormPublico({
           <Input id="potencia" name="potencia" />
         </div>
       </div>
-      <div className="space-y-1">
-        <Label htmlFor="email">E-mail</Label>
-        <Input id="email" name="email" type="email" />
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label htmlFor="email">E-mail</Label>
+          <Input id="email" name="email" type="email" />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="telefone">Telefone / WhatsApp</Label>
+          <Input id="telefone" name="telefone" type="tel" inputMode="tel" />
+        </div>
       </div>
       {!isEvento && <AgapeCheckbox />}
     </ActionForm>
