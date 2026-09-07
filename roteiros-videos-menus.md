@@ -185,6 +185,19 @@ O Obreiro comum vê: Dashboard (com a faixa "Minha vez" e o sino), Notificaçõe
 
 > Transparência é fraternidade. Na seção Balancete da Loja, qualquer irmão do quadro consulta as contas do mês: quanto entrou, quanto saiu e o saldo. Só aparecem os meses já fechados: o Tesoureiro fecha o mês, o Conselho de Contas registra a ciência — e o carimbo no topo mostra quem fechou e quem conferiu. O gráfico mostra os últimos doze meses, com os ainda abertos em branco; a tabela, os totais por categoria. Repare no cuidado: as capitações aparecem numa linha só — quantos irmãos pagaram e o total — e a beneficência entra apenas como valor da categoria. Nenhum nome, nenhuma situação individual. É o balancete fechado pela Tesouraria e conferido pelo Conselho, aberto para consulta; dúvidas, com o Tesoureiro ou o Conselho de Contas.
 
+## 1.16 — Rifa de Benemerência: números e Pix (`obreiro-rifa.mp4`)
+
+![Tela: obreiro-rifa](roteiros-prints/obreiro-rifa.png)
+
+![Tela: obreiro-rifa-pix](roteiros-prints/obreiro-rifa-pix.png)
+
+- **Objetivo:** o irmão participa da campanha solidária da Loja: escolhe os números, paga por Pix e acompanha o sorteio.
+- **Duração:** ~60 s.
+- **Na tela:** menu "Rifa de Benemerência" (só aparece com campanha vigente) → card da campanha com fotos do prêmio, valor do número, período de vendas e data do sorteio → grade de números: livres, "meus" (dourado) e "de outro irmão" (riscado) → tocar em dois números → "2 números (7, 42) — total R$ 40,00" → "Reservar meus números" → card "Meus números" com QR Code Pix no valor e "Copiar código Pix" → etiqueta "a pagar" vira "pago" após a baixa do Esmoler → botão "liberar" num número ainda não pago → depois do sorteio: card dourado "Número sorteado" com o ganhador (ou "Parabéns, o número sorteado é o seu!") e a semente para conferência.
+- **Narração:**
+
+> Quando a Loja abre uma rifa em favor da Benemerência, ela aparece aqui, no menu de todos os irmãos, com as fotos do prêmio, o valor de cada número e a data do sorteio. Escolher é tocar: os números livres estão em branco, os seus ficam dourados e os de outro irmão, riscados. Reservou? O sistema já monta o QR Code Pix com o valor exato — aponte a câmera do banco ou use o Copia e Cola. Pagou, o Esmoler dá a baixa e o número passa a "pago". Mudou de ideia antes de pagar? Libere o número. No dia do sorteio, o sistema aponta o irmão dono do número sorteado e avisa todo o quadro — e, se for o seu, os parabéns chegam aqui mesmo, com a semente do sorteio à vista para qualquer irmão conferir. Solidariedade com transparência, do primeiro número ao prêmio.
+
 # PARTE 2 — SECRETÁRIO
 
 O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da Loja, Documentos (Drive), Processos, Progressões, Visitas a Oficinas, Visitantes, Quitte Placets, Configurações da Loja e Auditoria. O Esmoler e o Venerável veem ainda o Acompanhamento fraterno. Na Mútua, enxerga as entregas de todo o quadro.
@@ -224,10 +237,10 @@ O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da L
 ![Tela: secretario-sessoes](roteiros-prints/secretario-sessoes.png)
 
 - **Duração:** ~75 s.
-- **Na tela:** criar sessão (tipo, grau, data — ao escolher o tipo Evento, o grau trava em N/A e o campo de pauta vale como descrição do evento) → convite com a arte da Loja gerado e enviado (WhatsApp) → QR de check-in → lançar presenças → Livro de Presenças → botão "Lavrar ata".
+- **Na tela:** criar sessão (tipo, grau, data — ao escolher o tipo Evento, o grau trava em N/A e o campo de pauta vale como descrição do evento) → convite com a arte da Loja gerado e enviado (WhatsApp) → card "Convidar visitantes cadastrados" (botão "Disparar convite por e-mail" + "Convidar no WhatsApp" por visitante) → QR de check-in (campo Telefone/WhatsApp do visitante) → lançar presenças → Livro de Presenças → botão "Lavrar ata".
 - **Narração:**
 
-> A vida da Loja gira em torno das sessões — e aqui está todo o ciclo. Crie a sessão informando tipo, grau e data. Além das sessões ritualísticas, há o tipo Evento — para confraternizações e atividades abertas: o grau fica como N/A, os convites e telas falam em Evento em vez de sessão, a pauta sai como descrição do evento e o convite vai sem a confirmação de Ágape. O sistema gera o convite com a arte da própria Loja, pronto para enviar aos irmãos pelo WhatsApp. No dia, o QR Code de check-in registra a presença de membros e de visitantes — que recebem certificado de visita. Depois, o Livro de Presenças consolida a frequência anual de cada irmão, com alertas de quem está abaixo do mínimo. E, encerrada a sessão, um clique em "Lavrar ata" já abre o rascunho no modelo da Loja. Da convocação à ata, sem papel perdido.
+> A vida da Loja gira em torno das sessões — e aqui está todo o ciclo. Crie a sessão informando tipo, grau e data. Além das sessões ritualísticas, há o tipo Evento — para confraternizações e atividades abertas: o grau fica como N/A, os convites e telas falam em Evento em vez de sessão, a pauta sai como descrição do evento e o convite vai sem a confirmação de Ágape. O sistema gera o convite com a arte da própria Loja, pronto para enviar aos irmãos pelo WhatsApp. E os irmãos de outras Oficinas que já visitaram a Loja também podem ser convidados: um clique dispara o convite por e-mail a todos os visitantes cadastrados, e o WhatsApp de cada um abre com a mensagem pronta. No dia, o QR Code de check-in registra a presença de membros e de visitantes — que informam o telefone e recebem o certificado de visita. Depois, o Livro de Presenças consolida a frequência anual de cada irmão, com alertas de quem está abaixo do mínimo. E, encerrada a sessão, um clique em "Lavrar ata" já abre o rascunho no modelo da Loja. Da convocação à ata, sem papel perdido.
 
 ## 2.5 — Atas: do rascunho à assinatura (`secretario-atas.mp4`)
 
@@ -302,6 +315,10 @@ O Secretário vê tudo do Obreiro e mais: Cargos do Rito, Pranchas, E-mails da L
 ## 2.11b — Visitantes (`secretario-visitantes.mp4`)
 
 ![Tela: secretario-visitantes](roteiros-prints/secretario-visitantes.png)
+
+![Tela: secretario-visitante-ficha](roteiros-prints/secretario-visitante-ficha.png)
+
+![Tela: secretario-convites-visitantes](roteiros-prints/secretario-convites-visitantes.png)
 
 - **Duração:** ~45 s.
 - **Na tela:** menu Visitantes (só Secretário e VM) → lista com busca e contagem de visitas → ficha de um visitante (dados vindos do check-in, telefone, grau, cargo, observações) → histórico de visitas com "Enviar por WhatsApp" e "Enviar por e-mail" → mesclar duplicado → Exportar CSV → página da sessão: card "Convidar visitantes cadastrados" (e-mail em massa + WhatsApp por visitante). Mostrar rapidamente o check-in pelo QR com o campo Telefone/WhatsApp.
@@ -488,6 +505,17 @@ O VM tem visão total: menus da Secretaria, da Tesouraria e da gestão da Loja.
 
 > As doações da Bolsa de Benemerência caem direto na conta da Loja — e quem define o destino é o Venerável Mestre. Nas Configurações da Loja, o card Bolsa de Benemerência recebe a chave Pix: pode ser o CNPJ, um e-mail, um telefone ou uma chave aleatória. Salvou, pronto: a página de doação de todos os irmãos passa a gerar o QR Code e o Copia e Cola com essa chave, na hora. Se o campo ficar vazio, o sistema usa a chave Pix das capitações, cadastrada pela Tesouraria — e só o Venerável altera a da Benemerência, com registro na auditoria.
 
+## 4.7 — Rifa de Benemerência (visão do VM) (`veneravel-rifa.mp4`)
+
+![Tela: veneravel-rifa](roteiros-prints/veneravel-rifa.png)
+
+- **Objetivo:** o Venerável habilita a campanha da Rifa nas Configurações da Loja (o Esmoler faz o mesmo pela página da Rifa).
+- **Duração:** ~40 s.
+- **Na tela:** Configurações da Loja → card "Rifa de Benemerência" logo abaixo da chave Pix → status da campanha ativa ("Rifa de Natal 2026 — Números à venda · 100 números a R$ 20,00 · vendas … · sorteio …") → formulário: título, prêmio com fotos, início e fim das vendas, data do sorteio, quantidade e valor → "Habilitar campanha" / "Salvar alterações" → link "página da Rifa" para a gestão dos números e o sorteio → "Encerrar campanha".
+- **Narração:**
+
+> A Rifa de Benemerência nasce nas Configurações da Loja, ao lado da chave Pix que recebe as doações. O Venerável define o título, o prêmio com fotos, o período de vendas, a quantidade de números, o valor de cada um e a data do sorteio — e, ao habilitar, a Rifa entra no menu de todos os irmãos, que são avisados na hora. O Esmoler tem o mesmo formulário na página da Rifa, onde ficam também a gestão dos números e o sorteio. Uma campanha ativa por vez; encerrada, vai para o histórico.
+
 # PARTE 5 — CONSELHO DE CONTAS
 
 ## 5.1 — Painel e fiscalização (`conselho-fiscalizacao.mp4`)
@@ -536,6 +564,21 @@ O VM tem visão total: menus da Secretaria, da Tesouraria e da gestão da Loja.
 
 ---
 
+## 6.3 — Rifa de Benemerência: campanha, vendas e sorteio (`esmoler-rifa.mp4`)
+
+![Tela: esmoler-rifa](roteiros-prints/esmoler-rifa.png)
+
+![Tela: esmoler-rifa-sorteio](roteiros-prints/esmoler-rifa-sorteio.png)
+
+![Tela: esmoler-rifa-resultado](roteiros-prints/esmoler-rifa-resultado.png)
+
+- **Objetivo:** o Esmoler conduz a campanha de ponta a ponta: habilita, acompanha a arrecadação, registra vendas e pagamentos e faz o sorteio com transparência.
+- **Duração:** ~80 s.
+- **Na tela:** menu "Rifa de Benemerência" → "Habilitar campanha" (título, prêmio, fotos, datas, quantidade, valor) → aviso a todo o quadro → card "Arrecadação": "17 reservados (11 pagos) · 83 livres · recebido R$ 220,00 de R$ 340,00 previstos" → tabela nº / irmão / pagamento: clicar em "a receber" → "pago" com a data → "liberar" → "Registrar venda em nome de um irmão" (números separados por vírgula, "Já recebido") → após o fim das vendas, card "Sorteio": "Sortear agora pelo sistema" com a caixa "Incluir também os números ainda não pagos" → confirmação → card dourado com número, ganhador, "Sorteado pelo sistema, acionado por … em … · entre os números pagos (11 números concorrendo)" e a semente → alternativa "registrar um sorteio feito fora do sistema" → auditoria.
+- **Narração:**
+
+> A Rifa de Benemerência é uma ferramenta do Esmoler — e do Venerável — para arrecadar com organização e transparência. Habilite a campanha: título, prêmio com fotos, período de vendas, quantidade de números, valor e data do sorteio. No mesmo instante ela aparece no menu de todos os irmãos, que recebem o aviso. Daí em diante, a página é o seu painel: quantos números foram reservados, quantos pagos, o que já entrou e o que ainda falta. Cada número traz o irmão e o pagamento; recebeu o Pix, um clique dá a baixa. Vendeu em sessão? Registre a venda em nome do irmão, já como paga. Encerradas as vendas, chega a hora do sorteio — e o próprio sistema sorteia: entre os números pagos, ou entre todos, se você marcar a opção. O resultado mostra o ganhador, quem acionou, a hora, quantos números concorriam e a semente aleatória, com a regra que qualquer irmão pode conferir. Preferiu a Loteria Federal ou o globo em sessão? Registre o número, e o sistema aponta o irmão. Tudo fica na auditoria, e o quadro inteiro recebe o resultado.
+
 # PARTE 7 — VIGILANTES (INSTRUTORES)
 
 ## 7.1 — Instruções de grau (`vigilantes-instrucoes.mp4`)
@@ -577,7 +620,7 @@ O VM tem visão total: menus da Secretaria, da Tesouraria e da gestão da Loja.
 
 ## Checklist de produção
 
-Legenda: **REGRAVAR** = vídeo já existente cuja tela mudou no lote de 04/09/2026 (staging a252396); **NOVO** = vídeo acrescentado nesta revisão. Os demais seguem válidos.
+Legenda: **REGRAVAR** = vídeo já existente cuja tela mudou nos lotes de 04/09/2026 (staging a252396) 06/09/2026 (Visitantes, staging b681ee1) e 07/09/2026 (Rifa de Benemerência, staging 91f11c9); **NOVO** = vídeo acrescentado nestas revisões. Os demais seguem válidos.
 
 | # | Arquivo | Cargo | Status | Observação |
 |---|---------|-------|--------|------------|
@@ -596,10 +639,11 @@ Legenda: **REGRAVAR** = vídeo já existente cuja tela mudou no lote de 04/09/20
 | 1.13 | obreiro-benemerencia.mp4 | Obreiro | ☐ | |
 | 1.14 | obreiro-assistente.mp4 | Obreiro | ☐ | NOVO — chips dinâmicos, "o que está na minha vez?" com links, situação financeira (Secretário) |
 | 1.15 | obreiro-balancete.mp4 | Obreiro | ☐ | NOVO — balancete só leitura para todo o quadro: capitações só como total, beneficência só por categoria, sem nomes |
+| 1.16 | obreiro-rifa.mp4 | Obreiro | ☐ | NOVO — Rifa de Benemerência: grade de números, QR Pix no valor, baixa do Esmoler, resultado com semente |
 | 2.1 | secretario-dashboard.mp4 | Secretário | ☐ | REGRAVAR — faixa "Minha vez" com assinaturas e registros da Secretaria |
 | 2.2 | secretario-membros.mp4 | Secretário | ☐ | |
 | 2.3 | secretario-cargos.mp4 | Secretário | ☐ | |
-| 2.4 | secretario-sessoes.mp4 | Secretário | ☐ | |
+| 2.4 | secretario-sessoes.mp4 | Secretário | ☐ | REGRAVAR — card "Convidar visitantes cadastrados" (e-mail em massa + WhatsApp individual), telefone no check-in QR e no RSVP do convite |
 | 2.5 | secretario-atas.mp4 | Secretário | ☐ | |
 | 2.6 | secretario-pranchas.mp4 | Secretário | ☐ | |
 | 2.7 | secretario-emails.mp4 | Secretário | ☐ | |
@@ -607,6 +651,7 @@ Legenda: **REGRAVAR** = vídeo já existente cuja tela mudou no lote de 04/09/20
 | 2.9 | secretario-admissoes.mp4 | Secretário | ☐ | |
 | 2.10 | secretario-progressoes.mp4 | Secretário | ☐ | |
 | 2.11 | secretario-visitas.mp4 | Secretário | ☐ | |
+| 2.11b | secretario-visitantes.mp4 | Secretário / Venerável | ☐ | NOVO — base de Visitantes (check-in QR alimenta a ficha), Certificado de Visita por WhatsApp, mesclar duplicados, CSV e convite aos visitantes na sessão |
 | 2.12 | secretario-atestado.mp4 | Secretário | ☐ | |
 | 2.13 | secretario-quitte.mp4 | Secretário | ☐ | REGRAVAR — painel Tesouraria, Nada Consta real, "Gerar Form. 122 automaticamente", Orador na cadeia, Negar com parecer |
 | 2.14 | secretario-config.mp4 | Secretário | ☐ | |
@@ -623,9 +668,11 @@ Legenda: **REGRAVAR** = vídeo já existente cuja tela mudou no lote de 04/09/20
 | 4.4 | veneravel-financeiro.mp4 | Venerável | ☐ | REGRAVAR — semáforo de inadimplência, aprovação pelo dashboard, Acompanhamento fraterno |
 | 4.5 | veneravel-config.mp4 | Venerável | ☐ | |
 | 4.6 | veneravel-benemerencia.mp4 | Venerável | ☐ | |
+| 4.7 | veneravel-rifa.mp4 | Venerável | ☐ | NOVO — card da Rifa nas Configurações da Loja (habilitar/editar/encerrar campanha) |
 | 5.1 | conselho-fiscalizacao.mp4 | Conselho | ☐ | REGRAVAR — faixa "Minha vez", painel Tesouraria só leitura, digest por e-mail |
 | 6.1 | esmoler-alertas.mp4 | Esmoler | ☐ | REGRAVAR — alertas na "Minha vez", aviso de licenciado, deep link para o Acompanhamento fraterno |
 | 6.2 | esmoler-acompanhamento.mp4 | Esmoler / Venerável | ☐ | NOVO — página Acompanhamento fraterno com "Registrar contato" |
+| 6.3 | esmoler-rifa.mp4 | Esmoler / Venerável | ☐ | NOVO — campanha com fotos, arrecadação, venda presencial, baixa, sorteio pelo sistema (pagos / todos) com semente, sorteio externo |
 | 7.1 | vigilantes-instrucoes.mp4 | Vigilantes | ☐ | |
 | 7.2 | vigilantes-processos.mp4 | Orador / Vigilantes | ☐ | REGRAVAR — "Minha vez", e-mail imediato, Orador assinante fixo do Quitte |
 | 8.1 | admin-plataforma.mp4 | Admin | ☐ | |

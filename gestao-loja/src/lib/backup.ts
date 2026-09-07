@@ -133,6 +133,8 @@ export async function gerarBackupLoja(lodgeId: string): Promise<{
     mutuaEntregas,
     contatosEsmoler,
     fechamentosMes,
+    rifas,
+    rifaNumeros,
     notificacoes,
     auditoria,
     conversas,
@@ -184,6 +186,8 @@ export async function gerarBackupLoja(lodgeId: string): Promise<{
     prisma.mutuaEntrega.findMany(porLoja),
     prisma.contatoEsmoler.findMany(porLoja),
     prisma.fechamentoMes.findMany(porLoja),
+    prisma.rifaCampanha.findMany(porLoja),
+    prisma.rifaNumero.findMany(porLoja),
     prisma.notification.findMany(porLoja),
     prisma.auditEvent.findMany({ ...porLoja, orderBy: { createdAt: "asc" } }),
     prisma.assistenteConversa.findMany(porLoja),
@@ -269,6 +273,8 @@ export async function gerarBackupLoja(lodgeId: string): Promise<{
   );
   dados.file("contatos-esmoler.json", toJson(contatosEsmoler));
   dados.file("fechamentos-mes.json", toJson(fechamentosMes));
+  dados.file("rifas.json", toJson(rifas));
+  dados.file("rifa-numeros.json", toJson(rifaNumeros));
   dados.file("notificacoes.json", toJson(notificacoes));
   dados.file("auditoria.json", toJson(auditoria));
   dados.file("assistente-conversas.json", toJson(conversas));

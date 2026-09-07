@@ -137,6 +137,8 @@ export async function restaurarBackupLoja(zipBuffer: Buffer): Promise<{
     mutuaEntregas,
     contatosEsmoler,
     fechamentosMes,
+    rifas,
+    rifaNumeros,
     notificacoes,
     auditoria,
     conversas,
@@ -174,6 +176,8 @@ export async function restaurarBackupLoja(zipBuffer: Buffer): Promise<{
     lerJson(zip, "mutua-entregas.json"),
     lerJson(zip, "contatos-esmoler.json"),
     lerJson(zip, "fechamentos-mes.json"),
+    lerJson(zip, "rifas.json"),
+    lerJson(zip, "rifa-numeros.json"),
     lerJson(zip, "notificacoes.json"),
     lerJson(zip, "auditoria.json"),
     lerJson(zip, "assistente-conversas.json"),
@@ -379,6 +383,8 @@ export async function restaurarBackupLoja(zipBuffer: Buffer): Promise<{
       await tx.mutuaEntrega.createMany({ data: cast(mutuaComArquivo) });
       await tx.contatoEsmoler.createMany({ data: cast(contatosEsmoler) });
       await tx.fechamentoMes.createMany({ data: cast(fechamentosMes) });
+      await tx.rifaCampanha.createMany({ data: cast(rifas) });
+      await tx.rifaNumero.createMany({ data: cast(rifaNumeros) });
       await tx.notification.createMany({ data: cast(notificacoes) });
       await tx.auditEvent.createMany({ data: cast(auditoria) });
       await tx.assistenteConversa.createMany({ data: cast(conversas) });

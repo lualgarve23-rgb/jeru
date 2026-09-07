@@ -128,6 +128,8 @@ model Lodge {
   assistenteConversas AssistenteConversa[]
   contatosEsmoler     ContatoEsmoler[]
   fechamentosMes      FechamentoMes[]
+  rifas               RifaCampanha[]
+  rifaNumeros         RifaNumero[]
 
   @@map("lodges")
 }
@@ -272,6 +274,11 @@ model User {
   fechamentosFeitos        FechamentoMes[] @relation("FechamentoPor")
   fechamentosCiencia       FechamentoMes[] @relation("FechamentoCiencia")
   fechamentosReabertos     FechamentoMes[] @relation("FechamentoReabertoPor")
+  rifasCriadas             RifaCampanha[] @relation("RifaCriadaPor")
+  rifasGanhas              RifaCampanha[] @relation("RifaGanhador")
+  rifasSorteadas           RifaCampanha[] @relation("RifaSorteadaPor")
+  rifaNumeros              RifaNumero[]   @relation("RifaNumeroUser")
+  rifaNumerosRegistrados   RifaNumero[]   @relation("RifaNumeroRegistradoPor")
 
   @@unique([lodgeId, cim])
   @@unique([lodgeId, cpf])
@@ -1320,6 +1327,70 @@ model FechamentoMes {
 
 // Trilha de auditoria: quem alterou o quê (membros, baixas, configs, roles).
 // Sem FK de propósito — a trilha sobrevive à exclusão da loja/usuário.
+// Rifa de Benemerência: campanha habilitada pelo Venerável Mestre ou pelo
+// Esmoler (Configurações da Loja / página da Rifa). Enquanto vigente,
+// aparece a todos os irmãos, que escolhem seus números; no dia do sorteio o
+// VM/Esmoler registra o número sorteado e o sistema aponta o irmão.
+model RifaCampanha {
+  id               String    @id @default(cuid())
+  lodgeId          String
+  titulo           String
+  descricao        String? // prêmio / finalidade
+  ativa            Boolean   @default(true) // false = encerrada/cancelada
+  inicio           DateTime // 00:00 SP do primeiro dia de venda
+  fim              DateTime // 23:59:59 SP do último dia de venda
+  sorteioEm        DateTime // 23:59:59 SP do dia do sorteio (exibido como data)
+  quantidadeNumeros Int
+  valorCents       Int // preço de cada número
+  criadoPorId      String
+  // Resultado do sorteio (registrado na ferramenta)
+  numeroSorteado   Int?
+  ganhadorId       String? // irmão dono do número sorteado (null se não vendido)
+  sorteadoPorId    String?
+  sorteadoAt       DateTime?
+  observacaoSorteio String?
+  // Transparência do sorteio pelo sistema: modo (MANUAL | SISTEMA_PAGOS |
+  // SISTEMA_TODOS), semente aleatória (hex) e tamanho do universo sorteado
+  sorteioModo      String?
+  sorteioSemente   String?
+  sorteioUniverso  Int?
+  // Fotos do prêmio: chaves "media:<lodgeId>/rifas/<id>/foto-*.jpg" (lib/media)
+  fotos            String[]  @default([])
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  lodge       Lodge @relation(fields: [lodgeId], references: [id], onDelete: Cascade)
+  criadoPor   User  @relation("RifaCriadaPor", fields: [criadoPorId], references: [id])
+  ganhador    User? @relation("RifaGanhador", fields: [ganhadorId], references: [id])
+  sorteadoPor User? @relation("RifaSorteadaPor", fields: [sorteadoPorId], references: [id])
+  numeros     RifaNumero[]
+
+  @@index([lodgeId, ativa])
+  @@map("rifas")
+}
+
+// Número da rifa reservado por um irmão (ele mesmo, ou o VM/Esmoler por ele)
+model RifaNumero {
+  id             String   @id @default(cuid())
+  lodgeId        String
+  rifaId         String
+  numero         Int
+  userId         String // irmão dono do número
+  registradoPorId String // quem reservou (o próprio irmão ou VM/Esmoler)
+  pago           Boolean  @default(false) // baixa pelo VM/Esmoler
+  pagoAt         DateTime?
+  createdAt      DateTime @default(now())
+
+  lodge         Lodge        @relation(fields: [lodgeId], references: [id], onDelete: Cascade)
+  rifa          RifaCampanha @relation(fields: [rifaId], references: [id], onDelete: Cascade)
+  user          User         @relation("RifaNumeroUser", fields: [userId], references: [id], onDelete: Cascade)
+  registradoPor User         @relation("RifaNumeroRegistradoPor", fields: [registradoPorId], references: [id], onDelete: Cascade)
+
+  @@unique([rifaId, numero])
+  @@index([lodgeId, userId])
+  @@map("rifa_numeros")
+}
+
 model AuditEvent {
   id         String   @id @default(cuid())
   lodgeId    String? // null = evento de plataforma (super admin)

@@ -33,6 +33,8 @@ export async function deleteLodgeData(db: Db, lodgeId: string) {
   await db.mutuaEntrega.deleteMany({ where });
   await db.contatoEsmoler.deleteMany({ where });
   await db.fechamentoMes.deleteMany({ where });
+  await db.rifaNumero.deleteMany({ where });
+  await db.rifaCampanha.deleteMany({ where });
 
   await db.instrucao.deleteMany({ where });
   await db.visitaExterna.deleteMany({ where });

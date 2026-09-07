@@ -51,6 +51,11 @@ export const FAQ: Record<string, { titulo: string; resposta: string }> = {
     resposta:
       "Doações por Pix em /dashboard/benemerencia — QR Code e Copia e Cola com valor livre, definido no app do banco.",
   },
+  rifa: {
+    titulo: "Rifa de Benemerência",
+    resposta:
+      "Campanha solidária em /dashboard/rifa: o Venerável ou o Esmoler habilita a rifa (título, início e fim das vendas, quantidade de números, valor e data do sorteio) — ali ou nas Configurações da Loja. Enquanto vigente, a Rifa aparece no menu de todos os irmãos, que tocam nos números livres para reservar e pagam por Pix (QR Code com o valor, chave da Benemerência); o Esmoler dá baixa no pagamento e pode registrar vendas presenciais em nome de um irmão. Depois do fim das vendas, o VM/Esmoler sorteia pelo próprio sistema (botão “Sortear agora pelo sistema”: entre os números pagos, com opção de incluir os não pagos; a semente aleatória e a hora ficam registradas e visíveis para conferência) ou informa o número de um sorteio externo; o sistema mostra o irmão ganhador e avisa o quadro. Sem campanha ativa, o item não aparece aos obreiros.",
+  },
   govbr: {
     titulo: "Assinatura gov.br",
     resposta:

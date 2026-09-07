@@ -32,6 +32,7 @@ import {
   totaisDivergem,
 } from "@/lib/fechamento-mes";
 import { partesSaoPaulo } from "@/lib/datas-sp";
+import { brl as brlRifa, dataBr as dataBrRifa, FASE_LABEL, faseRifa, podeGerirRifa, resumoRifa, rifaAtiva, rifaVisivelAoQuadro } from "@/lib/rifa";
 
 export type AssistenteUser = {
   id: string;
@@ -473,6 +474,45 @@ export const FERRAMENTAS: Ferramenta[] = [
         info: temChave
           ? "Doações em /dashboard/benemerencia — QR Code Pix e Copia e Cola, valor livre no app do banco."
           : "A loja ainda não cadastrou chave Pix; o Venerável pode cadastrar nas Configurações da Loja.",
+      };
+    },
+  },
+  {
+    nome: "rifa_loja",
+    descricao:
+      "Rifa de Benemerência da loja: campanha vigente (período, valor, sorteio), os números do próprio usuário e o resultado; VM/Esmoler recebem também a arrecadação.",
+    inputSchema: semInput,
+    disponivel: paraTodos,
+    executar: async (user) => {
+      const rifa = await rifaAtiva(user.lodgeId);
+      const gestor = podeGerirRifa(user.role);
+      if (!rifa || (!gestor && !rifaVisivelAoQuadro(rifa))) {
+        return { campanhaAtiva: false, info: gestor ? "Nenhuma campanha ativa — habilite em /dashboard/rifa ou nas Configurações da Loja." : "Não há rifa em andamento na loja." };
+      }
+      const numeros = await prisma.rifaNumero.findMany({
+        where: { rifaId: rifa.id },
+        select: { numero: true, pago: true, userId: true },
+        orderBy: { numero: "asc" },
+      });
+      const meus = numeros.filter((n) => n.userId === user.id);
+      return {
+        campanhaAtiva: true,
+        titulo: rifa.titulo,
+        descricao: rifa.descricao,
+        fase: FASE_LABEL[faseRifa(rifa)],
+        valorNumero: brlRifa(rifa.valorCents),
+        vendas: `${dataBrRifa(rifa.inicio)} a ${dataBrRifa(rifa.fim)}`,
+        sorteio: dataBrRifa(rifa.sorteioEm),
+        quantidadeNumeros: rifa.quantidadeNumeros,
+        fotosDoPremio: rifa.fotos.length,
+        meusNumeros: meus.map((n) => ({ numero: n.numero, pago: n.pago })),
+        aPagar: brlRifa(meus.filter((n) => !n.pago).length * rifa.valorCents),
+        resultado:
+          rifa.numeroSorteado != null
+            ? { numeroSorteado: rifa.numeroSorteado, ganhador: rifa.ganhador?.name ?? "número não vendido", euGanhei: rifa.ganhador?.id === user.id, modo: rifa.sorteioModo, semente: rifa.sorteioSemente, numerosConcorrendo: rifa.sorteioUniverso }
+            : null,
+        ...(gestor ? { arrecadacao: resumoRifa(rifa, numeros) } : {}),
+        link: "/dashboard/rifa",
       };
     },
   },

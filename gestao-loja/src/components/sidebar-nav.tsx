@@ -35,6 +35,7 @@ import {
   Inbox,
   CalendarOff,
   HandHeart,
+  Ticket,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -72,6 +73,7 @@ const icons: Record<string, LucideIcon> = {
   solicitacoes: Inbox,
   afastamento: CalendarOff,
   esmoler: HandHeart,
+  rifa: Ticket,
 };
 
 export type NavItem = {

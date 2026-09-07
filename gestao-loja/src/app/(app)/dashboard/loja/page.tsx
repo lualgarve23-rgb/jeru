@@ -44,6 +44,9 @@ import {
   type CertBox,
 } from "@/lib/certificado";
 import { PDFDocument } from "pdf-lib";
+import Link from "next/link";
+import { rifaAtiva, faseRifa, FASE_LABEL, isoSp, dataBr, brl } from "@/lib/rifa";
+import { CampanhaForm } from "../rifa/campanha-form";
 
 const erros: Record<string, string> = {
   "oauth-nao-configurado":
@@ -66,6 +69,8 @@ export default async function LojaConfigPage({
   const lodge = await prisma.lodge.findUniqueOrThrow({
     where: { id: user.lodgeId },
   });
+  // Rifa de Benemerência: campanha ativa (VM habilita/edita aqui; Esmoler na página da Rifa)
+  const rifa = await rifaAtiva(user.lodgeId);
 
   // Uso do Assistente IA (perguntas enviadas), para calibrar os limites:
   // hoje e mês corrente, separados em Obreiros × oficiais
@@ -232,6 +237,52 @@ export default async function LojaConfigPage({
                   ? `${lodge.pixKey} (herdada das capitações)`
                   : "nenhuma")}
             </p>
+          )}
+        </CardContent>
+      </Card>
+
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Rifa de Benemerência</CardTitle>
+          <CardDescription>
+            Campanha solidária com números vendidos aos irmãos. Enquanto
+            vigente, a Rifa aparece no menu de todos os irmãos da Loja e o
+            quadro é avisado. O Venerável Mestre e o Esmoler habilitam a
+            campanha, registram vendas e o número sorteado na{" "}
+            <Link href="/dashboard/rifa" className="underline">página da Rifa</Link>.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {rifa && (
+            <p className="rounded-xl bg-secondary px-3 py-2 text-sm">
+              <span className="font-medium">{rifa.titulo}</span> — {FASE_LABEL[faseRifa(rifa)]} ·{" "}
+              {rifa.quantidadeNumeros} números a {brl(rifa.valorCents)} · vendas de {dataBr(rifa.inicio)} a{" "}
+              {dataBr(rifa.fim)} · sorteio em {dataBr(rifa.sorteioEm)}
+            </p>
+          )}
+          {user.role === "VENERAVEL_MESTRE" ? (
+            <CampanhaForm
+              atual={
+                rifa
+                  ? {
+                      titulo: rifa.titulo,
+                      descricao: rifa.descricao,
+                      inicio: isoSp(rifa.inicio),
+                      fim: isoSp(rifa.fim),
+                      sorteio: isoSp(rifa.sorteioEm),
+                      quantidadeNumeros: rifa.quantidadeNumeros,
+                      valorReais: (rifa.valorCents / 100).toFixed(2),
+                      sorteada: rifa.numeroSorteado != null,
+                      fotos: rifa.fotos,
+                    }
+                  : null
+              }
+            />
+          ) : (
+            !rifa && (
+              <p className="text-sm text-muted-foreground">Nenhuma campanha ativa.</p>
+            )
           )}
         </CardContent>
       </Card>

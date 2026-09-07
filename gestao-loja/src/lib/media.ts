@@ -109,6 +109,27 @@ export async function saveAdmissaoFotoBytes(
   return key;
 }
 
+// Foto do prêmio da Rifa de Benemerência (até 3 MB — fotos de celular)
+export const RIFA_FOTO_MAX_BYTES = 3_000_000;
+export const RIFA_MAX_FOTOS = 6;
+
+export function validarFotoRifa(file: File): string | null {
+  if (!EXT_POR_MIME[file.type]) return `${file.name || "A foto"} deve ser PNG, JPG ou WebP.`;
+  if (file.size > RIFA_FOTO_MAX_BYTES) return `${file.name || "A foto"} é muito grande — use imagens de até 3 MB.`;
+  return null;
+}
+
+export async function saveRifaFoto(lodgeId: string, rifaId: string, file: File): Promise<string> {
+  const ext = EXT_POR_MIME[file.type];
+  if (!ext) throw new Error(`Tipo de imagem não suportado: ${file.type}`);
+  const nome = `foto-${crypto.randomBytes(6).toString("hex")}.${ext}`;
+  const key = `${MEDIA_PREFIX}${lodgeId}/rifas/${rifaId}/${nome}`;
+  const abs = caminhoDe(key);
+  await fs.mkdir(path.dirname(abs), { recursive: true });
+  await fs.writeFile(abs, Buffer.from(await file.arrayBuffer()));
+  return key;
+}
+
 // Grava bytes diretamente (migração de data URIs legados)
 export async function saveUserImageBytes(
   lodgeId: string,

@@ -12,8 +12,9 @@ import { Assistente } from "@/components/assistente/assistente";
 import { sugestoesVisiveis, sugestoesDinamicas } from "@/lib/assistente/sugestoes";
 import { pendenciasDoUsuario } from "@/lib/pendencias";
 import { notificationWhere } from "@/lib/notifications";
+import { rifaNoMenu } from "@/lib/rifa";
 
-function navFor(role: string, cargoRito: string | null, unread: number): NavItem[] {
+function navFor(role: string, cargoRito: string | null, unread: number, rifa: boolean): NavItem[] {
   if (role === "SUPER_ADMIN") {
     return [
       { href: "/admin", label: "Administração", icon: "admin" },
@@ -40,6 +41,8 @@ function navFor(role: string, cargoRito: string | null, unread: number): NavItem
     { href: "/dashboard/biblioteca", label: "Biblioteca Digital", icon: "biblioteca" },
     { href: "/dashboard/mutua", label: "Mútua (CABM)", icon: "mutua" },
     { href: "/dashboard/benemerencia", label: "Bolsa de Benemerência", icon: "benemerencia" },
+    // Rifa de Benemerência: VM/Esmoler sempre; o quadro só com campanha vigente
+    ...(rifa ? [{ href: "/dashboard/rifa", label: "Rifa de Benemerência", icon: "rifa" as const }] : []),
     { href: "/balancete", label: "Balancete da Loja", icon: "balancete", roles: quadroSemTesouraria },
     { href: "/secretaria/membros", label: "Membros", icon: "membros", section: "Secretaria" },
     { href: "/secretaria/cargos", label: "Cargos do Rito", icon: "cargos", section: "Secretaria", roles: fiscal },
@@ -91,7 +94,7 @@ export default async function AppLayout({
   });
   if (mustChangePassword) redirect("/trocar-senha");
 
-  const [lodge, unread, pendencias, ultimas] = await Promise.all([
+  const [lodge, unread, pendencias, ultimas, rifa] = await Promise.all([
     prisma.lodge.findUnique({
       where: { id: user.lodgeId },
       select: {
@@ -115,6 +118,7 @@ export default async function AppLayout({
           take: 5,
           select: { id: true, title: true, isRead: true, createdAt: true },
         }),
+    user.role === "SUPER_ADMIN" ? Promise.resolve(false) : rifaNoMenu(user.lodgeId, user.role),
   ]);
 
   // Licença do sistema vencida bloqueia toda a loja (menos o super admin)
@@ -134,7 +138,7 @@ export default async function AppLayout({
       userName={user.name}
       roleLabel={cargoRito ?? roleLabels[user.role] ?? user.role}
       cim={user.cim}
-      navItems={navFor(user.role, cargoRito, unread)}
+      navItems={navFor(user.role, cargoRito, unread, rifa)}
       unreadNotifications={unread}
       sino={
         user.role === "SUPER_ADMIN"
