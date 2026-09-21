@@ -4,7 +4,7 @@ import { sessionTypeLabels, degreeLabels } from "@/lib/labels";
 // Convite de sessão por e-mail: o template padrão vive aqui no repositório e a
 // loja pode substituí-lo por um HTML próprio (upload em Configurações da Loja,
 // campo Lodge.conviteTemplateHtml). Placeholders aceitos:
-//   {{LOJA}} {{DATA}} {{HORA}} {{TIPO}} {{GRAU}} {{LINK}}
+//   {{LOJA}} {{DATA}} {{HORA}} {{TIPO}} {{GRAU}} {{LINK}} {{LOCAL}}
 export const CONVITE_PLACEHOLDERS = [
   "{{LOJA}}",
   "{{DATA}}",
@@ -15,6 +15,7 @@ export const CONVITE_PLACEHOLDERS = [
   "{{LINK}}",
   "{{FRASE}}",
   "{{PAUTA}}",
+  "{{LOCAL}}",
 ] as const;
 
 // Saudação usada quando a loja não cadastrou a frase fixa do convite
@@ -46,7 +47,7 @@ export const CONVITE_TEMPLATE_PADRAO = `<!doctype html>
                 <tr><td style="padding:16px 20px;font-size:14px;color:#18181b;line-height:1.9;">
                   <strong>Sessão:</strong> {{TIPO}}<br/>
                   {{LINHA_GRAU}}
-                  <strong>Data:</strong> {{DATA}}, às {{HORA}}{{PAUTA}}
+                  <strong>Data:</strong> {{DATA}}, às {{HORA}}{{PAUTA}}{{LOCAL}}
                 </td></tr>
               </table>
               <p style="margin:24px 0 8px;font-size:15px;color:#3f3f46;line-height:1.6;">
@@ -85,7 +86,7 @@ export function templateDeImagem(dataUri: string) {
             <a href="{{LINK}}"><img src="${dataUri}" alt="Convite — {{LOJA}}, sessão {{TIPO}} de {{DATA}}" width="560" style="display:block;width:100%;height:auto;"/></a>
           </td></tr>
           <tr><td style="padding:24px 32px;text-align:center;">
-            <p style="margin:0 0 12px;font-size:15px;color:#3f3f46;line-height:1.6;">{{FRASE}}{{PAUTA}}</p>
+            <p style="margin:0 0 12px;font-size:15px;color:#3f3f46;line-height:1.6;">{{FRASE}}{{PAUTA}}{{LOCAL}}</p>
             <p style="margin:0 0 16px;font-size:14px;color:#3f3f46;line-height:1.6;">
               Confirme sua presença — e se ficará para o <strong>Ágape</strong> — pelo botão abaixo. Não podendo comparecer, o mesmo link permite justificar a ausência.
             </p>
@@ -178,6 +179,28 @@ export function pautaTexto(
     : "";
 }
 
+// A frase já cita o endereço? (evita repetir a linha "Local")
+export function fraseCitaEndereco(conviteFrase: string | null) {
+  return /<<\s*endere[cç]o(\s+da\s+loja)?\s*>>/i.test(conviteFrase ?? "");
+}
+
+// Endereço fixo da sede que sai no convite (e-mail, página pública e
+// WhatsApp), a partir do cadastro da Loja; vazio sem endereço ou quando a
+// frase fixa já o cita via <<endereco>>
+export function localDoConvite(
+  lodge: Pick<Lodge, "address" | "conviteFrase">
+): string | null {
+  const endereco = lodge.address?.replace(/\s+/g, " ").trim();
+  if (!endereco || fraseCitaEndereco(lodge.conviteFrase)) return null;
+  return endereco;
+}
+
+// Linha "Local: ..." para os textos simples (e-mail texto puro e WhatsApp)
+export function localTexto(lodge: Pick<Lodge, "address" | "conviteFrase">) {
+  const local = localDoConvite(lodge);
+  return local ? `Local: ${local}` : "";
+}
+
 function escapeHtml(s: string) {
   return s
     .replaceAll("&", "&amp;")
@@ -234,6 +257,11 @@ export function renderConvite(
       session.pauta && !fraseCitaPauta(lodge.conviteFrase)
         ? `<br/><strong>${session.type === "EVENTO" ? "Descrição" : "Pauta"}:</strong> ${escapeHtml(session.pauta).replaceAll("\n", "<br/>")}`
         : "",
+    // Endereço fixo da sede; some sem endereço ou quando a frase já o cita
+    "{{LOCAL}}": (() => {
+      const local = localDoConvite(lodge);
+      return local ? `<br/><strong>Local:</strong> ${escapeHtml(local)}` : "";
+    })(),
   };
   const html = Object.entries(valores).reduce(
     (html, [ph, valor]) => html.replaceAll(ph, valor),

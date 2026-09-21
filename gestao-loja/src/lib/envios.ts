@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { sendLodgeEmail, getGmailAuth } from "@/lib/gmail";
-import { renderConvite, arteDoConvite, pautaTexto } from "@/lib/convite";
+import { renderConvite, arteDoConvite, pautaTexto, localTexto } from "@/lib/convite";
 import { arteComDados, isConviteArteLayout } from "@/lib/convite-arte";
 import { gerarAtaPdf } from "@/lib/ata-pdf";
 import { gerarPdfAtaAssinada } from "@/lib/ata-final";
@@ -92,6 +92,7 @@ async function enviarConviteSessaoPara(
         ? `Convite para o evento de ${dataFmt}.`
         : `Convite para a sessão de ${dataFmt}.`,
       pautaTexto(session, session.lodge.conviteFrase),
+      localTexto(session.lodge),
       session.type === "EVENTO"
         ? `Confirme sua presença em: ${inviteUrl}`
         : `Confirme sua presença e o Ágape em: ${inviteUrl}`,

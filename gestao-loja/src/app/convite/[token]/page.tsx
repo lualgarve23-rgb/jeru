@@ -20,6 +20,7 @@ import {
   arteDoConvite,
   renderFrase,
   fraseCitaPauta,
+  localDoConvite,
 } from "@/lib/convite";
 import { arteComDados, isConviteArteLayout } from "@/lib/convite-arte";
 import {
@@ -130,7 +131,8 @@ export async function generateMetadata({
   const baseUrl = process.env.APP_URL ?? "http://localhost:3100";
   const arte = arteDoConvite(session.lodge.conviteTemplateHtml);
   const title = `Convite — ${session.lodge.name}`;
-  const description = `${session.type === "EVENTO" ? "Evento" : `Sessão ${tipo}`} em ${data}, às ${hora}. Toque para confirmar presença ou justificar ausência.`;
+  const local = localDoConvite(session.lodge);
+  const description = `${session.type === "EVENTO" ? "Evento" : `Sessão ${tipo}`} em ${data}, às ${hora}.${local ? ` Local: ${local}.` : ""} Toque para confirmar presença ou justificar ausência.`;
 
   // Dimensões declaradas ajudam WhatsApp/Telegram a exibir o cartão grande
   // com a imagem, em vez da miniatura ou de link sem preview
@@ -276,6 +278,12 @@ export default async function ConvitePage({
               <p className="whitespace-pre-line text-muted-foreground">
                 {session.pauta}
               </p>
+            </div>
+          )}
+          {!conviteHtml && localDoConvite(session.lodge) && (
+            <div className="rounded-md border bg-secondary p-3 text-sm">
+              <p className="mb-1 font-semibold">Local</p>
+              <p className="text-muted-foreground">{localDoConvite(session.lodge)}</p>
             </div>
           )}
           {!authSession?.user && reconhecido ? (

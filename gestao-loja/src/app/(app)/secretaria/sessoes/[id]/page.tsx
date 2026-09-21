@@ -20,7 +20,7 @@ import { WhatsAppCertificadoButton } from "@/components/whatsapp-certificado-but
 import { ConvitesVisitantesCard } from "./convites-visitantes";
 import { ExcluirSessaoDialog } from "./excluir-sessao-dialog";
 import { bloqueioExclusaoSessao } from "@/lib/sessao-exclusao";
-import { arteDoConvite, pautaTexto } from "@/lib/convite";
+import { arteDoConvite, pautaTexto, localTexto } from "@/lib/convite";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Label } from "@/components/ui/label";
 import { sessionTypeLabels, degreeLabels } from "@/lib/labels";
@@ -61,7 +61,9 @@ export default async function SessaoPage({
         orderBy: { checkedInAt: "asc" },
       },
       ata: true,
-      lodge: { select: { name: true, conviteTemplateHtml: true, conviteFrase: true } },
+      lodge: {
+        select: { name: true, conviteTemplateHtml: true, conviteFrase: true, address: true },
+      },
     },
   });
   if (!session) notFound();
@@ -83,10 +85,11 @@ export default async function SessaoPage({
   const confirmados = session.attendances.filter((a) => a.rsvpAt);
   const isEvento = session.type === "EVENTO";
 
-  // Texto do convite para WhatsApp e para o botão de copiar (inclui a pauta)
+  // Texto do convite para WhatsApp e para o botão de copiar (inclui pauta e local)
   const pautaLinha = pautaTexto(session, session.lodge.conviteFrase);
+  const localLinha = localTexto(session.lodge);
   const conviteTexto = inviteUrl
-    ? `Convite — ${session.lodge.name}\n${isEvento ? "Evento" : `Sessão ${sessionTypeLabels[session.type] ?? session.type}`} · ${session.date.toLocaleDateString("pt-BR")} às ${session.date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}${pautaLinha ? `\n${pautaLinha}` : ""}\nConfirme sua presença (ou justifique a ausência) em:\n${inviteUrl}`
+    ? `Convite — ${session.lodge.name}\n${isEvento ? "Evento" : `Sessão ${sessionTypeLabels[session.type] ?? session.type}`} · ${session.date.toLocaleDateString("pt-BR")} às ${session.date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}${pautaLinha ? `\n${pautaLinha}` : ""}${localLinha ? `\n${localLinha}` : ""}\nConfirme sua presença (ou justifique a ausência) em:\n${inviteUrl}`
     : null;
   const agapeTotal = session.attendances.filter(
     (a) => a.agapeConfirmed

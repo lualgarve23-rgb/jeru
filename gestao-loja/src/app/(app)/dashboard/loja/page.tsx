@@ -478,8 +478,11 @@ export default async function LojaConfigPage({
             <strong>HTML</strong> com os placeholders{" "}
             <code>{"{{LOJA}}"}</code>, <code>{"{{DATA}}"}</code>,{" "}
             <code>{"{{HORA}}"}</code>, <code>{"{{TIPO}}"}</code>,{" "}
-            <code>{"{{GRAU}}"}</code> e <code>{"{{LINK}}"}</code> (obrigatório
-            — vira o endereço de confirmação).
+            <code>{"{{GRAU}}"}</code>, <code>{"{{LOCAL}}"}</code> e{" "}
+            <code>{"{{LINK}}"}</code> (obrigatório — vira o endereço de
+            confirmação). O endereço da sede cadastrado na Loja sai fixo no
+            convite como <strong>Local</strong> (e-mail, página do convite e
+            WhatsApp) — para alterá-lo, fale com a administração do sistema.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
