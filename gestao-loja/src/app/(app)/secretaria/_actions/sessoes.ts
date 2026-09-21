@@ -26,6 +26,7 @@ import { enviarCertificadoVisita } from "@/lib/certificado";
 import { normalizarTelefone, vincularVisitante } from "@/lib/visitantes";
 import { enfileirar, jobEmAndamento } from "@/lib/fila";
 import { emailsDosVisitantes } from "@/lib/envios";
+import { bloqueioExclusaoSessao } from "@/lib/sessao-exclusao";
 import { type ActionResult, requireSecretariaWriter } from "./_shared";
 
 // ───────────────────── Sessões e Presenças ─────────────────────
@@ -75,6 +76,91 @@ export async function updateSessionPauta(
   });
   revalidatePath(`/secretaria/sessoes/${sessionId}`);
   return { ok: pauta ? "Pauta salva." : "Pauta removida." };
+}
+
+// Exclusão da sessão (Secretário/VM) — apaga presenças, RSVPs, justificativas
+// e o rascunho da ata; bloqueada quando a ata já saiu do rascunho.
+export async function excluirSessao(sessionId: string): Promise<ActionResult> {
+  const user = await requireSecretariaWriter();
+  const session = await prisma.lodgeSession.findUnique({
+    where: { id: sessionId, lodgeId: user.lodgeId },
+    include: {
+      ata: {
+        select: {
+          id: true,
+          number: true,
+          status: true,
+          signedByMasterId: true,
+          signedBySecId: true,
+          govbrMasterAt: true,
+          govbrSecAt: true,
+          govbrUploadedAt: true,
+          driveFileId: true,
+          sentForReviewAt: true,
+        },
+      },
+      attendances: {
+        select: { userId: true, checkedIn: true, rsvpAt: true, justificado: true },
+      },
+    },
+  });
+  if (!session) return { error: "Sessão não encontrada." };
+
+  const bloqueio = bloqueioExclusaoSessao(session.ata);
+  if (bloqueio) return { error: bloqueio };
+
+  const presentes = session.attendances.filter((a) => a.userId && a.checkedIn).length;
+  const visitantes = session.attendances.filter((a) => !a.userId).length;
+  const confirmados = session.attendances.filter((a) => a.rsvpAt).length;
+  const justificadas = session.attendances.filter(
+    (a) => a.userId && a.justificado && !a.checkedIn
+  ).length;
+
+  const links = [`/secretaria/sessoes/${session.id}`];
+  if (session.ata) links.push(`/secretaria/atas/${session.ata.id}`);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.attendance.deleteMany({ where: { sessionId: session.id, lodgeId: user.lodgeId } });
+    if (session.ata) {
+      await tx.ata.delete({ where: { id: session.ata.id } });
+    }
+    await tx.notification.deleteMany({
+      where: { lodgeId: user.lodgeId, link: { in: links } },
+    });
+    // Convites ainda na fila cairiam em erro ao não achar a sessão
+    await tx.job.updateMany({
+      where: {
+        lodgeId: user.lodgeId,
+        status: "PENDENTE",
+        tipo: { in: ["sessao.convites", "sessao.convites-visitantes"] },
+        payload: { equals: { lodgeId: user.lodgeId, sessionId: session.id } },
+      },
+      data: { status: "FALHOU", ultimoErro: "Sessão excluída antes do envio." },
+    });
+    await tx.lodgeSession.delete({ where: { id: session.id } });
+  });
+
+  await auditar({
+    lodgeId: user.lodgeId,
+    ator: user,
+    acao: "sessao.excluir",
+    entidade: "LodgeSession",
+    entidadeId: session.id,
+    detalhes: {
+      tipo: session.type,
+      grau: session.degree,
+      data: session.date.toISOString(),
+      pauta: session.pauta,
+      presentes,
+      visitantes,
+      confirmados,
+      justificadas,
+      ataRascunho: session.ata?.number ?? null,
+    },
+  });
+  revalidatePath("/secretaria/sessoes");
+  revalidatePath("/secretaria/atas");
+  redirect("/secretaria/sessoes");
 }
 
 // Check-in de membro pelo Secretário (manual)

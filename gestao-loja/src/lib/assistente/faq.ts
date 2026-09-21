@@ -79,7 +79,7 @@ export const FAQ: Record<string, { titulo: string; resposta: string }> = {
   sessoes: {
     titulo: "Sessões e presença",
     resposta:
-      "As próximas sessões e o histórico ficam em /secretaria/sessoes. A presença é registrada por QR Code no dia; o convite por e-mail permite confirmar presença (RSVP) e Ágape.",
+      "As próximas sessões e o histórico ficam em /secretaria/sessoes. A presença é registrada por QR Code no dia; o convite por e-mail permite confirmar presença (RSVP) e Ágape. Sessão aberta por engano: o Secretário ou o Venerável Mestre excluem pelo botão “Excluir sessão” no fim da página da sessão — aparece um resumo (data, presenças, visitantes, rascunho da ata) e é preciso confirmar; a exclusão apaga as presenças e o rascunho da ata e fica registrada na auditoria. Não é possível excluir sessão cuja ata já esteja em validação, aguardando assinaturas ou assinada.",
   },
 };
 

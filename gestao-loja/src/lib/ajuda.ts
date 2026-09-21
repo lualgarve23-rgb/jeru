@@ -16,7 +16,7 @@ export const AJUDA = {
   cargos:
     "Cadastre aqui os cargos conforme o rito da sua Loja (ex.: Mestre de Harmonia). Eles ficam disponíveis na nomeação de membros. Cargo em uso não pode ser excluído.",
   sessoes:
-    "Registro das sessões da Loja. Cada sessão tem QR Code de check-in para presença de membros e visitantes, o Livro de Presenças com a frequência anual de cada irmão e o botão para lavrar a ata.",
+    "Registro das sessões da Loja. Cada sessão tem QR Code de check-in para presença de membros e visitantes, o Livro de Presenças com a frequência anual de cada irmão e o botão para lavrar a ata. O Secretário ou o Venerável Mestre podem excluir uma sessão aberta por engano (no fim da página da sessão, após confirmar o resumo do que será apagado) — desde que a ata, se houver, ainda esteja em rascunho e sem assinaturas.",
   frequencia:
     "A frequência mínima é requisito legal para a progressão de grau. O percentual considera só as sessões que o irmão podia assistir (pelo grau dele). Vermelho = abaixo do mínimo da Loja; amarelo = perto do mínimo.",
   atas:

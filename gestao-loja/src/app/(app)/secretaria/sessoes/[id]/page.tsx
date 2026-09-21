@@ -18,6 +18,8 @@ import { CopyButton } from "@/components/copy-button";
 import { WhatsAppShareButton } from "@/components/whatsapp-share-button";
 import { WhatsAppCertificadoButton } from "@/components/whatsapp-certificado-button";
 import { ConvitesVisitantesCard } from "./convites-visitantes";
+import { ExcluirSessaoDialog } from "./excluir-sessao-dialog";
+import { bloqueioExclusaoSessao } from "@/lib/sessao-exclusao";
 import { arteDoConvite, pautaTexto } from "@/lib/convite";
 import { ActionForm, ActionButton } from "@/components/action-form";
 import { Label } from "@/components/ui/label";
@@ -181,19 +183,16 @@ export default async function SessaoPage({
     (a) => !a.user && !a.checkedIn
   );
 
+  const tituloSessao = isEvento
+    ? "Evento"
+    : `Sessão ${sessionTypeLabels[session.type] ?? session.type}`;
+  const dataHoraSessao = `${session.date.toLocaleDateString("pt-BR")} às ${session.date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+  const bloqueioExclusao = isWriter ? bloqueioExclusaoSessao(session.ata) : null;
+
   return (
     <div className="max-w-3xl space-y-6">
       <h1 className="text-2xl font-bold">
-        {isEvento
-          ? "Evento"
-          : `Sessão ${sessionTypeLabels[session.type] ?? session.type}`}{" "}
-        —{" "}
-        {session.date.toLocaleDateString("pt-BR")}
-        {" às "}
-        {session.date.toLocaleTimeString("pt-BR", {
-          hour: "2-digit",
-          minute: "2-digit",
-        })}{" "}
+        {tituloSessao} — {dataHoraSessao}{" "}
         {session.degree !== "NA" && (
           <span className="text-base font-normal text-muted-foreground">
             (grau {degreeLabels[session.degree] ?? session.degree})
@@ -651,6 +650,39 @@ export default async function SessaoPage({
                 </li>
               ))}
             </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      {isWriter && (
+        <Card className="border-destructive/40">
+          <CardHeader>
+            <CardTitle>Excluir {isEvento ? "evento" : "sessão"}</CardTitle>
+            <CardDescription>
+              {bloqueioExclusao
+                ? bloqueioExclusao
+                : "Remove a sessão do registro da Loja com as presenças, confirmações, justificativas e o rascunho da ata, se houver. Você verá um resumo e precisará confirmar."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ExcluirSessaoDialog
+              sessionId={session.id}
+              bloqueio={bloqueioExclusao}
+              resumo={{
+                titulo: tituloSessao,
+                dataHora: dataHoraSessao,
+                grau:
+                  session.degree !== "NA"
+                    ? (degreeLabels[session.degree] ?? session.degree)
+                    : null,
+                pauta: session.pauta,
+                presentes: presentes.size,
+                visitantes: visitantes.length + visitantesConfirmados.length,
+                confirmados: confirmados.length,
+                justificadas: justificadas.size,
+                ataRascunho: session.ata ? session.ata.number : null,
+              }}
+            />
           </CardContent>
         </Card>
       )}
