@@ -1,6 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { sendLodgeEmail, getGmailAuth } from "@/lib/gmail";
-import { renderConvite, arteDoConvite, pautaTexto, localTexto } from "@/lib/convite";
+import {
+  renderConvite,
+  arteDoConvite,
+  pautaTexto,
+  localTexto,
+  localDoConvite,
+} from "@/lib/convite";
 import { arteComDados, isConviteArteLayout } from "@/lib/convite-arte";
 import { gerarAtaPdf } from "@/lib/ata-pdf";
 import { gerarPdfAtaAssinada } from "@/lib/ata-final";
@@ -68,7 +74,9 @@ async function enviarConviteSessaoPara(
   const layout = isConviteArteLayout(session.lodge.conviteArteLayout)
     ? session.lodge.conviteArteLayout
     : null;
-  const arteFinal = arte ? await arteComDados(arte, session, layout) : null;
+  const arteFinal = arte
+    ? await arteComDados(arte, session, layout, localDoConvite(session.lodge))
+    : null;
   const html = renderConvite(
     session.lodge,
     session,

@@ -32,7 +32,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { isOAuthAppConfigured } from "@/lib/google-drive";
-import { arteDoConvite } from "@/lib/convite";
+import { arteDoConvite, localDoConvite } from "@/lib/convite";
 import { isConviteArteLayout } from "@/lib/convite-arte";
 import { ConviteArteEditor } from "./convite-arte-editor";
 import { CertLayoutEditor } from "./cert-layout-editor";
@@ -481,8 +481,9 @@ export default async function LojaConfigPage({
             <code>{"{{GRAU}}"}</code>, <code>{"{{LOCAL}}"}</code> e{" "}
             <code>{"{{LINK}}"}</code> (obrigatório — vira o endereço de
             confirmação). O endereço da sede cadastrado na Loja sai fixo no
-            convite como <strong>Local</strong> (e-mail, página do convite e
-            WhatsApp) — para alterá-lo, fale com a administração do sistema.
+            convite (dentro da arte, junto da data; no template HTML como{" "}
+            <strong>Local</strong>; e no texto do e-mail e do WhatsApp) — para
+            alterá-lo, fale com a administração do sistema.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -510,6 +511,7 @@ export default async function LojaConfigPage({
                     ? lodge.conviteArteLayout
                     : null
                 }
+                local={localDoConvite(lodge)}
               />
             ) : null;
           })()}

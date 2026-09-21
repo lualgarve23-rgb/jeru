@@ -191,7 +191,8 @@ export default async function ConvitePage({
         session,
         isConviteArteLayout(session.lodge.conviteArteLayout)
           ? session.lodge.conviteArteLayout
-          : null
+          : null,
+        localDoConvite(session.lodge)
       )
     : null;
   const conviteHtml = session.lodge.conviteTemplateHtml

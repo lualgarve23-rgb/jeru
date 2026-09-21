@@ -8,6 +8,7 @@ import {
   renderConvite,
   CONVITE_TEMPLATE_PADRAO,
 } from "@/lib/convite";
+import { alturaPainel } from "@/lib/convite-arte-geometria";
 
 const ENDERECO = "Rua Ricardo Medina Filho, nº 577 - Lapa, São Paulo/SP - CEP 05057-100";
 const sessao = {
@@ -34,7 +35,7 @@ describe("local (endereço da sede) no convite", () => {
     ).toBeNull();
   });
 
-  it("template padrão e template de arte trazem a linha Local com o endereço", () => {
+  it("template padrão traz a linha Local; no template de arte o endereço vai dentro da imagem", () => {
     const lojaPadrao = {
       name: "JERUSALEM",
       conviteTemplateHtml: null,
@@ -51,8 +52,15 @@ describe("local (endereço da sede) no convite", () => {
       sessao,
       "https://x/convite/t"
     );
-    expect(arte).toContain(`<strong>Local:</strong> ${ENDERECO}`);
+    expect(arte).not.toContain("Local:");
     expect(arte).not.toContain("{{LOCAL}}");
+  });
+
+  it("painel da arte cresce com as linhas de pauta e de endereço", () => {
+    expect(alturaPainel(0, 0)).toBe(200);
+    expect(alturaPainel(2, 0)).toBe(304);
+    expect(alturaPainel(2, 2)).toBe(384);
+    expect(alturaPainel(1, 1)).toBe(292);
   });
 
   it("sem endereço a linha Local não aparece", () => {

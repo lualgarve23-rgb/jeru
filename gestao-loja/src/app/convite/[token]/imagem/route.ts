@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { arteDoConvite } from "@/lib/convite";
+import { arteDoConvite, localDoConvite } from "@/lib/convite";
 import { arteComDados, isConviteArteLayout } from "@/lib/convite-arte";
 
 // Imagem pública do convite (arte da loja composta com os dados da sessão),
@@ -25,7 +25,8 @@ export async function GET(
     session,
     isConviteArteLayout(session.lodge.conviteArteLayout)
       ? session.lodge.conviteArteLayout
-      : null
+      : null,
+    localDoConvite(session.lodge)
   );
   const jpeg = Buffer.from(dataUri.split(",")[1], "base64");
   return new Response(new Uint8Array(jpeg), {

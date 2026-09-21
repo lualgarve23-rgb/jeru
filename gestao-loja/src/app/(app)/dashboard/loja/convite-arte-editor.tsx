@@ -6,14 +6,20 @@ import {
   updateConviteArteLayout,
   resetConviteArteLayout,
 } from "./actions";
+import {
+  PANEL_REF_W,
+  PANEL_PAUTA_MAX_LINHAS,
+  PANEL_LOCAL_MAX_LINHAS,
+  alturaPainel,
+} from "@/lib/convite-arte-geometria";
 
 type Layout = { x: number; y: number; w: number };
 
 // Medidas de referência do painel desenhado em lib/convite-arte.ts — o mock
 // do editor reproduz as proporções (largura 985.6, altura com 2 linhas de
-// pauta = 304) para o que se vê aqui bater com a imagem final
-const REF_W = 985.6;
-const REF_H = 304;
+// pauta e, se a loja tem endereço, 2 linhas de local) para o que se vê aqui
+// bater com a imagem final
+const REF_W = PANEL_REF_W;
 const DEFAULT_W = 0.88;
 
 // Editor visual: arraste o painel de dados sobre a arte do convite e salve a
@@ -21,10 +27,17 @@ const DEFAULT_W = 0.88;
 export function ConviteArteEditor({
   arte,
   layout,
+  local,
 }: {
   arte: string;
   layout: Layout | null;
+  /** Endereço da sede desenhado no painel (null = loja sem endereço) */
+  local: string | null;
 }) {
+  const REF_H = alturaPainel(
+    PANEL_PAUTA_MAX_LINHAS,
+    local ? PANEL_LOCAL_MAX_LINHAS : 0
+  );
   const boxRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<Layout>(
     layout ?? { x: (1 - DEFAULT_W) / 2, y: 0.5, w: DEFAULT_W }
@@ -137,6 +150,11 @@ export function ConviteArteEditor({
             <p className="text-zinc-600" style={{ fontSize: 29 * f }}>
               Pauta da sessão (exemplo)
             </p>
+            {local && (
+              <p className="px-2 text-zinc-600" style={{ fontSize: 25 * f }}>
+                {local}
+              </p>
+            )}
           </div>
           <div
             onPointerDown={onPointerDown("resize")}
@@ -157,7 +175,8 @@ export function ConviteArteEditor({
       <p className="text-xs text-muted-foreground">
         Arraste o painel para onde os dados da sessão devem aparecer na arte;
         o quadradinho dourado redimensiona. Os textos acima são um exemplo —
-        cada convite sai com o tipo, a data e a pauta reais da sessão.
+        cada convite sai com o tipo, a data e a pauta reais da sessão
+        {local ? " e o endereço da sede cadastrado na Loja" : ""}.
       </p>
     </div>
   );

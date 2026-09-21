@@ -74,7 +74,9 @@ export const CONVITE_TEMPLATE_PADRAO = `<!doctype html>
 
 // Template a partir de uma arte pronta (JPG/PNG): a imagem vira o corpo do
 // e-mail, com o botão de confirmação logo abaixo. O HTML gerado é salvo em
-// Lodge.conviteTemplateHtml, como no upload de HTML.
+// Lodge.conviteTemplateHtml, como no upload de HTML. Tipo, data, pauta e o
+// endereço da sede são desenhados dentro da própria arte (lib/convite-arte.ts),
+// por isso não há {{LOCAL}} aqui.
 export function templateDeImagem(dataUri: string) {
   return `<!doctype html>
 <html lang="pt-BR">
@@ -86,7 +88,7 @@ export function templateDeImagem(dataUri: string) {
             <a href="{{LINK}}"><img src="${dataUri}" alt="Convite — {{LOJA}}, sessão {{TIPO}} de {{DATA}}" width="560" style="display:block;width:100%;height:auto;"/></a>
           </td></tr>
           <tr><td style="padding:24px 32px;text-align:center;">
-            <p style="margin:0 0 12px;font-size:15px;color:#3f3f46;line-height:1.6;">{{FRASE}}{{PAUTA}}{{LOCAL}}</p>
+            <p style="margin:0 0 12px;font-size:15px;color:#3f3f46;line-height:1.6;">{{FRASE}}{{PAUTA}}</p>
             <p style="margin:0 0 16px;font-size:14px;color:#3f3f46;line-height:1.6;">
               Confirme sua presença — e se ficará para o <strong>Ágape</strong> — pelo botão abaixo. Não podendo comparecer, o mesmo link permite justificar a ausência.
             </p>

@@ -1,6 +1,12 @@
 import sharp from "sharp";
 import type { LodgeSession } from "@prisma/client";
 import { sessionTypeLabels, degreeLabels } from "@/lib/labels";
+import {
+  PANEL_REF_W,
+  PANEL_PAUTA_MAX_LINHAS,
+  PANEL_LOCAL_MAX_LINHAS,
+  alturaPainel,
+} from "@/lib/convite-arte-geometria";
 
 // Compõe a arte do convite (upload JPG/PNG da loja) com os dados da sessão
 // desenhados numa faixa em degradê na parte inferior da imagem, para que as
@@ -42,13 +48,38 @@ function quebrarLinhas(s: string, maxChars: number, maxLinhas: number) {
   return linhas;
 }
 
+// Endereço em 1 linha quando cabe; senão, em 2 linhas quebradas no " - " mais
+// próximo do meio (ex.: "Rua X, nº 1" / "Bairro, Cidade/UF - CEP"), para não
+// partir "CEP" do número; sem separador que sirva, quebra por palavra
+function quebrarEndereco(s: string, maxChars: number, maxLinhas: number) {
+  const limpo = s.replace(/\s+/g, " ").trim();
+  if (limpo.length <= maxChars) return [limpo];
+  const sep = " - ";
+  let melhor: number | null = null;
+  for (let i = limpo.indexOf(sep); i >= 0; i = limpo.indexOf(sep, i + 1)) {
+    const esq = limpo.slice(0, i).trim();
+    const dir = limpo.slice(i + sep.length).trim();
+    if (esq.length > maxChars || dir.length > maxChars) continue;
+    if (melhor === null || Math.abs(i - limpo.length / 2) < Math.abs(melhor - limpo.length / 2)) {
+      melhor = i;
+    }
+  }
+  if (melhor !== null && maxLinhas >= 2) {
+    return [limpo.slice(0, melhor).trim(), limpo.slice(melhor + sep.length).trim()];
+  }
+  return quebrarLinhas(limpo, maxChars, maxLinhas);
+}
+
 // Posição do painel escolhida no editor visual (Configurações da Loja):
 // frações da imagem — x/y = canto superior esquerdo, w = largura do painel
 export type ConviteArteLayout = { x: number; y: number; w: number };
 
-// Largura de referência do painel (0.88 × 1120px) — as medidas internas do
-// SVG escalam a partir dela, no layout padrão e no personalizado
-const PANEL_REF_W = 985.6;
+export {
+  PANEL_REF_W,
+  PANEL_PAUTA_MAX_LINHAS,
+  PANEL_LOCAL_MAX_LINHAS,
+  alturaPainel,
+} from "@/lib/convite-arte-geometria";
 
 export function isConviteArteLayout(v: unknown): v is ConviteArteLayout {
   if (!v || typeof v !== "object") return false;
@@ -61,7 +92,10 @@ export function isConviteArteLayout(v: unknown): v is ConviteArteLayout {
 export async function arteComDados(
   arteDataUri: string,
   session: Pick<LodgeSession, "date" | "type" | "degree" | "pauta">,
-  layout?: ConviteArteLayout | null
+  layout?: ConviteArteLayout | null,
+  // Endereço fixo da sede (lib/convite.ts localDoConvite) — desenhado no
+  // painel abaixo da data/pauta, em fonte menor
+  local?: string | null
 ): Promise<string> {
   const buf = Buffer.from(arteDataUri.split(",")[1], "base64");
   const img = sharp(buf);
@@ -82,14 +116,20 @@ export async function arteComDados(
     minute: "2-digit",
   });
   // Pauta em até 2 linhas, quebradas por palavra, para caber no painel
-  const linhasPauta = session.pauta ? quebrarLinhas(session.pauta, 56, 2) : [];
+  const linhasPauta = session.pauta
+    ? quebrarLinhas(session.pauta, 56, PANEL_PAUTA_MAX_LINHAS)
+    : [];
+  // Endereço da sede em até 2 linhas, fonte menor (cabem mais caracteres)
+  const linhasLocal = local?.trim()
+    ? quebrarEndereco(local, 66, PANEL_LOCAL_MAX_LINHAS)
+    : [];
 
   // Painel translúcido com medidas proporcionais à própria largura — legível
   // sobre artes claras ou escuras. Sem layout salvo, ocupa 88% da largura,
   // centralizado (comportamento original); com layout, vale a posição do editor
   const panelW = Math.round(width * (layout ? layout.w : 0.88));
   const f = panelW / PANEL_REF_W;
-  const panelH = Math.round((200 + linhasPauta.length * 52) * f);
+  const panelH = Math.round(alturaPainel(linhasPauta.length, linhasLocal.length) * f);
   const px = layout
     ? Math.round(Math.max(0, Math.min(layout.x * width, width - panelW)))
     : Math.round((width - panelW) / 2);
@@ -106,11 +146,23 @@ export async function arteComDados(
         `<text x="${cx}" y="${yPauta + Math.round(i * 44 * f)}" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="${Math.round(29 * f)}" fill="#3f3f46">${escXml(linha)}</text>`
     )
     .join("\n  ");
+  // Endereço logo abaixo da pauta (ou da data, sem pauta), em fonte menor
+  const yLocal =
+    yPauta +
+    Math.round(linhasPauta.length * 44 * f) +
+    (linhasPauta.length ? Math.round(8 * f) : 0);
+  const localSvg = linhasLocal
+    .map(
+      (linha, i) =>
+        `<text x="${cx}" y="${yLocal + Math.round(i * 36 * f)}" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="${Math.round(25 * f)}" fill="#52525b">${escXml(linha)}</text>`
+    )
+    .join("\n  ");
   const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
   <rect x="${px}" y="${py + Math.round(6 * f)}" width="${panelW}" height="${panelH - Math.round(12 * f)}" rx="${Math.round(14 * f)}" fill="#fffdf7" fill-opacity="0.88" stroke="#c9a84c" stroke-width="${Math.max(2, Math.round(3 * f))}"/>
   <text x="${cx}" y="${yTipo}" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="${Math.round(30 * f)}" letter-spacing="${3 * f}" fill="#8a6d1f">${escXml(tipoLinha.toUpperCase())}</text>
   <text x="${cx}" y="${yData}" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="${Math.round(38 * f)}" font-weight="bold" fill="#1e3a5f">${escXml(`${data}, às ${hora}`)}</text>
   ${pautaSvg}
+  ${localSvg}
 </svg>`;
 
   const out = await img
